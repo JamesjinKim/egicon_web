@@ -335,6 +335,8 @@ class EGIconSettings {
     
     // 시스템 표시 업데이트
     updateSystemDisplay(systemData) {
+        console.log('🔄 시스템 디스플레이 업데이트:', systemData);
+        
         // 전체 시스템 통계 업데이트
         const connectedCount = document.getElementById('connected-count');
         if (connectedCount) {
@@ -346,7 +348,15 @@ class EGIconSettings {
         // 모든 채널 카드 초기화
         this.clearAllChannelCards();
         
-        // 채널별 센서 정보 업데이트
+        // i2c_devices 배열을 통해 채널별 센서 정보 업데이트
+        if (systemData.i2c_devices && systemData.i2c_devices.length > 0) {
+            console.log('📡 I2C 디바이스 업데이트:', systemData.i2c_devices);
+            systemData.i2c_devices.forEach(device => {
+                this.updateChannelCardFromI2CDevice(device);
+            });
+        }
+        
+        // 채널별 센서 정보 업데이트 (기존 방식 유지)
         if (systemData.sensors) {
             systemData.sensors.forEach(sensor => {
                 this.updateChannelCard(sensor);
@@ -409,6 +419,40 @@ class EGIconSettings {
             busData.direct_devices.forEach((sensor, index) => {
                 this.updateChannelCardByPosition(busNumber, index, sensor);
             });
+        }
+    }
+    
+    // I2C 디바이스 데이터로 채널 카드 업데이트
+    updateChannelCardFromI2CDevice(device) {
+        console.log('📡 I2C 디바이스 처리:', device);
+        
+        const channelCard = document.querySelector(
+            `[data-bus="${device.bus}"][data-channel="${device.mux_channel}"]`
+        );
+        
+        if (channelCard) {
+            const sensorType = channelCard.querySelector('.sensor-type');
+            const sensorAddress = channelCard.querySelector('.sensor-address');
+            const sensorStatus = channelCard.querySelector('.sensor-status');
+            const testBtn = channelCard.querySelector('.test-sensor-btn');
+            
+            if (sensorType) sensorType.textContent = device.sensor_type || device.sensor_name || 'Unknown';
+            if (sensorAddress) sensorAddress.textContent = device.address || '--';
+            
+            if (sensorStatus) {
+                // I2C 디바이스가 스캔되었다면 연결된 것으로 간주
+                sensorStatus.textContent = '연결됨';
+                sensorStatus.className = 'sensor-status connected';
+            }
+            
+            if (testBtn) {
+                // I2C 디바이스가 있으면 테스트 버튼 표시
+                testBtn.style.display = 'block';
+            }
+            
+            console.log(`✅ Ch ${device.mux_channel + 1} 업데이트 완료: ${device.sensor_name}`);
+        } else {
+            console.warn(`⚠️ 채널 카드를 찾을 수 없음: Bus ${device.bus}, Channel ${device.mux_channel}`);
         }
     }
     
