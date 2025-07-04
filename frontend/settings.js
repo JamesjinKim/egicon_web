@@ -343,10 +343,21 @@ class EGIconSettings {
             this.connectedSensors = totalSensors;
         }
         
+        // 모든 채널 카드 초기화
+        this.clearAllChannelCards();
+        
         // 채널별 센서 정보 업데이트
         if (systemData.sensors) {
             systemData.sensors.forEach(sensor => {
                 this.updateChannelCard(sensor);
+            });
+        }
+        
+        // 버스별 데이터가 있는 경우 처리
+        if (systemData.buses) {
+            Object.keys(systemData.buses).forEach(busNum => {
+                const busData = systemData.buses[busNum];
+                this.updateBusChannels(parseInt(busNum), busData);
             });
         }
     }
@@ -360,10 +371,51 @@ class EGIconSettings {
         });
     }
     
-    // 채널 카드 업데이트
-    updateChannelCard(sensor) {
+    // 모든 채널 카드 초기화
+    clearAllChannelCards() {
+        document.querySelectorAll('.channel-card').forEach(card => {
+            const sensorType = card.querySelector('.sensor-type');
+            const sensorAddress = card.querySelector('.sensor-address');
+            const sensorStatus = card.querySelector('.sensor-status');
+            const testBtn = card.querySelector('.test-sensor-btn');
+            
+            if (sensorType) sensorType.textContent = '--';
+            if (sensorAddress) sensorAddress.textContent = '--';
+            if (sensorStatus) {
+                sensorStatus.textContent = '미연결';
+                sensorStatus.className = 'sensor-status disconnected';
+            }
+            if (testBtn) {
+                testBtn.style.display = 'none';
+            }
+        });
+    }
+    
+    // 버스별 채널 업데이트
+    updateBusChannels(busNumber, busData) {
+        console.log(`🔄 Bus ${busNumber} 채널 업데이트:`, busData);
+        
+        if (busData.channels) {
+            // TCA9548A가 감지된 경우 - 채널별 데이터
+            Object.keys(busData.channels).forEach(channelNum => {
+                const channelSensors = busData.channels[channelNum];
+                if (channelSensors && channelSensors.length > 0) {
+                    const sensor = channelSensors[0]; // 첫 번째 센서 사용
+                    this.updateChannelCardByPosition(busNumber, parseInt(channelNum), sensor);
+                }
+            });
+        } else if (busData.direct_devices) {
+            // TCA9548A가 없는 경우 - 직접 연결된 센서들
+            busData.direct_devices.forEach((sensor, index) => {
+                this.updateChannelCardByPosition(busNumber, index, sensor);
+            });
+        }
+    }
+    
+    // 채널 카드 업데이트 (위치 기반)
+    updateChannelCardByPosition(busNumber, channelIndex, sensor) {
         const channelCard = document.querySelector(
-            `[data-bus="${sensor.bus}"][data-channel="${sensor.mux_channel}"]`
+            `[data-bus="${busNumber}"][data-channel="${channelIndex}"]`
         );
         
         if (channelCard) {
@@ -372,17 +424,27 @@ class EGIconSettings {
             const sensorStatus = channelCard.querySelector('.sensor-status');
             const testBtn = channelCard.querySelector('.test-sensor-btn');
             
-            if (sensorType) sensorType.textContent = sensor.sensor_name || 'Unknown';
+            if (sensorType) sensorType.textContent = sensor.sensor_type || sensor.sensor_name || 'Unknown';
             if (sensorAddress) sensorAddress.textContent = sensor.address || '--';
             
             if (sensorStatus) {
-                sensorStatus.textContent = sensor.status || '연결됨';
-                sensorStatus.className = `sensor-status ${sensor.status === '연결됨' ? 'connected' : 'disconnected'}`;
+                const isConnected = sensor.status === 'connected' || sensor.status === '연결됨';
+                sensorStatus.textContent = isConnected ? '연결됨' : '미연결';
+                sensorStatus.className = `sensor-status ${isConnected ? 'connected' : 'disconnected'}`;
             }
             
             if (testBtn) {
-                testBtn.style.display = sensor.status === '연결됨' ? 'block' : 'none';
+                const isConnected = sensor.status === 'connected' || sensor.status === '연결됨';
+                testBtn.style.display = isConnected ? 'block' : 'none';
             }
+        }
+    }
+    
+    // 채널 카드 업데이트 (기존 함수 - 호환성 유지)
+    updateChannelCard(sensor) {
+        if (sensor.mux_channel !== null && sensor.mux_channel !== undefined) {
+            // TCA9548A를 통한 센서
+            this.updateChannelCardByPosition(sensor.bus, sensor.mux_channel, sensor);
         }
     }
     
