@@ -45,11 +45,6 @@ class EGIconSettings {
             scanAllBtn.addEventListener('click', () => this.scanEntireSystem());
         }
         
-        // 메인 스캔 버튼
-        const scanBtn = document.getElementById('scan-button');
-        if (scanBtn) {
-            scanBtn.addEventListener('click', () => this.startScan());
-        }
         
         // 버스별 스캔 버튼들
         document.querySelectorAll('.scan-bus-btn').forEach(btn => {
@@ -166,94 +161,6 @@ class EGIconSettings {
         }
     }
     
-    // 센서 스캔 시작 (egicon_dash 기반)
-    async startScan() {
-        if (this.isScanning) return;
-        
-        console.log('🔍 센서 스캔 시작');
-        this.isScanning = true;
-        
-        const scanButton = document.getElementById('scan-button');
-        const progressContainer = document.getElementById('scan-progress-container');
-        const progressFill = document.getElementById('scan-progress-fill');
-        const progressText = document.getElementById('scan-progress-text');
-        
-        try {
-            // UI 업데이트
-            scanButton.disabled = true;
-            scanButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 스캔 중...';
-            progressContainer.style.display = 'block';
-            progressFill.style.width = '0%';
-            progressText.textContent = '스캔 준비 중...';
-            
-            // 진행률 애니메이션
-            this.animateProgress(progressFill, progressText);
-            
-            // 통합 센서 검색 요청
-            const response = await fetch(`${this.API_URL}/sensors/scan-all`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                this.currentScanResult = result;
-                this.updateScanResults(result);
-                this.updateSensorConnectionStatus();
-                this.showToast('success', '통합 센서 검색이 완료되었습니다.');
-                console.log('✅ 센서 스캔 완료:', result);
-            } else {
-                throw new Error(result.message || '스캔 실패');
-            }
-            
-        } catch (error) {
-            console.error('센서 스캔 오류:', error);
-            this.showToast('error', `스캔 오류: ${error.message}`);
-        } finally {
-            // UI 복원
-            this.isScanning = false;
-            scanButton.disabled = false;
-            scanButton.innerHTML = '<i class="fas fa-sync-alt"></i> 스캔 시작';
-            progressFill.style.width = '100%';
-            progressText.textContent = '스캔 완료';
-            
-            // 3초 후 진행률 숨기기
-            setTimeout(() => {
-                if (progressContainer) {
-                    progressContainer.style.display = 'none';
-                }
-            }, 3000);
-        }
-    }
-    
-    // 진행률 애니메이션
-    animateProgress(progressFill, progressText) {
-        const steps = [
-            { width: '20%', text: 'CH1 스캔 중...' },
-            { width: '50%', text: 'CH2 스캔 중...' },
-            { width: '80%', text: '센서 분석 중...' },
-            { width: '95%', text: '결과 처리 중...' }
-        ];
-        
-        let currentStep = 0;
-        const interval = setInterval(() => {
-            if (currentStep < steps.length && this.isScanning) {
-                const step = steps[currentStep];
-                progressFill.style.width = step.width;
-                progressText.textContent = step.text;
-                currentStep++;
-            } else {
-                clearInterval(interval);
-            }
-        }, 800);
-    }
     
     // 단일 버스 스캔
     async scanSingleBus(busNumber) {
