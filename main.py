@@ -18,6 +18,61 @@ from typing import Dict, List, Any
 import uvicorn
 from hardware_scanner import get_scanner, cleanup_scanner
 
+# BH1750 센서 데이터 읽기 함수
+async def read_bh1750_data(bus_number: int, mux_channel: int) -> float:
+    """BH1750 센서에서 실제 조도 데이터 읽기"""
+    try:
+        scanner = get_scanner()
+        
+        # 라즈베리파이 환경이 아니면 Mock 데이터 반환
+        if not scanner.is_raspberry_pi:
+            return 850.0 + (mux_channel * 100) + (time.time() % 100)
+        
+        # 실제 하드웨어에서 BH1750 데이터 읽기
+        import smbus2
+        import time
+        
+        # TCA9548A 채널 선택
+        if bus_number in scanner.tca_info:
+            tca_address = scanner.tca_info[bus_number]['address']
+            bus = smbus2.SMBus(bus_number)
+            
+            # 채널 선택
+            bus.write_byte(tca_address, 1 << mux_channel)
+            time.sleep(0.01)
+            
+            # BH1750에서 데이터 읽기
+            try:
+                # One Time H-Resolution Mode
+                bus.write_byte(0x23, 0x20)
+                time.sleep(0.15)  # 150ms 대기
+                
+                # 데이터 읽기
+                data = bus.read_i2c_block_data(0x23, 0x20, 2)
+                raw_value = (data[0] << 8) | data[1]
+                lux = raw_value / 1.2
+                
+                # 채널 비활성화
+                bus.write_byte(tca_address, 0x00)
+                bus.close()
+                
+                return round(lux, 1) if 0 <= lux <= 65535 else None
+                
+            except Exception as e:
+                # 채널 비활성화 및 정리
+                try:
+                    bus.write_byte(tca_address, 0x00)
+                    bus.close()
+                except:
+                    pass
+                raise e
+        
+        return None
+        
+    except Exception as e:
+        print(f"BH1750 데이터 읽기 오류 (Bus {bus_number}, Ch {mux_channel}): {e}")
+        return None
+
 # FastAPI 앱 생성
 app = FastAPI(
     title="EG-ICON Dashboard API",
@@ -244,6 +299,60 @@ async def get_sensors_status():
         "total_sensors": 16,
         "timestamp": datetime.now().isoformat()
     }
+
+@app.get("/api/sensors/real-status")
+async def get_real_sensors_status():
+    """실제 연결된 센서들의 상태 및 데이터 조회"""
+    try:
+        # 하드웨어 스캐너를 통해 실제 센서 스캔
+        scanner = get_scanner()
+        scan_result = scanner.scan_dual_mux_system()
+        
+        real_sensors = {}
+        
+        if scan_result["success"] and scan_result.get("sensors"):
+            for sensor in scan_result["sensors"]:
+                # BH1750 센서인 경우 실제 데이터 읽기 시도
+                if sensor["sensor_type"] == "BH1750":
+                    try:
+                        # 실제 센서 데이터 읽기 (ref/gui_bh1750.py 로직 활용)
+                        real_value = await read_bh1750_data(sensor["bus"], sensor["mux_channel"])
+                        
+                        sensor_id = f"bh1750_{sensor['bus']}_{sensor['mux_channel']}"
+                        real_sensors[sensor_id] = {
+                            "id": sensor_id,
+                            "name": f"BH1750 조도센서 (Ch{sensor['mux_channel']+1})",
+                            "type": "light",
+                            "value": real_value if real_value is not None else 0.0,
+                            "status": "online" if real_value is not None else "error",
+                            "bus": sensor["bus"],
+                            "channel": sensor["mux_channel"],
+                            "address": sensor["address"],
+                            "last_update": datetime.now().isoformat()
+                        }
+                    except Exception as e:
+                        print(f"BH1750 데이터 읽기 실패: {e}")
+                        continue
+                
+                # 다른 센서 타입들도 나중에 추가 가능
+                
+        return {
+            "sensors": real_sensors,
+            "system_status": "online",
+            "connected_count": len(real_sensors),
+            "scan_mode": scan_result.get("mode", "unknown"),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"실제 센서 상태 조회 실패: {e}")
+        return {
+            "sensors": {},
+            "system_status": "error",
+            "connected_count": 0,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 @app.get("/api/sensors/{sensor_id}")
 async def get_sensor_data(sensor_id: str):
@@ -486,7 +595,7 @@ async def websocket_endpoint(websocket: WebSocket):
             now = time.time()
             sensor_data = {}
             
-            # 배치로 모든 센서 데이터 업데이트 (성능 최적화)
+            # Mock 센서 데이터 업데이트
             for sensor_id, sensor in MOCK_SENSORS.items():
                 sensor_type = sensor["type"]
                 value = generate_mock_value(sensor_type, now)
@@ -498,6 +607,23 @@ async def websocket_endpoint(websocket: WebSocket):
                     "status": "online",
                     "timestamp": datetime.now().isoformat()
                 }
+            
+            # 실제 센서 데이터 추가 (BH1750 등)
+            try:
+                real_sensors_response = await get_real_sensors_status()
+                if real_sensors_response.get("sensors"):
+                    for sensor_id, sensor_info in real_sensors_response["sensors"].items():
+                        # 실제 센서 데이터로 Mock 데이터 덮어쓰기
+                        sensor_data[sensor_id] = {
+                            "id": sensor_id,
+                            "type": sensor_info["type"],
+                            "value": round(sensor_info["value"], 2),
+                            "status": sensor_info["status"],
+                            "timestamp": sensor_info["last_update"]
+                        }
+                        print(f"📡 실제 센서 데이터 추가: {sensor_id} = {sensor_info['value']}")
+            except Exception as e:
+                print(f"⚠️ 실제 센서 데이터 수집 실패: {e}")
             
             # 실시간 데이터 브로드캐스트
             await manager.broadcast({

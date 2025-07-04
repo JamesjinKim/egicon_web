@@ -105,12 +105,16 @@ class EGIconDashboard {
         this.init();
     }
 
-    init() {
+    async init() {
         this.hideLoading();
         this.initSensorData();
         this.generateMockSensors();
         this.initSidebarEvents();
         this.initCharts();
+        
+        // 실제 센서 데이터 로드 (WebSocket 연결 전)
+        await this.loadRealSensorData();
+        
         this.startRealtimeConnection();
         this.updateStatusBar();
         
@@ -360,6 +364,81 @@ class EGIconDashboard {
         });
         
         this.updateStatusBar();
+    }
+
+    // 실제 센서 데이터 가져오기
+    async loadRealSensorData() {
+        try {
+            console.log('🔍 실제 센서 데이터 로딩 중...');
+            
+            const response = await fetch('/api/sensors/real-status');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            console.log('📡 실제 센서 데이터:', result);
+            
+            if (result.sensors && Object.keys(result.sensors).length > 0) {
+                // 실제 센서 데이터가 있으면 Mock 데이터와 병합
+                this.mergeRealSensorData(result.sensors);
+                console.log(`✅ 실제 센서 ${Object.keys(result.sensors).length}개 연결됨`);
+            } else {
+                console.log('⚠️ 실제 센서 데이터 없음, Mock 데이터 사용');
+            }
+            
+        } catch (error) {
+            console.error('❌ 실제 센서 데이터 로딩 실패:', error);
+        }
+    }
+
+    // 실제 센서 데이터와 Mock 데이터 병합
+    mergeRealSensorData(realSensors) {
+        Object.entries(realSensors).forEach(([sensorId, sensorData]) => {
+            // BH1750 조도 센서의 경우 light_1 위젯 교체
+            if (sensorData.type === 'light') {
+                // 기존 light_1 Mock 센서를 실제 센서로 교체
+                this.replaceMockSensor('light_1', sensorId, sensorData);
+                
+                // 위젯 제목 업데이트
+                const widget = document.querySelector('[data-sensor="light_1"]');
+                if (widget) {
+                    const titleElement = widget.querySelector('.widget-title');
+                    if (titleElement) {
+                        titleElement.textContent = `BH1750 조도 (Ch${sensorData.channel + 1})`;
+                    }
+                    // 실제 센서 ID로 data 속성 변경
+                    widget.setAttribute('data-sensor', sensorId);
+                    widget.setAttribute('data-real-sensor', 'true');
+                }
+            }
+        });
+    }
+
+    // Mock 센서를 실제 센서로 교체
+    replaceMockSensor(mockSensorId, realSensorId, realSensorData) {
+        // 연결된 센서 목록에서 교체
+        this.connectedSensors.delete(mockSensorId);
+        this.connectedSensors.add(realSensorId);
+        
+        // 센서 그룹에서 교체
+        Object.values(this.sensorGroups).forEach(group => {
+            const index = group.sensors.indexOf(mockSensorId);
+            if (index !== -1) {
+                group.sensors[index] = realSensorId;
+            }
+        });
+        
+        // 차트 데이터에서 교체
+        if (this.charts[realSensorData.type]) {
+            this.charts[realSensorData.type].data.datasets.forEach(dataset => {
+                if (dataset.label.includes(mockSensorId)) {
+                    dataset.label = `BH1750 조도 (Ch${realSensorData.channel + 1})`;
+                }
+            });
+        }
+        
+        console.log(`🔄 Mock 센서 ${mockSensorId}를 실제 센서 ${realSensorId}로 교체됨`);
     }
 
     // WebSocket 재연결
