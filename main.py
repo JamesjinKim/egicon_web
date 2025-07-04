@@ -124,6 +124,160 @@ async def read_bh1750_data(bus_number: int, mux_channel: int) -> float:
         print(f"❌ BH1750 데이터 읽기 오류 (Bus {bus_number}, Ch {mux_channel}): {e}")
         return None
 
+# BME688 센서 데이터 읽기 함수
+async def read_bme688_data(bus_number: int, mux_channel: int, address: int = 0x77):
+    """BME688 센서에서 실제 환경 데이터 읽기"""
+    try:
+        scanner = get_scanner()
+        
+        # 라즈베리파이 환경이 아니면 Mock 데이터
+        if not scanner.is_raspberry_pi:
+            return {
+                "values": {
+                    "temperature": 24.5,
+                    "humidity": 60.2,
+                    "pressure": 1013.25,
+                    "gas_resistance": 120000,
+                    "timestamp": datetime.now().isoformat()
+                },
+                "status": "Mock 모드"
+            }
+        
+        # 실제 하드웨어에서 BME688 데이터 읽기
+        import smbus2
+        import time
+        
+        if bus_number in scanner.tca_info:
+            tca_address = scanner.tca_info[bus_number]['address']
+            bus = smbus2.SMBus(bus_number)
+            
+            try:
+                # 채널 선택
+                bus.write_byte(tca_address, 1 << mux_channel)
+                time.sleep(0.01)
+                
+                # BME688 기본 읽기 (간단한 ID 확인)
+                try:
+                    # BME688 Chip ID 확인 (0xD0 레지스터)
+                    chip_id = bus.read_byte_data(address, 0xD0)
+                    print(f"📊 BME688 Chip ID: 0x{chip_id:02X}")
+                    
+                    if chip_id == 0x61:  # BME688 올바른 Chip ID
+                        return {
+                            "values": {
+                                "chip_id": f"0x{chip_id:02X}",
+                                "sensor_detected": True,
+                                "note": "BME688 감지됨 (전체 데이터 읽기는 복잡한 초기화 필요)",
+                                "timestamp": datetime.now().isoformat()
+                            },
+                            "status": "정상"
+                        }
+                    else:
+                        return {
+                            "values": {
+                                "chip_id": f"0x{chip_id:02X}",
+                                "error": "BME688 ID 불일치",
+                                "timestamp": datetime.now().isoformat()
+                            },
+                            "status": "센서 ID 오류"
+                        }
+                        
+                except Exception as e:
+                    print(f"❌ BME688 통신 실패: {e}")
+                    return None
+                    
+            finally:
+                # 항상 채널 비활성화
+                try:
+                    bus.write_byte(tca_address, 0x00)
+                    bus.close()
+                except:
+                    pass
+        
+        return None
+        
+    except Exception as e:
+        print(f"❌ BME688 데이터 읽기 오류 (Bus {bus_number}, Ch {mux_channel}): {e}")
+        return None
+
+# SHT40 센서 데이터 읽기 함수
+async def read_sht40_data(bus_number: int, mux_channel: int, address: int = 0x44):
+    """SHT40 센서에서 실제 온습도 데이터 읽기"""
+    try:
+        scanner = get_scanner()
+        
+        # 라즈베리파이 환경이 아니면 Mock 데이터
+        if not scanner.is_raspberry_pi:
+            return {
+                "values": {
+                    "temperature": 22.8,
+                    "humidity": 45.5,
+                    "timestamp": datetime.now().isoformat()
+                },
+                "status": "Mock 모드"
+            }
+        
+        # 실제 하드웨어에서 SHT40 데이터 읽기
+        import smbus2
+        import time
+        
+        if bus_number in scanner.tca_info:
+            tca_address = scanner.tca_info[bus_number]['address']
+            bus = smbus2.SMBus(bus_number)
+            
+            try:
+                # 채널 선택
+                bus.write_byte(tca_address, 1 << mux_channel)
+                time.sleep(0.01)
+                
+                # SHT40 측정 명령 (High precision)
+                try:
+                    # 0xFD: Measure T & RH with high precision
+                    bus.write_byte(address, 0xFD)
+                    time.sleep(0.01)  # 10ms 대기
+                    
+                    # 6바이트 데이터 읽기 (temp 2bytes + CRC + hum 2bytes + CRC)
+                    data = bus.read_i2c_block_data(address, 0xFD, 6)
+                    
+                    # 온도 계산
+                    temp_raw = (data[0] << 8) | data[1]
+                    temperature = -45 + 175 * temp_raw / 65535.0
+                    
+                    # 습도 계산  
+                    hum_raw = (data[3] << 8) | data[4]
+                    humidity = -6 + 125 * hum_raw / 65535.0
+                    
+                    print(f"📊 SHT40 측정: {temperature:.1f}°C, {humidity:.1f}%")
+                    
+                    return {
+                        "values": {
+                            "temperature": round(temperature, 1),
+                            "humidity": round(humidity, 1),
+                            "raw_temp": temp_raw,
+                            "raw_hum": hum_raw,
+                            "timestamp": datetime.now().isoformat()
+                        },
+                        "status": "정상"
+                    }
+                    
+                except Exception as e:
+                    print(f"❌ SHT40 통신 실패: {e}")
+                    return None
+                    
+            finally:
+                # 항상 채널 비활성화
+                try:
+                    bus.write_byte(tca_address, 0x00)
+                    bus.close()
+                except:
+                    pass
+        
+        return None
+        
+    except Exception as e:
+        print(f"❌ SHT40 데이터 읽기 오류 (Bus {bus_number}, Ch {mux_channel}): {e}")
+        return None
+
 # FastAPI 앱 생성
 app = FastAPI(
     title="EG-ICON Dashboard API",
@@ -578,25 +732,22 @@ async def scan_single_bus(bus_number: int):
         }
 
 @app.post("/api/sensors/test")
-async def test_sensor():
-    """센서 테스트"""
+async def test_sensor(request_data: dict):
+    """실제 센서 테스트"""
     try:
-        # Mock 테스트 결과
-        test_result = {
-            "success": True,
-            "data": {
-                "type": "SHT40",
-                "values": {
-                    "temperature": 25.6,
-                    "humidity": 45.2,
-                    "timestamp": datetime.now().isoformat()
-                },
-                "connection_status": "정상",
-                "response_time": "12ms"
-            }
-        }
+        i2c_bus = request_data.get("i2c_bus")
+        mux_channel = request_data.get("mux_channel")
+        address = request_data.get("address")
         
-        print("🧪 센서 테스트 완료")
+        print(f"🧪 센서 테스트 시작: Bus {i2c_bus}, Ch {mux_channel}, Addr {address}")
+        
+        if i2c_bus is None or mux_channel is None:
+            raise ValueError("i2c_bus와 mux_channel이 필요합니다")
+        
+        # 실제 센서 테스트 실행
+        test_result = await perform_real_sensor_test(i2c_bus, mux_channel, address)
+        
+        print(f"✅ 센서 테스트 완료: {test_result['data']['sensor_type']}")
         return test_result
         
     except Exception as e:
@@ -604,7 +755,121 @@ async def test_sensor():
         return {
             "success": False,
             "data": {
-                "error": str(e)
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+        }
+
+# 실제 센서 테스트 함수
+async def perform_real_sensor_test(bus_number: int, mux_channel: int, address: str = None):
+    """실제 센서에서 테스트 데이터 읽기"""
+    start_time = time.time()
+    
+    try:
+        scanner = get_scanner()
+        
+        # 라즈베리파이 환경이 아니면 Mock 데이터
+        if not scanner.is_raspberry_pi:
+            return {
+                "success": True,
+                "data": {
+                    "sensor_type": "Mock Sensor",
+                    "bus": bus_number,
+                    "channel": mux_channel,
+                    "address": address or "0x00",
+                    "values": {
+                        "mock_value": 123.4,
+                        "timestamp": datetime.now().isoformat()
+                    },
+                    "connection_status": "Mock 모드",
+                    "response_time": f"{(time.time() - start_time)*1000:.1f}ms"
+                }
+            }
+        
+        # 주소로 센서 타입 판별
+        if address:
+            addr_int = int(address, 16) if isinstance(address, str) else address
+        else:
+            addr_int = None
+        
+        # BH1750 센서 테스트 (0x23 또는 0x5C)
+        if addr_int in [0x23, 0x5C]:
+            lux_value = await read_bh1750_data(bus_number, mux_channel)
+            
+            return {
+                "success": True,
+                "data": {
+                    "sensor_type": "BH1750",
+                    "bus": bus_number,
+                    "channel": mux_channel,
+                    "address": address,
+                    "values": {
+                        "light": lux_value if lux_value is not None else "읽기 실패",
+                        "unit": "lux",
+                        "timestamp": datetime.now().isoformat()
+                    },
+                    "connection_status": "정상" if lux_value is not None else "통신 실패",
+                    "response_time": f"{(time.time() - start_time)*1000:.1f}ms"
+                }
+            }
+        
+        # BME688 센서 테스트 (0x76 또는 0x77)
+        elif addr_int in [0x76, 0x77]:
+            bme_data = await read_bme688_data(bus_number, mux_channel, addr_int)
+            
+            return {
+                "success": True,
+                "data": {
+                    "sensor_type": "BME688",
+                    "bus": bus_number,
+                    "channel": mux_channel,
+                    "address": address,
+                    "values": bme_data.get("values", {}) if bme_data else {"error": "읽기 실패"},
+                    "connection_status": bme_data.get("status", "통신 실패") if bme_data else "통신 실패",
+                    "response_time": f"{(time.time() - start_time)*1000:.1f}ms"
+                }
+            }
+        
+        # SHT40 센서 테스트 (0x44 또는 0x45)
+        elif addr_int in [0x44, 0x45]:
+            sht_data = await read_sht40_data(bus_number, mux_channel, addr_int)
+            
+            return {
+                "success": True,
+                "data": {
+                    "sensor_type": "SHT40",
+                    "bus": bus_number,
+                    "channel": mux_channel,
+                    "address": address,
+                    "values": sht_data.get("values", {}) if sht_data else {"error": "읽기 실패"},
+                    "connection_status": sht_data.get("status", "통신 실패") if sht_data else "통신 실패",
+                    "response_time": f"{(time.time() - start_time)*1000:.1f}ms"
+                }
+            }
+        
+        # 알 수 없는 센서
+        else:
+            return {
+                "success": False,
+                "data": {
+                    "sensor_type": "Unknown",
+                    "bus": bus_number,
+                    "channel": mux_channel,
+                    "address": address,
+                    "error": f"지원되지 않는 센서 주소: {address}",
+                    "response_time": f"{(time.time() - start_time)*1000:.1f}ms"
+                }
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "data": {
+                "error": str(e),
+                "bus": bus_number,
+                "channel": mux_channel,
+                "address": address,
+                "response_time": f"{(time.time() - start_time)*1000:.1f}ms"
             }
         }
 
