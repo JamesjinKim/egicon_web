@@ -18,9 +18,9 @@ from typing import Dict, List, Any
 import uvicorn
 from hardware_scanner import get_scanner, cleanup_scanner
 
-# BH1750 센서 데이터 읽기 함수
+# BH1750 센서 데이터 읽기 함수 (ref/gui_bh1750.py 기반)
 async def read_bh1750_data(bus_number: int, mux_channel: int) -> float:
-    """BH1750 센서에서 실제 조도 데이터 읽기"""
+    """BH1750 센서에서 실제 조도 데이터 읽기 - 안정적인 구현"""
     try:
         scanner = get_scanner()
         
@@ -37,40 +37,91 @@ async def read_bh1750_data(bus_number: int, mux_channel: int) -> float:
             tca_address = scanner.tca_info[bus_number]['address']
             bus = smbus2.SMBus(bus_number)
             
-            # 채널 선택
-            bus.write_byte(tca_address, 1 << mux_channel)
-            time.sleep(0.01)
-            
-            # BH1750에서 데이터 읽기
             try:
-                # One Time H-Resolution Mode
-                bus.write_byte(0x23, 0x20)
-                time.sleep(0.15)  # 150ms 대기
+                # 채널 선택
+                bus.write_byte(tca_address, 1 << mux_channel)
+                time.sleep(0.01)
                 
-                # 데이터 읽기
-                data = bus.read_i2c_block_data(0x23, 0x20, 2)
-                raw_value = (data[0] << 8) | data[1]
-                lux = raw_value / 1.2
+                # BH1750 안정적인 데이터 읽기 (ref/gui_bh1750.py 방식)
+                bh1750_addr = 0x23
                 
-                # 채널 비활성화
-                bus.write_byte(tca_address, 0x00)
-                bus.close()
+                # 다양한 방법으로 시도 (안정성 향상)
+                methods = [
+                    ("One Time H-Resolution", 0x20, 0.15),
+                    ("One Time H-Resolution2", 0x21, 0.15),
+                    ("One Time L-Resolution", 0x23, 0.02)
+                ]
                 
-                return round(lux, 1) if 0 <= lux <= 65535 else None
+                for method_name, command, wait_time in methods:
+                    try:
+                        print(f"🔍 BH1750 {method_name} 방식 시도...")
+                        
+                        # 측정 명령 전송
+                        bus.write_byte(bh1750_addr, command)
+                        time.sleep(wait_time)
+                        
+                        # 데이터 읽기 (BH1750은 레지스터 기반이 아님)
+                        try:
+                            # 방법 1: 개별 read_byte (가장 안정적)
+                            data = []
+                            for _ in range(2):
+                                byte_val = bus.read_byte(bh1750_addr)
+                                data.append(byte_val)
+                                time.sleep(0.001)
+                            print(f"📊 개별 read_byte 성공: {[f'0x{b:02X}' for b in data]}")
+                        except:
+                            try:
+                                # 방법 2: i2c_rdwr (더 직접적)
+                                msg = smbus2.i2c_msg.read(bh1750_addr, 2)
+                                bus.i2c_rdwr(msg)
+                                data = list(msg)
+                                print(f"📊 i2c_rdwr 성공: {[f'0x{b:02X}' for b in data]}")
+                            except:
+                                print("❌ 모든 데이터 읽기 방법 실패")
+                                continue
+                        
+                        if len(data) >= 2:
+                            # 조도값 계산
+                            raw_value = (data[0] << 8) | data[1]
+                            
+                            # BH1750 조도 계산 공식
+                            if command in [0x20, 0x21]:  # High resolution
+                                lux = raw_value / 1.2
+                            else:  # Low resolution
+                                lux = raw_value / 1.2
+                            
+                            # 합리적인 범위 체크
+                            if 0 <= lux <= 65535:
+                                print(f"✅ {method_name} 측정 성공: {lux:.1f} lux (원시값: 0x{raw_value:04X})")
+                                
+                                # 채널 비활성화 및 정리
+                                bus.write_byte(tca_address, 0x00)
+                                bus.close()
+                                
+                                return round(lux, 1)
+                            else:
+                                print(f"⚠️ 측정값이 범위를 벗어남: {lux}")
+                                continue
+                                
+                    except Exception as e:
+                        print(f"❌ {method_name} 방식 실패: {e}")
+                        continue
                 
-            except Exception as e:
-                # 채널 비활성화 및 정리
+                # 모든 방법 실패 시
+                print("❌ 모든 BH1750 측정 방법 실패")
+                
+            finally:
+                # 항상 채널 비활성화 및 정리
                 try:
                     bus.write_byte(tca_address, 0x00)
                     bus.close()
                 except:
                     pass
-                raise e
         
         return None
         
     except Exception as e:
-        print(f"BH1750 데이터 읽기 오류 (Bus {bus_number}, Ch {mux_channel}): {e}")
+        print(f"❌ BH1750 데이터 읽기 오류 (Bus {bus_number}, Ch {mux_channel}): {e}")
         return None
 
 # FastAPI 앱 생성
@@ -608,22 +659,37 @@ async def websocket_endpoint(websocket: WebSocket):
                     "timestamp": datetime.now().isoformat()
                 }
             
-            # 실제 센서 데이터 추가 (BH1750 등)
-            try:
-                real_sensors_response = await get_real_sensors_status()
-                if real_sensors_response.get("sensors"):
-                    for sensor_id, sensor_info in real_sensors_response["sensors"].items():
-                        # 실제 센서 데이터로 Mock 데이터 덮어쓰기
-                        sensor_data[sensor_id] = {
-                            "id": sensor_id,
-                            "type": sensor_info["type"],
-                            "value": round(sensor_info["value"], 2),
-                            "status": sensor_info["status"],
-                            "timestamp": sensor_info["last_update"]
-                        }
-                        print(f"📡 실제 센서 데이터 추가: {sensor_id} = {sensor_info['value']}")
-            except Exception as e:
-                print(f"⚠️ 실제 센서 데이터 수집 실패: {e}")
+            # 실제 센서 데이터 추가 (5초마다만 업데이트 - 안정성 향상)
+            websocket_loop_count = getattr(websocket_endpoint, 'loop_count', 0)
+            websocket_endpoint.loop_count = websocket_loop_count + 1
+            
+            # 5초마다 실제 센서 데이터 읽기 (2초 * 2.5 = 5초)
+            if websocket_loop_count % 3 == 0:  # 6초마다
+                try:
+                    print("🔍 실제 센서 데이터 업데이트...")
+                    real_sensors_response = await get_real_sensors_status()
+                    if real_sensors_response.get("sensors"):
+                        # 캐시된 실제 센서 데이터 저장
+                        if not hasattr(websocket_endpoint, 'cached_real_sensors'):
+                            websocket_endpoint.cached_real_sensors = {}
+                        
+                        for sensor_id, sensor_info in real_sensors_response["sensors"].items():
+                            websocket_endpoint.cached_real_sensors[sensor_id] = sensor_info
+                            print(f"📡 실제 센서 데이터 캐시 업데이트: {sensor_id} = {sensor_info['value']} lux")
+                except Exception as e:
+                    print(f"⚠️ 실제 센서 데이터 수집 실패: {e}")
+            
+            # 캐시된 실제 센서 데이터 사용
+            if hasattr(websocket_endpoint, 'cached_real_sensors'):
+                for sensor_id, sensor_info in websocket_endpoint.cached_real_sensors.items():
+                    # 실제 센서 데이터로 Mock 데이터 덮어쓰기
+                    sensor_data[sensor_id] = {
+                        "id": sensor_id,
+                        "type": sensor_info["type"],
+                        "value": round(sensor_info["value"], 2),
+                        "status": sensor_info["status"],
+                        "timestamp": sensor_info["last_update"]
+                    }
             
             # 실시간 데이터 브로드캐스트
             await manager.broadcast({
