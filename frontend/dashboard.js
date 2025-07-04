@@ -774,13 +774,18 @@ class EGIconDashboard {
         // 그룹별 차트 및 위젯 업데이트
         Object.entries(groupedData).forEach(([metric, sensorDataArray]) => {
             if (sensorDataArray.length > 0) {
+                console.log(`🔍 그룹 데이터 처리: ${metric} - ${sensorDataArray.length}개 센서`);
+                
                 // Multi-line 차트 업데이트
                 this.updateMultiSensorChartRealtime(metric, sensorDataArray, now);
                 
                 // 센서 타입에 맞는 그룹 매핑
                 const groupName = this.getGroupNameForMetric(metric);
                 if (groupName) {
+                    console.log(`📋 그룹 매핑: ${metric} → ${groupName}`);
                     this.updateSummaryWidgets(groupName, metric, sensorDataArray);
+                } else {
+                    console.warn(`⚠️ 그룹 매핑 실패: ${metric}`);
                 }
             }
         });
@@ -1245,8 +1250,12 @@ class EGIconDashboard {
         if (groupName === 'temp-humidity') {
             const groupStatusElement = document.getElementById('temp-humidity-status');
             if (groupStatusElement && metric === 'temperature') {
-                const totalSensors = this.sensorGroups[groupName].totalSensors;
-                groupStatusElement.textContent = `${sensorData.length}/${totalSensors} 활성`;
+                // BME688 물리적 센서 수에 기반한 계산 (온도 센서 수 = 물리적 센서 수)
+                const physicalSensorCount = sensorData.length; // 온도 센서 7개 = 물리적 BME688 7개
+                const totalPhysicalSensors = this.sensorGroups[groupName]?.totalSensors || physicalSensorCount;
+                
+                groupStatusElement.textContent = `${physicalSensorCount}/${totalPhysicalSensors} 활성`;
+                console.log(`📊 온습도 그룹 상태 업데이트: ${physicalSensorCount}/${totalPhysicalSensors} (물리적 센서 기준)`);
             }
         }
     }
