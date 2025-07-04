@@ -244,6 +244,71 @@ class HardwareScanner:
         
         return results
     
+    def scan_single_bus(self, bus_number: int) -> Dict:
+        """단일 I2C 버스 스캔"""
+        scan_result = {
+            "success": True,
+            "timestamp": datetime.now().isoformat(),
+            "mode": "hardware" if (self.is_raspberry_pi and I2C_AVAILABLE) else "mock",
+            "buses": {},
+            "sensors": [],
+            "i2c_devices": []
+        }
+        
+        try:
+            bus_info = {
+                "bus": bus_number,
+                "tca9548a_detected": bus_number in self.tca_info,
+                "channels": {}
+            }
+            
+            if bus_number in self.tca_info:
+                # TCA9548A를 통한 스캔
+                channel_results = self.scan_bus_with_mux(bus_number)
+                bus_info["channels"] = channel_results
+                bus_info["tca9548a_address"] = f"0x{self.tca_info[bus_number]['address']:02X}"
+                
+                # 센서 목록 구성
+                for channel, devices in channel_results.items():
+                    for device in devices:
+                        sensor_data = {
+                            "bus": bus_number,
+                            "mux_channel": channel,
+                            "address": device["address"],
+                            "sensor_name": device["sensor_type"],
+                            "sensor_type": device["sensor_type"],
+                            "status": device["status"]
+                        }
+                        scan_result["sensors"].append(sensor_data)
+                        scan_result["i2c_devices"].append(sensor_data)
+            else:
+                # 직접 스캔
+                direct_devices = self.scan_bus_direct(bus_number)
+                bus_info["direct_devices"] = direct_devices
+                
+                for device in direct_devices:
+                    sensor_data = {
+                        "bus": bus_number,
+                        "mux_channel": None,
+                        "address": device["address"],
+                        "sensor_name": device["sensor_type"],
+                        "sensor_type": device["sensor_type"],
+                        "status": device["status"]
+                    }
+                    scan_result["sensors"].append(sensor_data)
+                    scan_result["i2c_devices"].append(sensor_data)
+            
+            scan_result["buses"][str(bus_number)] = bus_info
+            
+            print(f"✅ Bus {bus_number} 단일 스캔 완료: {len(scan_result['sensors'])}개 센서 발견")
+            
+        except Exception as e:
+            print(f"❌ Bus {bus_number} 단일 스캔 실패: {e}")
+            scan_result["success"] = False
+            scan_result["error"] = str(e)
+        
+        return scan_result
+    
     def scan_dual_mux_system(self) -> Dict:
         """이중 멀티플렉서 시스템 전체 스캔"""
         scan_result = {

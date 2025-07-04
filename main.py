@@ -347,44 +347,63 @@ async def scan_dual_mux_system():
 
 @app.post("/api/sensors/scan-bus/{bus_number}")
 async def scan_single_bus(bus_number: int):
-    """단일 I2C 버스 스캔"""
+    """단일 I2C 버스 스캔 - 실제 하드웨어 스캔"""
     try:
         print(f"🔍 Bus {bus_number} 스캔 시작...")
         
         if bus_number not in [0, 1]:
             raise ValueError("지원되지 않는 버스 번호입니다. (0 또는 1만 지원)")
         
-        # Mock 데이터로 시뮬레이션
-        detected_sensors = []
+        # 하드웨어 스캐너 사용
+        scanner = get_scanner()
+        scan_result = scanner.scan_single_bus(bus_number)
         
-        for mux_channel in range(8):
-            # 일부 채널에만 센서 연결 시뮬레이션
-            if mux_channel < 3:  # 0, 1, 2 채널에만 센서 있음
-                sensor_addresses = [0x44, 0x76, 0x23]
-                sensor_names = ["SHT40", "BME688", "BH1750"]
-                sensor_types = ["온습도센서", "환경센서", "조도센서"]
-                
-                addr = sensor_addresses[mux_channel]
-                sensor_info = {
-                    "bus": bus_number,
-                    "mux_channel": mux_channel,
-                    "address": f"0x{addr:02X}",
-                    "sensor_name": sensor_names[mux_channel],
-                    "sensor_type": sensor_types[mux_channel],
-                    "status": "연결됨"
-                }
-                detected_sensors.append(sensor_info)
-        
-        result = {
-            "success": True,
-            "bus_number": bus_number,
-            "sensors": detected_sensors,
-            "sensor_count": len(detected_sensors),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        print(f"✅ Bus {bus_number} 스캔 완료: {len(detected_sensors)}개 센서 발견")
-        return result
+        if scan_result["success"]:
+            # 버스별 센서 데이터 추출
+            bus_data = scan_result["buses"].get(str(bus_number), {})
+            detected_sensors = []
+            
+            # TCA9548A 채널별 센서 추출
+            if "channels" in bus_data:
+                for channel_num, channel_sensors in bus_data["channels"].items():
+                    if channel_sensors:
+                        for sensor in channel_sensors:
+                            sensor_info = {
+                                "bus": bus_number,
+                                "mux_channel": int(channel_num),
+                                "address": sensor["address"],
+                                "sensor_name": sensor["sensor_name"],
+                                "sensor_type": sensor["sensor_type"],
+                                "status": "연결됨"
+                            }
+                            detected_sensors.append(sensor_info)
+            
+            # 직접 연결된 센서 처리
+            elif "direct_devices" in bus_data:
+                for i, sensor in enumerate(bus_data["direct_devices"]):
+                    sensor_info = {
+                        "bus": bus_number,
+                        "mux_channel": i,  # 직접 연결된 센서의 경우 인덱스 사용
+                        "address": sensor["address"],
+                        "sensor_name": sensor["sensor_name"],
+                        "sensor_type": sensor["sensor_type"],
+                        "status": "연결됨"
+                    }
+                    detected_sensors.append(sensor_info)
+            
+            result = {
+                "success": True,
+                "bus_number": bus_number,
+                "sensors": detected_sensors,
+                "sensor_count": len(detected_sensors),
+                "mode": scan_result["mode"],
+                "timestamp": scan_result["timestamp"]
+            }
+            
+            print(f"✅ Bus {bus_number} 스캔 완료: {len(detected_sensors)}개 센서 발견 ({scan_result['mode']} 모드)")
+            return result
+        else:
+            raise Exception(scan_result.get("error", "버스 스캔 실패"))
         
     except Exception as e:
         print(f"❌ Bus {bus_number} 스캔 실패: {e}")
