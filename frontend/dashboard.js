@@ -1201,7 +1201,10 @@ class EGIconDashboard {
 
     // 요약 위젯 업데이트
     updateSummaryWidgets(groupName, metric, sensorData) {
-        if (!sensorData || sensorData.length === 0) return;
+        if (!sensorData || sensorData.length === 0) {
+            console.warn(`⚠️ updateSummaryWidgets: 센서 데이터 없음 (${groupName}, ${metric})`);
+            return;
+        }
         
         const values = sensorData.map(s => s.value);
         const average = values.reduce((a, b) => a + b, 0) / values.length;
@@ -1210,16 +1213,24 @@ class EGIconDashboard {
         
         const unit = this.sensorTypes[metric]?.unit || '';
         
+        console.log(`📊 요약 위젯 업데이트: ${metric} - 평균: ${average.toFixed(1)}${unit}, 범위: ${min.toFixed(1)}~${max.toFixed(1)}${unit}, 센서수: ${sensorData.length}`);
+        
         // 평균값 업데이트
         const averageElement = document.getElementById(`${metric}-average`);
         if (averageElement) {
             averageElement.textContent = `${average.toFixed(1)}${unit}`;
+            console.log(`✅ 평균값 업데이트 성공: ${metric}-average = ${average.toFixed(1)}${unit}`);
+        } else {
+            console.error(`❌ 평균값 엘리먼트를 찾을 수 없음: ${metric}-average`);
         }
         
         // 범위 업데이트
         const rangeElement = document.getElementById(`${metric}-range`);
         if (rangeElement) {
             rangeElement.textContent = `${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`;
+            console.log(`✅ 범위 업데이트 성공: ${metric}-range = ${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`);
+        } else {
+            console.error(`❌ 범위 엘리먼트를 찾을 수 없음: ${metric}-range`);
         }
         
         // 상태 업데이트
