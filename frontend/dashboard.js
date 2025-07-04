@@ -777,8 +777,11 @@ class EGIconDashboard {
                 // Multi-line 차트 업데이트
                 this.updateMultiSensorChartRealtime(metric, sensorDataArray, now);
                 
-                // 요약 위젯 업데이트
-                this.updateSummaryWidgets('temp-humidity', metric, sensorDataArray);
+                // 센서 타입에 맞는 그룹 매핑
+                const groupName = this.getGroupNameForMetric(metric);
+                if (groupName) {
+                    this.updateSummaryWidgets(groupName, metric, sensorDataArray);
+                }
             }
         });
         
@@ -1077,6 +1080,20 @@ class EGIconDashboard {
         }
         
         return 0; // 기본값
+    }
+
+    // 센서 타입에서 그룹명 매핑
+    getGroupNameForMetric(metric) {
+        const metricToGroup = {
+            'temperature': 'temp-humidity',
+            'humidity': 'temp-humidity',
+            'pressure': 'pressure',
+            'light': 'light',
+            'vibration': 'vibration',
+            'airquality': 'pressure'
+        };
+        
+        return metricToGroup[metric] || null;
     }
 
     // 실시간 Multi-line 차트 업데이트
