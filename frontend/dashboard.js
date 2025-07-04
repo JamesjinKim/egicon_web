@@ -737,18 +737,49 @@ class EGIconDashboard {
         };
     }
 
-    // 실시간 데이터 처리
+    // 실시간 데이터 처리 (BME688 세분화 센서 지원)
     handleRealtimeData(sensorData) {
         const now = new Date();
         
-        // WebSocket 데이터로 위젯 및 차트 업데이트
+        // 센서 타입별 데이터 그룹화
+        const groupedData = {
+            temperature: [],
+            humidity: [],
+            pressure: [],
+            light: []
+        };
+        
+        // WebSocket 데이터 처리 및 그룹화
         Object.entries(sensorData).forEach(([sensorId, data]) => {
             this.connectedSensors.add(sensorId);
-            this.updateSensorWidget(sensorId, data.value);
             
-            // 센서 타입을 ID에서 추출해서 차트 업데이트
+            // 센서 타입 추출 (BME688 세분화 센서 지원)
             const sensorType = this.getSensorTypeFromId(sensorId);
-            this.updateChartData(sensorType, data.value, now);
+            
+            if (sensorType && groupedData[sensorType] !== undefined) {
+                // 센서 인덱스 추출 (차트 라인 매핑용)
+                const sensorIndex = this.extractSensorIndex(sensorId);
+                
+                groupedData[sensorType].push({
+                    sensorId: sensorId,
+                    value: data.value,
+                    sensorIndex: sensorIndex,
+                    timestamp: now
+                });
+                
+                console.log(`📊 실시간 데이터: ${sensorId} = ${data.value} (타입: ${sensorType}, 인덱스: ${sensorIndex})`);
+            }
+        });
+        
+        // 그룹별 차트 및 위젯 업데이트
+        Object.entries(groupedData).forEach(([metric, sensorDataArray]) => {
+            if (sensorDataArray.length > 0) {
+                // Multi-line 차트 업데이트
+                this.updateMultiSensorChartRealtime(metric, sensorDataArray, now);
+                
+                // 요약 위젯 업데이트
+                this.updateSummaryWidgets('temp-humidity', metric, sensorDataArray);
+            }
         });
         
         this.updateStatusBar();
@@ -997,22 +1028,101 @@ class EGIconDashboard {
         });
     }
 
-    // 센서 ID에서 센서 타입 추출
+    // 센서 ID에서 센서 타입 추출 (BME688 세분화 지원)
     getSensorTypeFromId(sensorId) {
-        // 실제 센서 ID 매핑
+        // BME688 세분화 센서 처리
+        if (sensorId.includes('_temp')) {
+            return 'temperature';
+        }
+        if (sensorId.includes('_humidity')) {
+            return 'humidity';
+        }
+        if (sensorId.includes('_pressure')) {
+            return 'pressure';
+        }
+        
+        // 기타 센서 타입
         if (sensorId.startsWith('bh1750_')) {
             return 'light';
         }
         if (sensorId.startsWith('sht40_')) {
-            return 'temperature'; // 또는 humidity
+            return 'temperature'; // SHT40은 기본적으로 온도
         }
         if (sensorId.startsWith('bme688_')) {
-            return 'temperature'; // 또는 humidity, pressure, airquality
+            return 'temperature'; // 기본값
         }
         
         // Mock 센서 ID (기존 방식)
         const [type] = sensorId.split('_');
         return type;
+    }
+
+    // 센서 ID에서 인덱스 추출 (차트 라인 매핑용)
+    extractSensorIndex(sensorId) {
+        // BME688 센서: bme688_0_2_temp -> 채널 2 = 인덱스 2
+        // BH1750 센서: bh1750_0_5 -> 채널 5 = 인덱스 0 (조도센서는 1개뿐)
+        
+        const parts = sensorId.split('_');
+        if (parts.length >= 3) {
+            const channel = parseInt(parts[2]);
+            
+            // BME688의 경우 채널 번호가 인덱스
+            if (sensorId.startsWith('bme688_')) {
+                return channel;
+            }
+            // BH1750의 경우 별도 처리 (현재는 1개뿐이므로 0)
+            else if (sensorId.startsWith('bh1750_')) {
+                return 0;
+            }
+        }
+        
+        return 0; // 기본값
+    }
+
+    // 실시간 Multi-line 차트 업데이트
+    updateMultiSensorChartRealtime(metric, sensorDataArray, timestamp) {
+        const chartId = `${metric}-multi-chart`;
+        const chart = this.charts[chartId];
+        
+        if (!chart) {
+            console.warn(`차트를 찾을 수 없음: ${chartId}`);
+            return;
+        }
+        
+        const data = chart.data;
+        
+        // 메모리 최적화: 최대 데이터 포인트 제한
+        if (data.labels.length >= this.config.maxDataPoints) {
+            data.labels.shift();
+            data.datasets.forEach(dataset => dataset.data.shift());
+        }
+        
+        // 시간 라벨 추가
+        data.labels.push(timestamp.toLocaleTimeString('ko-KR', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+        }));
+        
+        // 각 센서별 데이터 추가 (인덱스 매핑 사용)
+        sensorDataArray.forEach((sensor) => {
+            const datasetIndex = sensor.sensorIndex;
+            if (data.datasets[datasetIndex]) {
+                data.datasets[datasetIndex].data.push(sensor.value);
+                console.log(`📈 차트 업데이트: ${metric} 인덱스 ${datasetIndex} = ${sensor.value}`);
+            } else {
+                console.warn(`데이터셋 인덱스 ${datasetIndex}를 찾을 수 없음 (${metric})`);
+            }
+        });
+        
+        // 빈 데이터셋에 null 추가 (라인 길이 맞춤)
+        data.datasets.forEach((dataset, index) => {
+            if (dataset.data.length < data.labels.length) {
+                dataset.data.push(null);
+            }
+        });
+        
+        chart.update('none'); // 애니메이션 없이 업데이트
     }
 
     // 차트 데이터 업데이트 (그룹별)
