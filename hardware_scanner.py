@@ -9,6 +9,7 @@ ref 폴더의 i2c_scanner.py와 simpleTCA9548A.py 기반
 import subprocess
 import time
 import platform
+import glob
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
@@ -18,6 +19,15 @@ try:
     I2C_AVAILABLE = True
 except ImportError:
     I2C_AVAILABLE = False
+
+# SPS30 UART 센서 라이브러리
+try:
+    from shdlc_sps30 import Sps30ShdlcDevice
+    from sensirion_shdlc_driver import ShdlcSerialPort, ShdlcConnection
+    from sensirion_shdlc_driver.errors import ShdlcError
+    SPS30_AVAILABLE = True
+except ImportError:
+    SPS30_AVAILABLE = False
 
 class HardwareScanner:
     """하드웨어 스캔 및 센서 감지 클래스"""
@@ -33,6 +43,16 @@ class HardwareScanner:
     
     # TCA9548A 주소 범위
     TCA9548A_ADDRESSES = list(range(0x70, 0x78))
+    
+    # UART 센서 정보
+    UART_SENSORS = {
+        "SPS30": {
+            "name": "SPS30 미세먼지 센서",
+            "manufacturer": "Sensirion",
+            "measurements": ["PM1.0", "PM2.5", "PM4.0", "PM10"],
+            "units": "μg/m³"
+        }
+    }
     
     def __init__(self):
         self.is_raspberry_pi = self._check_raspberry_pi()
@@ -192,6 +212,93 @@ class HardwareScanner:
             print(f"센서 통신 테스트 실패 {sensor_type} 0x{address:02X}: {e}")
             return False
     
+    def _find_sps30_uart(self) -> Tuple[Optional[str], Optional[str]]:
+        """
+        SPS30 UART 센서 자동 검색 (ref/sps30_sensor.py 기반)
+        
+        Returns:
+            Tuple[port_path, serial_number]: (시리얼 포트 경로, 시리얼 번호)
+            실패 시 (None, None) 반환
+        """
+        if not SPS30_AVAILABLE:
+            print("⚠️ SPS30 라이브러리가 설치되지 않음 - UART 스캔 건너뜀")
+            return None, None
+        
+        print("🔍 SPS30 UART 센서 검색 중...")
+        
+        # USB 시리얼 포트 후보들 검색
+        port_candidates = []
+        port_candidates.extend(glob.glob('/dev/ttyUSB*'))  # USB-Serial 어댑터
+        port_candidates.extend(glob.glob('/dev/ttyACM*'))  # Arduino/Micro 타입
+        port_candidates.extend(glob.glob('/dev/ttyAMA*'))  # 라즈베리파이 UART
+        
+        if not port_candidates:
+            print("❌ UART 시리얼 포트를 찾을 수 없음")
+            return None, None
+        
+        print(f"📋 UART 포트 후보: {port_candidates}")
+        
+        # 각 포트에서 SPS30 센서 검색
+        for port_path in port_candidates:
+            try:
+                print(f"🔌 UART 포트 테스트 중: {port_path}")
+                
+                with ShdlcSerialPort(port=port_path, baudrate=115200) as port:
+                    device = Sps30ShdlcDevice(ShdlcConnection(port))
+                    
+                    # 센서 정보 읽기 시도
+                    serial_number = device.device_information_serial_number()
+                    
+                    if serial_number:
+                        print(f"✅ SPS30 센서 발견: {port_path} (S/N: {serial_number})")
+                        return port_path, serial_number
+                        
+            except Exception as e:
+                print(f"⚠️ UART 포트 {port_path} 테스트 실패: {e}")
+                continue
+        
+        print("❌ SPS30 UART 센서를 찾을 수 없음")
+        return None, None
+    
+    def scan_uart_sensors(self) -> List[Dict]:
+        """UART 센서 스캔 (SPS30)"""
+        uart_devices = []
+        
+        if not self.is_raspberry_pi:
+            # Mock 데이터 반환 (개발 환경)
+            mock_uart = {
+                "port": "/dev/ttyUSB0",
+                "sensor_type": "SPS30",
+                "sensor_name": "SPS30",
+                "serial_number": "MOCK_SPS30_12345",
+                "status": "connected",
+                "interface": "UART",
+                "measurements": ["PM1.0", "PM2.5", "PM4.0", "PM10"],
+                "units": "μg/m³"
+            }
+            uart_devices.append(mock_uart)
+            print("🔧 Mock 모드: SPS30 UART 센서 시뮬레이션")
+            return uart_devices
+        
+        # SPS30 UART 센서 검색
+        port_path, serial_number = self._find_sps30_uart()
+        
+        if port_path and serial_number:
+            uart_device = {
+                "port": port_path,
+                "sensor_type": "SPS30",
+                "sensor_name": "SPS30",
+                "serial_number": serial_number,
+                "status": "connected",
+                "interface": "UART",
+                "measurements": self.UART_SENSORS["SPS30"]["measurements"],
+                "units": self.UART_SENSORS["SPS30"]["units"]
+            }
+            uart_devices.append(uart_device)
+            print(f"✅ SPS30 UART 센서 스캔 완료: {port_path}")
+        
+        return uart_devices
+    
     def scan_bus_direct(self, bus_num: int) -> List[Dict]:
         """버스 직접 스캔 (TCA9548A 없이)"""
         devices = []
@@ -290,14 +397,15 @@ class HardwareScanner:
         return results
     
     def scan_single_bus(self, bus_number: int) -> Dict:
-        """단일 I2C 버스 스캔"""
+        """단일 I2C 버스 스캔 (UART 센서 포함)"""
         scan_result = {
             "success": True,
             "timestamp": datetime.now().isoformat(),
             "mode": "hardware" if (self.is_raspberry_pi and I2C_AVAILABLE) else "mock",
             "buses": {},
             "sensors": [],
-            "i2c_devices": []
+            "i2c_devices": [],
+            "uart_devices": []
         }
         
         # 매번 스캔 시마다 TCA9548A 재감지 (하드웨어 변경 대응)
@@ -351,7 +459,32 @@ class HardwareScanner:
             
             scan_result["buses"][str(bus_number)] = bus_info
             
-            print(f"✅ Bus {bus_number} 단일 스캔 완료: {len(scan_result['sensors'])}개 센서 발견")
+            # UART 센서 스캔 (버스 번호와 관계없이 전체 시스템에서 한 번만)
+            if bus_number == 0:  # 첫 번째 버스에서만 UART 스캔 실행
+                print("🔍 UART 센서 스캔 시작...")
+                uart_devices = self.scan_uart_sensors()
+                scan_result["uart_devices"] = uart_devices
+                
+                # UART 센서도 전체 센서 목록에 추가
+                for uart_device in uart_devices:
+                    uart_sensor_data = {
+                        "bus": None,
+                        "mux_channel": None,
+                        "address": None,
+                        "port": uart_device["port"],
+                        "sensor_name": uart_device["sensor_name"],
+                        "sensor_type": uart_device["sensor_type"],
+                        "status": uart_device["status"],
+                        "interface": "UART",
+                        "serial_number": uart_device.get("serial_number"),
+                        "measurements": uart_device.get("measurements", []),
+                        "units": uart_device.get("units", "")
+                    }
+                    scan_result["sensors"].append(uart_sensor_data)
+            
+            i2c_count = len([s for s in scan_result['sensors'] if s.get('interface') != 'UART'])
+            uart_count = len([s for s in scan_result['sensors'] if s.get('interface') == 'UART'])
+            print(f"✅ Bus {bus_number} 단일 스캔 완료: I2C {i2c_count}개, UART {uart_count}개 센서 발견")
             
         except Exception as e:
             print(f"❌ Bus {bus_number} 단일 스캔 실패: {e}")
@@ -361,14 +494,15 @@ class HardwareScanner:
         return scan_result
     
     def scan_dual_mux_system(self) -> Dict:
-        """이중 멀티플렉서 시스템 전체 스캔"""
+        """이중 멀티플렉서 시스템 전체 스캔 (UART 센서 포함)"""
         scan_result = {
             "success": True,
             "timestamp": datetime.now().isoformat(),
             "mode": "hardware" if (self.is_raspberry_pi and I2C_AVAILABLE) else "mock",
             "buses": {},
             "sensors": [],
-            "i2c_devices": []
+            "i2c_devices": [],
+            "uart_devices": []
         }
         
         # 매번 스캔 시마다 TCA9548A 재감지 (하드웨어 변경 대응)
@@ -422,6 +556,32 @@ class HardwareScanner:
                         scan_result["i2c_devices"].append(sensor_data)
                 
                 scan_result["buses"][bus_num] = bus_info
+            
+            # UART 센서 스캔 (전체 시스템에서 한 번만)
+            print("🔍 UART 센서 스캔 시작...")
+            uart_devices = self.scan_uart_sensors()
+            scan_result["uart_devices"] = uart_devices
+            
+            # UART 센서도 전체 센서 목록에 추가
+            for uart_device in uart_devices:
+                uart_sensor_data = {
+                    "bus": None,
+                    "mux_channel": None,
+                    "address": None,
+                    "port": uart_device["port"],
+                    "sensor_name": uart_device["sensor_name"],
+                    "sensor_type": uart_device["sensor_type"],
+                    "status": uart_device["status"],
+                    "interface": "UART",
+                    "serial_number": uart_device.get("serial_number"),
+                    "measurements": uart_device.get("measurements", []),
+                    "units": uart_device.get("units", "")
+                }
+                scan_result["sensors"].append(uart_sensor_data)
+            
+            i2c_count = len([s for s in scan_result['sensors'] if s.get('interface') != 'UART'])
+            uart_count = len([s for s in scan_result['sensors'] if s.get('interface') == 'UART'])
+            print(f"✅ 전체 시스템 스캔 완료: I2C {i2c_count}개, UART {uart_count}개 센서 발견")
             
         except Exception as e:
             scan_result["success"] = False

@@ -191,7 +191,7 @@ class EGIconSettings {
         }
     }
     
-    // 스캔 결과 업데이트 (egicon_dash 스타일)
+    // 스캔 결과 업데이트 (I2C + UART 센서 지원)
     updateScanResults(scanResult) {
         const tbody = document.getElementById('scan-results-body');
         if (!tbody) return;
@@ -199,8 +199,10 @@ class EGIconSettings {
         tbody.innerHTML = '';
         
         const i2cDevices = scanResult.i2c_devices || [];
+        const uartDevices = scanResult.uart_devices || [];
+        const totalDevices = i2cDevices.length + uartDevices.length;
         
-        if (i2cDevices.length === 0) {
+        if (totalDevices === 0) {
             const row = document.createElement('tr');
             row.className = 'no-results';
             row.innerHTML = `
@@ -229,17 +231,41 @@ class EGIconSettings {
             `;
             tbody.appendChild(row);
         });
+        
+        // UART 디바이스 표시 (SPS30 등)
+        uartDevices.forEach(device => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><span class="comm-badge uart">UART</span></td>
+                <td>-</td>
+                <td>-</td>
+                <td>${device.port}</td>
+                <td>${device.sensor_name}</td>
+                <td>${device.sensor_type}</td>
+                <td><span class="status-badge status-connected">${device.status}</span></td>
+                <td>
+                    <button class="action-btn test-btn" onclick="window.settings.testUARTDevice('${device.port}', '${device.sensor_type}')">
+                        <i class="fas fa-vial"></i> 테스트
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        console.log(`✅ 스캔 결과 업데이트 완료: I2C ${i2cDevices.length}개, UART ${uartDevices.length}개`);
     }
     
     // 시스템 표시 업데이트
     updateSystemDisplay(systemData) {
         console.log('🔄 시스템 디스플레이 업데이트:', systemData);
         
-        // 전체 시스템 통계 업데이트
+        // 전체 시스템 통계 업데이트 (I2C + UART)
         const connectedCount = document.getElementById('connected-count');
         if (connectedCount) {
-            const totalSensors = systemData.sensors ? systemData.sensors.length : 0;
-            connectedCount.textContent = `${totalSensors}개 연결됨`;
+            const i2cSensors = systemData.i2c_devices ? systemData.i2c_devices.length : 0;
+            const uartSensors = systemData.uart_devices ? systemData.uart_devices.length : 0;
+            const totalSensors = i2cSensors + uartSensors;
+            connectedCount.textContent = `${totalSensors}개 연결됨 (I2C: ${i2cSensors}, UART: ${uartSensors})`;
             this.connectedSensors = totalSensors;
         }
         
@@ -407,6 +433,35 @@ class EGIconSettings {
     // I2C 디바이스 테스트 (테이블에서 호출)
     async testI2CDevice(bus, channel, address) {
         await this.testSensor(bus, channel, address);
+    }
+    
+    // UART 디바이스 테스트 (SPS30 등)
+    async testUARTDevice(port, sensorType) {
+        try {
+            console.log(`🧪 UART 센서 테스트: ${sensorType} on ${port}`);
+            
+            const response = await fetch(`${this.API_URL}/sensors/test-uart`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    port: port,
+                    sensor_type: sensorType
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            this.showSensorTestModal(result);
+            
+        } catch (error) {
+            console.error('UART 센서 테스트 실패:', error);
+            this.showToast('error', `UART 센서 테스트 실패: ${error.message}`);
+        }
     }
     
     // 센서 상태 로드
