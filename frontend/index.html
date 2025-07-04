@@ -85,175 +85,193 @@
             </div>
         </div>
 
-        <!-- SHT40 센서 그룹 -->
+        <!-- 온습도 센서 그룹 (통합) -->
         <div class="sensor-group">
             <div class="sensor-group-header">
                 <i class="fas fa-thermometer-half"></i>
-                <span class="sensor-group-title">SHT40 온습도 센서</span>
-                <span class="sensor-group-status online">연결됨</span>
+                <i class="fas fa-tint"></i>
+                <span class="sensor-group-title">온습도 센서</span>
+                <span class="sensor-group-status online">7개 연결됨</span>
+                <div class="sensor-group-summary">
+                    <span class="summary-item">BME688×6 + SHT40×1</span>
+                </div>
             </div>
             
-            <!-- SHT40 센서 위젯들 -->
-            <div class="sensor-widgets-container" id="sht40-widgets">
-                <!-- 온도 위젯 -->
-                <div class="sensor-widget temperature" data-sensor="temperature_1">
-                    <div class="widget-color-bar"></div>
-                    <div class="widget-content">
-                        <div class="widget-icon">🌡️</div>
-                        <div class="widget-title">SHT40 온도</div>
-                        <div class="widget-value">--<span class="widget-unit">°C</span></div>
+            <!-- 요약 위젯들 -->
+            <div class="summary-widgets-container">
+                <div class="summary-widget temperature">
+                    <div class="summary-icon">🌡️</div>
+                    <div class="summary-content">
+                        <div class="summary-label">평균 온도</div>
+                        <div class="summary-value" id="temp-average">--°C</div>
+                        <div class="summary-range" id="temp-range">-- ~ --°C</div>
                     </div>
                 </div>
                 
-                <!-- 습도 위젯 -->
-                <div class="sensor-widget humidity" data-sensor="humidity_1">
-                    <div class="widget-color-bar"></div>
-                    <div class="widget-content">
-                        <div class="widget-icon">💧</div>
-                        <div class="widget-title">SHT40 습도</div>
-                        <div class="widget-value">--<span class="widget-unit">%</span></div>
+                <div class="summary-widget humidity">
+                    <div class="summary-icon">💧</div>
+                    <div class="summary-content">
+                        <div class="summary-label">평균 습도</div>
+                        <div class="summary-value" id="humidity-average">--%</div>
+                        <div class="summary-range" id="humidity-range">-- ~ --%</div>
+                    </div>
+                </div>
+                
+                <div class="summary-widget status">
+                    <div class="summary-icon">📊</div>
+                    <div class="summary-content">
+                        <div class="summary-label">센서 상태</div>
+                        <div class="summary-value" id="temp-humidity-status">7/7 활성</div>
+                        <div class="summary-range">모든 센서 정상</div>
                     </div>
                 </div>
             </div>
 
-            <!-- SHT40 차트 -->
+            <!-- 통합 차트 -->
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3 class="chart-title">SHT40 온도</h3>
+                    <h3 class="chart-title">온도 센서 통합 차트 (7개)</h3>
                     <div class="chart-container">
-                        <canvas id="sht40-temperature-chart"></canvas>
+                        <canvas id="temperature-multi-chart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3 class="chart-title">SHT40 습도</h3>
+                    <h3 class="chart-title">습도 센서 통합 차트 (7개)</h3>
                     <div class="chart-container">
-                        <canvas id="sht40-humidity-chart"></canvas>
+                        <canvas id="humidity-multi-chart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- BME688 센서 그룹 -->
+        <!-- 압력 센서 그룹 -->
         <div class="sensor-group">
             <div class="sensor-group-header">
-                <i class="fas fa-leaf"></i>
-                <span class="sensor-group-title">BME688 환경센서</span>
-                <span class="sensor-group-status online">연결됨</span>
+                <i class="fas fa-compress-alt"></i>
+                <span class="sensor-group-title">압력 센서</span>
+                <span class="sensor-group-status online">6개 연결됨</span>
+                <div class="sensor-group-summary">
+                    <span class="summary-item">BME688×6</span>
+                </div>
             </div>
             
-            <!-- BME688 센서 위젯들 -->
-            <div class="sensor-widgets-container" id="bme688-widgets">
-                <!-- 온도 위젯 -->
-                <div class="sensor-widget temperature" data-sensor="temperature_2">
-                    <div class="widget-color-bar"></div>
-                    <div class="widget-content">
-                        <div class="widget-icon">🌡️</div>
-                        <div class="widget-title">BME688 온도</div>
-                        <div class="widget-value">--<span class="widget-unit">°C</span></div>
+            <!-- 요약 위젯들 -->
+            <div class="summary-widgets-container">
+                <div class="summary-widget pressure">
+                    <div class="summary-icon">📏</div>
+                    <div class="summary-content">
+                        <div class="summary-label">평균 압력</div>
+                        <div class="summary-value" id="pressure-average">-- hPa</div>
+                        <div class="summary-range" id="pressure-range">-- ~ -- hPa</div>
                     </div>
                 </div>
                 
-                <!-- 습도 위젯 -->
-                <div class="sensor-widget humidity" data-sensor="humidity_2">
-                    <div class="widget-color-bar"></div>
-                    <div class="widget-content">
-                        <div class="widget-icon">💧</div>
-                        <div class="widget-title">BME688 습도</div>
-                        <div class="widget-value">--<span class="widget-unit">%</span></div>
+                <div class="summary-widget status">
+                    <div class="summary-icon">📊</div>
+                    <div class="summary-content">
+                        <div class="summary-label">센서 상태</div>
+                        <div class="summary-value" id="pressure-status">6/6 활성</div>
+                        <div class="summary-range">모든 센서 정상</div>
                     </div>
                 </div>
                 
-                <!-- 압력 위젯 -->
-                <div class="sensor-widget pressure" data-sensor="pressure_1">
-                    <div class="widget-color-bar"></div>
-                    <div class="widget-content">
-                        <div class="widget-icon">📏</div>
-                        <div class="widget-title">BME688 압력</div>
-                        <div class="widget-value">--<span class="widget-unit">hPa</span></div>
-                    </div>
-                </div>
-                
-                <!-- 공기질 위젯 -->
-                <div class="sensor-widget airquality" data-sensor="airquality_1">
-                    <div class="widget-color-bar"></div>
-                    <div class="widget-content">
-                        <div class="widget-icon">🍃</div>
-                        <div class="widget-title">BME688 공기질</div>
-                        <div class="widget-value">--<span class="widget-unit">/100</span></div>
+                <div class="summary-widget airquality">
+                    <div class="summary-icon">🍃</div>
+                    <div class="summary-content">
+                        <div class="summary-label">평균 공기질</div>
+                        <div class="summary-value" id="airquality-average">-- IAQ</div>
+                        <div class="summary-range" id="airquality-range">-- ~ -- IAQ</div>
                     </div>
                 </div>
             </div>
 
-            <!-- BME688 차트 -->
+            <!-- 통합 차트 -->
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3 class="chart-title">BME688 온도</h3>
+                    <h3 class="chart-title">압력 센서 통합 차트 (6개)</h3>
                     <div class="chart-container">
-                        <canvas id="bme688-temperature-chart"></canvas>
+                        <canvas id="pressure-multi-chart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3 class="chart-title">BME688 습도</h3>
+                    <h3 class="chart-title">공기질 센서 통합 차트 (6개)</h3>
                     <div class="chart-container">
-                        <canvas id="bme688-humidity-chart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h3 class="chart-title">BME688 압력</h3>
-                    <div class="chart-container">
-                        <canvas id="bme688-pressure-chart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h3 class="chart-title">BME688 공기질</h3>
-                    <div class="chart-container">
-                        <canvas id="bme688-airquality-chart"></canvas>
+                        <canvas id="airquality-multi-chart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 기타 센서 그룹 -->
+        <!-- 조도 센서 그룹 -->
         <div class="sensor-group">
             <div class="sensor-group-header">
                 <i class="fas fa-sun"></i>
-                <span class="sensor-group-title">기타 센서</span>
-                <span class="sensor-group-status online">연결됨</span>
+                <span class="sensor-group-title">조도 센서</span>
+                <span class="sensor-group-status online">2개 연결됨</span>
+                <div class="sensor-group-summary">
+                    <span class="summary-item">BH1750×2</span>
+                </div>
             </div>
             
-            <!-- 기타 센서 위젯들 -->
-            <div class="sensor-widgets-container" id="other-widgets">
-                <!-- 조도 위젯 -->
-                <div class="sensor-widget light" data-sensor="light_1">
-                    <div class="widget-color-bar"></div>
-                    <div class="widget-content">
-                        <div class="widget-icon">☀️</div>
-                        <div class="widget-title">BH1750 조도</div>
-                        <div class="widget-value">--<span class="widget-unit">lux</span></div>
+            <!-- 요약 위젯들 -->
+            <div class="summary-widgets-container">
+                <div class="summary-widget light">
+                    <div class="summary-icon">☀️</div>
+                    <div class="summary-content">
+                        <div class="summary-label">평균 조도</div>
+                        <div class="summary-value" id="light-average">-- lux</div>
+                        <div class="summary-range" id="light-range">-- ~ -- lux</div>
                     </div>
                 </div>
                 
-                <!-- 진동 위젯 -->
-                <div class="sensor-widget vibration" data-sensor="vibration_1">
-                    <div class="widget-color-bar"></div>
-                    <div class="widget-content">
-                        <div class="widget-icon">〜</div>
-                        <div class="widget-title">진동센서</div>
-                        <div class="widget-value">--<span class="widget-unit">Hz</span></div>
+                <div class="summary-widget status">
+                    <div class="summary-icon">📊</div>
+                    <div class="summary-content">
+                        <div class="summary-label">센서 상태</div>
+                        <div class="summary-value" id="light-status">2/2 활성</div>
+                        <div class="summary-range">모든 센서 정상</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 기타 센서 차트 -->
+            <!-- 통합 차트 -->
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3 class="chart-title">BH1750 조도</h3>
+                    <h3 class="chart-title">조도 센서 통합 차트 (2개)</h3>
                     <div class="chart-container">
-                        <canvas id="light-chart"></canvas>
+                        <canvas id="light-multi-chart"></canvas>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- 진동 센서 그룹 -->
+        <div class="sensor-group">
+            <div class="sensor-group-header">
+                <i class="fas fa-wave-square"></i>
+                <span class="sensor-group-title">진동 센서</span>
+                <span class="sensor-group-status offline">미연결</span>
+                <div class="sensor-group-summary">
+                    <span class="summary-item">센서 준비 중</span>
+                </div>
+            </div>
+            
+            <!-- 요약 위젯들 -->
+            <div class="summary-widgets-container">
+                <div class="summary-widget vibration">
+                    <div class="summary-icon">〜</div>
+                    <div class="summary-content">
+                        <div class="summary-label">진동 강도</div>
+                        <div class="summary-value" id="vibration-average">-- Hz</div>
+                        <div class="summary-range" id="vibration-range">센서 미연결</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 차트 -->
+            <div class="charts-grid">
                 <div class="chart-card">
-                    <h3 class="chart-title">진동센서</h3>
+                    <h3 class="chart-title">진동 센서 차트</h3>
                     <div class="chart-container">
                         <canvas id="vibration-chart"></canvas>
                     </div>

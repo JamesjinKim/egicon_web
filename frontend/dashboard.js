@@ -15,25 +15,52 @@ class EGIconDashboard {
             enableAnimations: true,   // 모던 차트 애니메이션
         };
 
-        // 센서 그룹 정의 (b.png 기준)
+        // 센서 그룹 정의 (통합보기 기준)
         this.sensorGroups = {
-            "SHT40": {
-                title: "SHT40 온습도 센서",
-                icon: "🌡️",
-                sensors: ["temperature_1", "humidity_1"],
-                containerId: "sht40-widgets"
+            "temp-humidity": {
+                title: "온습도 센서",
+                icon: "🌡️💧",
+                metrics: ["temperature", "humidity"],
+                sensors: {
+                    // BME688 센서 6개 (CH2 채널 0-5)
+                    bme688: ["bme688_1_0", "bme688_1_1", "bme688_1_2", "bme688_1_3", "bme688_1_4", "bme688_1_5"],
+                    // SHT40 센서 1개 (CH1 채널 0)  
+                    sht40: ["sht40_0_0"]
+                },
+                totalSensors: 7,
+                containerId: "temp-humidity-widgets"
             },
-            "BME688": {
-                title: "BME688 환경센서",
-                icon: "🍃",
-                sensors: ["temperature_2", "humidity_2", "pressure_1", "airquality_1"],
-                containerId: "bme688-widgets"
+            "pressure": {
+                title: "압력 센서",
+                icon: "📏",
+                metrics: ["pressure", "airquality"],
+                sensors: {
+                    // BME688 센서 6개에서 압력 데이터
+                    bme688: ["bme688_1_0", "bme688_1_1", "bme688_1_2", "bme688_1_3", "bme688_1_4", "bme688_1_5"]
+                },
+                totalSensors: 6,
+                containerId: "pressure-widgets"
             },
-            "기타": {
-                title: "기타 센서",
+            "light": {
+                title: "조도 센서",
                 icon: "☀️",
-                sensors: ["light_1", "vibration_1"],
-                containerId: "other-widgets"
+                metrics: ["light"],
+                sensors: {
+                    // BH1750 센서 2개 (CH2 채널 3, 5)
+                    bh1750: ["bh1750_1_3", "bh1750_1_5"]
+                },
+                totalSensors: 2,
+                containerId: "light-widgets"
+            },
+            "vibration": {
+                title: "진동 센서",
+                icon: "〜",
+                metrics: ["vibration"],
+                sensors: {
+                    // 진동센서 준비 중
+                },
+                totalSensors: 0,
+                containerId: "vibration-widgets"
             }
         };
 
@@ -199,20 +226,25 @@ class EGIconDashboard {
         }
     }
 
-    // 차트 초기화 (그룹별)
+    // 차트 초기화 (통합보기 Multi-line)
     initCharts() {
-        // SHT40 차트들
-        this.createGroupChart('sht40-temperature-chart', 'temperature', 'SHT40 온도');
-        this.createGroupChart('sht40-humidity-chart', 'humidity', 'SHT40 습도');
+        // 온습도 센서 통합 차트 (7개 센서)
+        this.createMultiSensorChart('temperature-multi-chart', 'temperature', 
+            ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5', 'SHT40']);
+        this.createMultiSensorChart('humidity-multi-chart', 'humidity',
+            ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5', 'SHT40']);
         
-        // BME688 차트들
-        this.createGroupChart('bme688-temperature-chart', 'temperature', 'BME688 온도');
-        this.createGroupChart('bme688-humidity-chart', 'humidity', 'BME688 습도');
-        this.createGroupChart('bme688-pressure-chart', 'pressure', 'BME688 압력');
-        this.createGroupChart('bme688-airquality-chart', 'airquality', 'BME688 공기질');
+        // 압력 센서 통합 차트 (6개 센서)
+        this.createMultiSensorChart('pressure-multi-chart', 'pressure',
+            ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5']);
+        this.createMultiSensorChart('airquality-multi-chart', 'airquality',
+            ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5']);
         
-        // 기타 센서 차트들
-        this.createGroupChart('light-chart', 'light', 'BH1750 조도');
+        // 조도 센서 통합 차트 (2개 센서)
+        this.createMultiSensorChart('light-multi-chart', 'light',
+            ['BH1750 Ch3', 'BH1750 Ch5']);
+        
+        // 진동 센서 차트 (1개)
         this.createGroupChart('vibration-chart', 'vibration', '진동센서');
     }
 
@@ -305,6 +337,125 @@ class EGIconDashboard {
                 }
             }
         });
+    }
+
+    // Multi-line 차트 생성 (복수 센서 통합)
+    createMultiSensorChart(canvasId, sensorType, sensorLabels) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) return;
+
+        const sensorConfig = this.sensorTypes[sensorType];
+        
+        // 색상 팔레트 정의 (센서별 구분)
+        const colorPalette = [
+            '#ff6384', '#36a2eb', '#4bc0c0', '#ff9f40', 
+            '#9966ff', '#ffcd56', '#c9cbcf', '#ff6384'
+        ];
+        
+        // 각 센서별 데이터셋 생성
+        const datasets = sensorLabels.map((label, index) => {
+            const color = colorPalette[index % colorPalette.length];
+            return {
+                label: label,
+                data: [],
+                borderColor: color,
+                backgroundColor: color + '20',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.4,
+                pointRadius: 2,
+                pointHoverRadius: 5,
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: color,
+                pointBorderWidth: 2
+            };
+        });
+
+        this.charts[canvasId] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            boxWidth: 20,
+                            padding: 15,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        titleColor: '#333',
+                        bodyColor: '#666',
+                        borderColor: '#ddd',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}${sensorConfig.unit}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            maxTicksLimit: 8,
+                            color: '#666',
+                            font: {
+                                size: 10
+                            }
+                        }
+                    },
+                    y: {
+                        display: true,
+                        min: sensorConfig.min,
+                        max: sensorConfig.max,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            color: '#666',
+                            font: {
+                                size: 10
+                            },
+                            callback: function(value) {
+                                return value.toFixed(0) + sensorConfig.unit;
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 300
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+    }
+
+    // 색상 팔레트 반환
+    getColorPalette(index) {
+        const colors = [
+            '#ff6384', '#36a2eb', '#4bc0c0', '#ff9f40', 
+            '#9966ff', '#ffcd56', '#c9cbcf', '#ff6384'
+        ];
+        return colors[index % colors.length];
     }
 
     // 실시간 연결 시작
@@ -474,26 +625,75 @@ class EGIconDashboard {
         }, this.config.updateInterval);
     }
 
-    // Mock 데이터 업데이트
+    // Mock 데이터 업데이트 (Multi-line 차트 지원)
     updateMockData() {
         const now = new Date();
         
-        // 배치로 센서 데이터 업데이트
-        this.connectedSensors.forEach(sensorId => {
-            // 실제 센서는 Mock 데이터로 업데이트하지 않음
-            const widget = document.querySelector(`[data-sensor="${sensorId}"]`);
-            if (widget && widget.getAttribute('data-real-sensor') === 'true') {
-                return; // 실제 센서는 건너뛰기
-            }
-            
-            const sensorType = this.getSensorTypeFromId(sensorId);
-            const mockValue = this.generateMockValue(sensorType, now);
-            
-            this.updateSensorWidget(sensorId, mockValue);
-            this.updateChartData(sensorType, mockValue, now);
-        });
+        // 센서 그룹별 데이터 생성 및 업데이트
+        this.updateSensorGroupData('temp-humidity', now);
+        this.updateSensorGroupData('pressure', now);
+        this.updateSensorGroupData('light', now);
+        this.updateSensorGroupData('vibration', now);
 
         this.updateStatusBar();
+    }
+
+    // 센서 그룹별 데이터 업데이트
+    updateSensorGroupData(groupName, timestamp) {
+        const group = this.sensorGroups[groupName];
+        if (!group) return;
+
+        group.metrics.forEach(metric => {
+            const sensorData = [];
+            let sensorIndex = 0;
+
+            // 각 센서 타입별로 Mock 데이터 생성
+            Object.values(group.sensors).forEach(sensorList => {
+                if (Array.isArray(sensorList)) {
+                    sensorList.forEach(sensorId => {
+                        const mockValue = this.generateMockValueForSensor(metric, sensorIndex, timestamp);
+                        sensorData.push({
+                            sensorId: sensorId,
+                            value: mockValue,
+                            sensorIndex: sensorIndex
+                        });
+                        sensorIndex++;
+                    });
+                }
+            });
+
+            // Multi-line 차트 업데이트
+            this.updateMultiSensorChart(groupName, metric, sensorData, timestamp);
+            
+            // 요약 위젯 업데이트
+            this.updateSummaryWidgets(groupName, metric, sensorData);
+        });
+    }
+
+    // 센서별 고유 Mock 값 생성
+    generateMockValueForSensor(sensorType, sensorIndex, timestamp) {
+        const timeMs = timestamp.getTime();
+        const baseOffset = sensorIndex * 0.5; // 센서별 오프셋
+        const phaseOffset = sensorIndex * Math.PI / 4; // 위상 차이
+        
+        switch (sensorType) {
+            case 'temperature':
+                return 22 + baseOffset + 3 * Math.sin(timeMs / 60000 + phaseOffset) + (Math.random() - 0.5) * 1;
+            case 'humidity':
+                return 60 + baseOffset * 2 + 10 * Math.sin(timeMs / 80000 + phaseOffset) + (Math.random() - 0.5) * 2;
+            case 'pressure':
+                return 1013 + baseOffset + 5 * Math.sin(timeMs / 120000 + phaseOffset) + (Math.random() - 0.5) * 1;
+            case 'light':
+                const hour = timestamp.getHours();
+                const daylight = Math.max(0, Math.sin((hour - 6) * Math.PI / 12));
+                return daylight * 1000 + baseOffset * 100 + Math.random() * 100;
+            case 'airquality':
+                return 80 + baseOffset * 3 + 20 * Math.sin(timeMs / 180000 + phaseOffset) + (Math.random() - 0.5) * 10;
+            case 'vibration':
+                return Math.random() * 15 + (Math.random() > 0.9 ? Math.random() * 20 : 0);
+            default:
+                return Math.random() * 100;
+        }
     }
 
     // 센서별 Mock 값 생성
@@ -587,6 +787,79 @@ class EGIconDashboard {
                 chart.update('none'); // 애니메이션 없이 업데이트
             }
         });
+    }
+
+    // Multi-line 차트 업데이트
+    updateMultiSensorChart(groupName, metric, sensorData, timestamp) {
+        const chartId = `${metric}-multi-chart`;
+        const chart = this.charts[chartId];
+        
+        if (!chart) return;
+        
+        const data = chart.data;
+        
+        // 메모리 최적화: 최대 데이터 포인트 제한
+        if (data.labels.length >= this.config.maxDataPoints) {
+            data.labels.shift();
+            data.datasets.forEach(dataset => dataset.data.shift());
+        }
+        
+        // 시간 라벨 추가
+        data.labels.push(timestamp.toLocaleTimeString('ko-KR', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+        }));
+        
+        // 각 센서별 데이터 추가
+        sensorData.forEach((sensor, index) => {
+            if (data.datasets[index]) {
+                data.datasets[index].data.push(sensor.value);
+            }
+        });
+        
+        chart.update('none'); // 애니메이션 없이 업데이트
+    }
+
+    // 요약 위젯 업데이트
+    updateSummaryWidgets(groupName, metric, sensorData) {
+        if (!sensorData || sensorData.length === 0) return;
+        
+        const values = sensorData.map(s => s.value);
+        const average = values.reduce((a, b) => a + b, 0) / values.length;
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        
+        const unit = this.sensorTypes[metric]?.unit || '';
+        
+        // 평균값 업데이트
+        const averageElement = document.getElementById(`${metric}-average`);
+        if (averageElement) {
+            averageElement.textContent = `${average.toFixed(1)}${unit}`;
+        }
+        
+        // 범위 업데이트
+        const rangeElement = document.getElementById(`${metric}-range`);
+        if (rangeElement) {
+            rangeElement.textContent = `${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`;
+        }
+        
+        // 상태 업데이트
+        const statusElement = document.getElementById(`${metric}-status`);
+        if (statusElement) {
+            const activeCount = sensorData.length;
+            const totalCount = this.sensorGroups[groupName]?.totalSensors || activeCount;
+            statusElement.textContent = `${activeCount}/${totalCount} 활성`;
+        }
+        
+        // 그룹 통합 상태 업데이트 (온습도 센서의 경우)
+        if (groupName === 'temp-humidity') {
+            const groupStatusElement = document.getElementById('temp-humidity-status');
+            if (groupStatusElement && metric === 'temperature') {
+                const totalSensors = this.sensorGroups[groupName].totalSensors;
+                groupStatusElement.textContent = `${sensorData.length}/${totalSensors} 활성`;
+            }
+        }
     }
 
     // 상태바 업데이트
