@@ -59,15 +59,6 @@ class EGIconSettings {
             });
         });
         
-        // 센서별 테스트 버튼들
-        document.querySelectorAll('.test-sensor-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const card = e.target.closest('.channel-card');
-                const bus = parseInt(card.dataset.bus);
-                const channel = parseInt(card.dataset.channel);
-                this.testSensor(bus, channel);
-            });
-        });
     }
     
     // 사이드바 이벤트 초기화
@@ -387,16 +378,12 @@ class EGIconSettings {
             const sensorType = card.querySelector('.sensor-type');
             const sensorAddress = card.querySelector('.sensor-address');
             const sensorStatus = card.querySelector('.sensor-status');
-            const testBtn = card.querySelector('.test-sensor-btn');
             
             if (sensorType) sensorType.textContent = '--';
             if (sensorAddress) sensorAddress.textContent = '--';
             if (sensorStatus) {
                 sensorStatus.textContent = '미연결';
                 sensorStatus.className = 'sensor-status disconnected';
-            }
-            if (testBtn) {
-                testBtn.style.display = 'none';
             }
         });
     }
@@ -434,7 +421,6 @@ class EGIconSettings {
             const sensorType = channelCard.querySelector('.sensor-type');
             const sensorAddress = channelCard.querySelector('.sensor-address');
             const sensorStatus = channelCard.querySelector('.sensor-status');
-            const testBtn = channelCard.querySelector('.test-sensor-btn');
             
             if (sensorType) sensorType.textContent = device.sensor_type || device.sensor_name || 'Unknown';
             if (sensorAddress) sensorAddress.textContent = device.address || '--';
@@ -443,11 +429,6 @@ class EGIconSettings {
                 // I2C 디바이스가 스캔되었다면 연결된 것으로 간주
                 sensorStatus.textContent = '연결됨';
                 sensorStatus.className = 'sensor-status connected';
-            }
-            
-            if (testBtn) {
-                // I2C 디바이스가 있으면 테스트 버튼 표시
-                testBtn.style.display = 'block';
             }
             
             console.log(`✅ Ch ${device.mux_channel + 1} 업데이트 완료: ${device.sensor_name}`);
@@ -466,7 +447,6 @@ class EGIconSettings {
             const sensorType = channelCard.querySelector('.sensor-type');
             const sensorAddress = channelCard.querySelector('.sensor-address');
             const sensorStatus = channelCard.querySelector('.sensor-status');
-            const testBtn = channelCard.querySelector('.test-sensor-btn');
             
             if (sensorType) sensorType.textContent = sensor.sensor_type || sensor.sensor_name || 'Unknown';
             if (sensorAddress) sensorAddress.textContent = sensor.address || '--';
@@ -475,11 +455,6 @@ class EGIconSettings {
                 const isConnected = sensor.status === 'connected' || sensor.status === '연결됨';
                 sensorStatus.textContent = isConnected ? '연결됨' : '미연결';
                 sensorStatus.className = `sensor-status ${isConnected ? 'connected' : 'disconnected'}`;
-            }
-            
-            if (testBtn) {
-                const isConnected = sensor.status === 'connected' || sensor.status === '연결됨';
-                testBtn.style.display = isConnected ? 'block' : 'none';
             }
         }
     }
