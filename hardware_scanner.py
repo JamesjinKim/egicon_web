@@ -71,37 +71,48 @@ class HardwareScanner:
     
     def _detect_tca9548a(self):
         """TCA9548A 멀티플렉서 감지 (simpleTCA9548A.py 기반) - 이중 버스 지원"""
-        for bus_num, bus in self.buses.items():
+        print(f"🔍 TCA9548A 감지 시작: {len(self.buses)}개 버스 확인")
+        
+        # 각 버스별로 순환하며 독립적으로 TCA9548A 감지
+        for bus_num in sorted(self.buses.keys()):  # 순서 보장
+            bus = self.buses[bus_num]
             tca_found = False
+            print(f"  📋 Bus {bus_num} TCA9548A 스캔 중...")
+            
+            # TCA9548A 주소 범위 순환 테스트
             for addr in self.TCA9548A_ADDRESSES:
                 try:
-                    # TCA9548A 응답 테스트
+                    print(f"    🔍 주소 0x{addr:02X} 테스트 중...")
+                    # TCA9548A 응답 테스트 (write 방식)
                     bus.write_byte(addr, 0x00)  # 모든 채널 비활성화
                     self.tca_info[bus_num] = {
                         'address': addr,
                         'channels': list(range(8))
                     }
-                    print(f"TCA9548A 발견: Bus {bus_num}, 주소 0x{addr:02X}")
+                    print(f"    ✅ TCA9548A 발견: Bus {bus_num}, 주소 0x{addr:02X} (write 방식)")
                     tca_found = True
                     break
-                except:
+                except Exception as e1:
                     try:
-                        # 읽기 테스트
-                        bus.read_byte(addr)
+                        # 읽기 테스트 (read 방식)
+                        response = bus.read_byte(addr)
                         self.tca_info[bus_num] = {
                             'address': addr,
                             'channels': list(range(8))
                         }
-                        print(f"TCA9548A 발견: Bus {bus_num}, 주소 0x{addr:02X}")
+                        print(f"    ✅ TCA9548A 발견: Bus {bus_num}, 주소 0x{addr:02X} (read 방식, 응답: 0x{response:02X})")
                         tca_found = True
                         break
-                    except:
+                    except Exception as e2:
+                        print(f"    ⚪ 주소 0x{addr:02X}: 응답 없음")
                         continue
             
             if not tca_found:
-                print(f"TCA9548A 미발견: Bus {bus_num}")
+                print(f"  ❌ Bus {bus_num}: TCA9548A 미발견")
+            else:
+                print(f"  ✅ Bus {bus_num}: TCA9548A 감지 완료")
         
-        print(f"총 {len(self.tca_info)}개 TCA9548A 감지됨: {list(self.tca_info.keys())}")
+        print(f"🏁 TCA9548A 감지 완료: {len(self.tca_info)}개 발견 {list(self.tca_info.keys())}")
     
     def _select_channel(self, bus_num: int, channel: int) -> bool:
         """TCA9548A 채널 선택"""
@@ -289,6 +300,12 @@ class HardwareScanner:
             "i2c_devices": []
         }
         
+        # 매번 스캔 시마다 TCA9548A 재감지 (하드웨어 변경 대응)
+        if self.is_raspberry_pi and I2C_AVAILABLE:
+            print(f"🔍 Bus {bus_number} 스캔 전 TCA9548A 재감지...")
+            self.tca_info.clear()  # 기존 정보 초기화
+            self._detect_tca9548a()  # 다시 감지
+        
         try:
             bus_info = {
                 "bus": bus_number,
@@ -353,6 +370,12 @@ class HardwareScanner:
             "sensors": [],
             "i2c_devices": []
         }
+        
+        # 매번 스캔 시마다 TCA9548A 재감지 (하드웨어 변경 대응)
+        if self.is_raspberry_pi and I2C_AVAILABLE:
+            print(f"🔍 전체 시스템 스캔 전 TCA9548A 재감지...")
+            self.tca_info.clear()  # 기존 정보 초기화
+            self._detect_tca9548a()  # 다시 감지
         
         try:
             for bus_num in [0, 1]:
@@ -435,6 +458,14 @@ def cleanup_scanner():
     if _scanner_instance:
         _scanner_instance.close()
         _scanner_instance = None
+
+def reset_scanner():
+    """스캐너 리셋 (TCA9548A 재감지 강제)"""
+    global _scanner_instance
+    if _scanner_instance and _scanner_instance.is_raspberry_pi:
+        print("🔄 스캐너 TCA9548A 정보 리셋")
+        _scanner_instance.tca_info.clear()
+        _scanner_instance._detect_tca9548a()
 
 # 테스트 코드
 if __name__ == "__main__":

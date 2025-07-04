@@ -16,7 +16,7 @@ import random
 from datetime import datetime
 from typing import Dict, List, Any
 import uvicorn
-from hardware_scanner import get_scanner, cleanup_scanner
+from hardware_scanner import get_scanner, cleanup_scanner, reset_scanner
 
 # BH1750 센서 데이터 읽기 함수 (ref/gui_bh1750.py 기반)
 async def read_bh1750_data(bus_number: int, mux_channel: int) -> float:
@@ -656,6 +656,29 @@ async def scan_dual_mux_system():
         return {
             "success": False,
             "message": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
+@app.post("/api/sensors/reset-scanner")
+async def reset_hardware_scanner():
+    """스캐너 리셋 - TCA9548A 재감지"""
+    try:
+        print("🔄 API: 스캐너 리셋 요청")
+        reset_scanner()
+        
+        scanner = get_scanner()
+        return {
+            "success": True,
+            "message": "스캐너가 리셋되었습니다",
+            "tca_count": len(scanner.tca_info),
+            "detected_buses": list(scanner.tca_info.keys()),
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        print(f"❌ 스캐너 리셋 실패: {e}")
+        return {
+            "success": False,
+            "message": f"스캐너 리셋 실패: {str(e)}",
             "timestamp": datetime.now().isoformat()
         }
 
