@@ -16,6 +16,7 @@ import random
 from datetime import datetime
 from typing import Dict, List, Any
 import uvicorn
+from hardware_scanner import get_scanner, cleanup_scanner
 
 # FastAPI 앱 생성
 app = FastAPI(
@@ -272,40 +273,29 @@ async def health_check():
 # 센서 스캔 관련 API 엔드포인트들
 @app.post("/api/sensors/scan-all")
 async def scan_all_sensors():
-    """통합 센서 검색 (I2C Bus 0 + Bus 1)"""
+    """통합 센서 검색 (I2C Bus 0 + Bus 1) - 실제 하드웨어 스캔"""
     try:
         print("🔍 통합 센서 스캔 시작...")
         
-        # Mock 데이터로 시뮬레이션 (실제 하드웨어 연결 시 I2C 코드로 교체)
-        i2c_devices = []
+        # 하드웨어 스캐너 사용
+        scanner = get_scanner()
+        scan_result = scanner.scan_dual_mux_system()
         
-        # Bus 0 Mock 센서들
-        bus_0_sensors = [
-            {"bus": 0, "mux_channel": 0, "address": "0x44", "sensor_name": "SHT40", "sensor_type": "온습도센서", "status": "연결됨"},
-            {"bus": 0, "mux_channel": 1, "address": "0x76", "sensor_name": "BME688", "sensor_type": "환경센서", "status": "연결됨"},
-            {"bus": 0, "mux_channel": 2, "address": "0x23", "sensor_name": "BH1750", "sensor_type": "조도센서", "status": "연결됨"},
-        ]
-        
-        # Bus 1 Mock 센서들
-        bus_1_sensors = [
-            {"bus": 1, "mux_channel": 0, "address": "0x44", "sensor_name": "SHT40", "sensor_type": "온습도센서", "status": "연결됨"},
-            {"bus": 1, "mux_channel": 1, "address": "0x76", "sensor_name": "BME688", "sensor_type": "환경센서", "status": "연결됨"},
-            {"bus": 1, "mux_channel": 2, "address": "0x23", "sensor_name": "BH1750", "sensor_type": "조도센서", "status": "연결됨"},
-        ]
-        
-        i2c_devices.extend(bus_0_sensors)
-        i2c_devices.extend(bus_1_sensors)
-        
-        result = {
-            "success": True,
-            "i2c_devices": i2c_devices,
-            "uart_devices": [],  # UART 디바이스는 별도 처리
-            "total_devices": len(i2c_devices),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        print(f"✅ 통합 센서 스캔 완료: {len(i2c_devices)}개 발견")
-        return result
+        if scan_result["success"]:
+            result = {
+                "success": True,
+                "mode": scan_result['mode'],
+                "i2c_devices": scan_result["i2c_devices"],
+                "uart_devices": [],  # UART 디바이스는 별도 처리
+                "total_devices": len(scan_result["i2c_devices"]),
+                "buses": scan_result["buses"],
+                "timestamp": scan_result["timestamp"]
+            }
+            
+            print(f"✅ 통합 센서 스캔 완료: {len(scan_result['i2c_devices'])}개 발견 ({scan_result['mode']} 모드)")
+            return result
+        else:
+            raise Exception(scan_result.get("error", "스캔 실패"))
         
     except Exception as e:
         print(f"❌ 통합 센서 스캔 실패: {e}")
@@ -317,46 +307,35 @@ async def scan_all_sensors():
 
 @app.post("/api/sensors/scan-dual-mux")
 async def scan_dual_mux_system():
-    """이중 TCA9548A 시스템 전체 스캔"""
+    """이중 TCA9548A 시스템 전체 스캔 - 실제 하드웨어 스캔"""
     try:
         print("🔍 이중 멀티플렉서 시스템 스캔 시작...")
         
-        # Mock 데이터로 시뮬레이션
-        all_sensors = []
+        # 하드웨어 스캐너 사용
+        scanner = get_scanner()
+        scan_result = scanner.scan_dual_mux_system()
         
-        # I2C 버스 0, 1 순차 스캔 시뮬레이션
-        for i2c_bus in [0, 1]:
-            for mux_channel in range(8):
-                # 일부 채널에만 센서가 연결된 것으로 시뮬레이션
-                if (i2c_bus == 0 and mux_channel < 3) or (i2c_bus == 1 and mux_channel < 3):
-                    sensor_addresses = [0x44, 0x76, 0x23]  # SHT40, BME688, BH1750
-                    sensor_names = ["SHT40", "BME688", "BH1750"]
-                    sensor_types = ["온습도센서", "환경센서", "조도센서"]
-                    
-                    addr = sensor_addresses[mux_channel]
-                    sensor_info = {
-                        "i2c_bus": i2c_bus,
-                        "mux_channel": mux_channel,
-                        "address": f"0x{addr:02X}",
-                        "sensor_name": sensor_names[mux_channel],
-                        "sensor_type": sensor_types[mux_channel],
-                        "sensor_id": f"bus{i2c_bus}_ch{mux_channel}_{addr:02X}",
-                        "status": "연결됨"
-                    }
-                    all_sensors.append(sensor_info)
-        
-        result = {
-            "success": True,
-            "total_buses": 2,
-            "total_channels": 16,
-            "sensors": all_sensors,
-            "bus_0_count": len([s for s in all_sensors if s["i2c_bus"] == 0]),
-            "bus_1_count": len([s for s in all_sensors if s["i2c_bus"] == 1]),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        print(f"✅ 이중 멀티플렉서 스캔 완료: {len(all_sensors)}개 센서 발견")
-        return result
+        if scan_result["success"]:
+            print(f"✅ 이중 멀티플렉서 스캔 완료: {len(scan_result['sensors'])}개 센서 발견")
+            print(f"🔧 모드: {scan_result['mode']}")
+            
+            # 기존 API 형식에 맞게 변환
+            result = {
+                "success": True,
+                "message": f"이중 멀티플렉서 스캔 완료 ({scan_result['mode']} 모드)",
+                "mode": scan_result['mode'],
+                "total_buses": 2,
+                "total_channels": 16,
+                "sensors": scan_result["sensors"],
+                "i2c_devices": scan_result["i2c_devices"],
+                "buses": scan_result["buses"],
+                "bus_0_count": len([s for s in scan_result["sensors"] if s["bus"] == 0]),
+                "bus_1_count": len([s for s in scan_result["sensors"] if s["bus"] == 1]),
+                "timestamp": scan_result["timestamp"]
+            }
+            return result
+        else:
+            raise Exception(scan_result.get("error", "스캔 실패"))
         
     except Exception as e:
         print(f"❌ 이중 멀티플렉서 스캔 실패: {e}")
@@ -527,6 +506,7 @@ async def startup_event():
 @app.on_event("shutdown") 
 async def shutdown_event():
     """애플리케이션 종료 시 정리"""
+    cleanup_scanner()  # 하드웨어 스캐너 정리
     print("🛑 EG-ICON Dashboard 서버 종료됨")
 
 if __name__ == "__main__":
