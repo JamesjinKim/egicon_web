@@ -1,0 +1,4 @@
+# Mac 개발용 의존성
+fastapi
+uvicorn
+websockets
