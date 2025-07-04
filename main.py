@@ -559,6 +559,114 @@ async def get_real_sensors_status():
             "timestamp": datetime.now().isoformat()
         }
 
+@app.get("/api/sensors/groups")
+async def get_dynamic_sensor_groups():
+    """실제 스캔된 센서를 기반으로 동적 그룹 생성"""
+    try:
+        print("🔍 API: 동적 센서 그룹 정보 요청")
+        
+        # 하드웨어 스캐너 사용
+        scanner = get_scanner()
+        scan_result = scanner.scan_dual_mux_system()
+        
+        if not scan_result["success"]:
+            raise Exception(scan_result.get("error", "스캔 실패"))
+        
+        # 그룹 초기화
+        groups = {
+            "temp-humidity": {"sensors": [], "types": []},
+            "pressure": {"sensors": [], "types": []},  
+            "light": {"sensors": [], "types": []},
+            "vibration": {"sensors": [], "types": []}
+        }
+        
+        # 실제 감지된 센서를 그룹별로 분류
+        for device in scan_result.get("i2c_devices", []):
+            sensor_type = device.get("sensor_type", "Unknown")
+            sensor_name = device.get("sensor_name", sensor_type)
+            
+            # 센서 ID 생성 (실제 하드웨어 기반)
+            sensor_id = f"{sensor_type.lower()}_{device['bus']}_{device['mux_channel']}"
+            
+            sensor_info = {
+                "id": sensor_id,
+                "type": sensor_type,
+                "name": sensor_name,
+                "address": device["address"],
+                "bus": device["bus"],
+                "channel": device["mux_channel"],
+                "status": device.get("status", "connected")
+            }
+            
+            # 온습도 센서 그룹 (BME688, SHT40)
+            if sensor_type in ["BME688", "SHT40"]:
+                groups["temp-humidity"]["sensors"].append(sensor_info)
+                if sensor_type not in groups["temp-humidity"]["types"]:
+                    groups["temp-humidity"]["types"].append(sensor_type)
+                    
+                # BME688은 압력센서 그룹에도 추가
+                if sensor_type == "BME688":
+                    groups["pressure"]["sensors"].append(sensor_info)
+                    if sensor_type not in groups["pressure"]["types"]:
+                        groups["pressure"]["types"].append(sensor_type)
+                        
+            # 조도 센서 그룹 (BH1750)
+            elif sensor_type == "BH1750":
+                groups["light"]["sensors"].append(sensor_info)
+                if sensor_type not in groups["light"]["types"]:
+                    groups["light"]["types"].append(sensor_type)
+            
+            # 기타 센서들 (향후 확장)
+            elif sensor_type in ["VL53L0X", "SDP810"]:
+                groups["vibration"]["sensors"].append(sensor_info)
+                if sensor_type not in groups["vibration"]["types"]:
+                    groups["vibration"]["types"].append(sensor_type)
+        
+        # 동적 통계 계산
+        for group_name, group_data in groups.items():
+            group_data["total_count"] = len(group_data["sensors"])
+            group_data["type_summary"] = {}
+            
+            # 센서 타입별 개수 계산
+            for sensor in group_data["sensors"]:
+                sensor_type = sensor["type"]
+                if sensor_type not in group_data["type_summary"]:
+                    group_data["type_summary"][sensor_type] = 0
+                group_data["type_summary"][sensor_type] += 1
+            
+            # 상태 및 요약 텍스트 생성
+            active_sensors = [s for s in group_data["sensors"] if s["status"] == "connected"]
+            group_data["active_count"] = len(active_sensors)
+            group_data["status"] = "online" if group_data["active_count"] > 0 else "offline"
+            
+            # 상태 텍스트 생성
+            if group_data["active_count"] > 0:
+                group_data["status_text"] = f"{group_data['active_count']}개 연결됨"
+            else:
+                group_data["status_text"] = "미연결"
+            
+            # 타입 요약 텍스트 생성  
+            if group_data["type_summary"]:
+                type_parts = []
+                for sensor_type, count in group_data["type_summary"].items():
+                    type_parts.append(f"{sensor_type}×{count}")
+                group_data["types_summary"] = " + ".join(type_parts)
+            else:
+                group_data["types_summary"] = "센서 준비 중"
+        
+        print(f"✅ 동적 센서 그룹 생성 완료:")
+        for group_name, group_data in groups.items():
+            print(f"  - {group_name}: {group_data['total_count']}개 센서, {group_data['type_summary']}")
+        
+        return groups
+        
+    except Exception as e:
+        print(f"❌ 동적 센서 그룹 생성 실패: {e}")
+        return {
+            "error": f"센서 그룹 생성 실패: {str(e)}",
+            "timestamp": datetime.now().isoformat()
+        }
+
 @app.get("/api/sensors/{sensor_id}")
 async def get_sensor_data(sensor_id: str):
     """특정 센서 데이터 조회"""

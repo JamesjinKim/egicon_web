@@ -135,7 +135,10 @@ class EGIconDashboard {
     async init() {
         this.hideLoading();
         this.initSensorData();
-        this.generateMockSensors();
+        
+        // 동적 센서 그룹 로드 (새로운 기능)
+        await this.loadSensorGroups();
+        
         this.initSidebarEvents();
         this.initCharts();
         
@@ -153,6 +156,182 @@ class EGIconDashboard {
         Object.keys(this.sensorTypes).forEach(type => {
             this.sensorData[type] = [];
         });
+    }
+
+    // 동적 센서 그룹 로드
+    async loadSensorGroups() {
+        try {
+            console.log('🔍 동적 센서 그룹 로딩 중...');
+            
+            const response = await fetch('/api/sensors/groups');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const dynamicGroups = await response.json();
+            console.log('📡 동적 센서 그룹 데이터:', dynamicGroups);
+            
+            // 기존 하드코딩된 그룹을 동적 그룹으로 교체
+            this.updateSensorGroupsFromAPI(dynamicGroups);
+            
+            // HTML 구조 동적 업데이트
+            this.buildDynamicSensorGroups(dynamicGroups);
+            
+            console.log('✅ 동적 센서 그룹 로딩 완료');
+            
+        } catch (error) {
+            console.warn('⚠️ 동적 센서 그룹 로딩 실패, 하드코딩 모드 사용:', error);
+            // 실패 시 기존 하드코딩된 그룹 사용
+            this.generateMockSensors();
+        }
+    }
+
+    // API에서 받은 그룹 데이터로 sensorGroups 업데이트
+    updateSensorGroupsFromAPI(dynamicGroups) {
+        Object.entries(dynamicGroups).forEach(([groupName, groupData]) => {
+            if (this.sensorGroups[groupName]) {
+                // 기존 그룹 구조 유지하되 동적 데이터로 업데이트
+                this.sensorGroups[groupName] = {
+                    ...this.sensorGroups[groupName],
+                    totalSensors: groupData.total_count,
+                    sensors: this.extractSensorIds(groupData.sensors),
+                    dynamicConfig: {
+                        statusText: groupData.status_text,
+                        typesSummary: groupData.types_summary,
+                        isOnline: groupData.status === 'online'
+                    }
+                };
+                
+                // 연결된 센서 목록 업데이트
+                groupData.sensors.forEach(sensor => {
+                    this.connectedSensors.add(sensor.id);
+                });
+            }
+        });
+        
+        console.log('📊 센서 그룹 업데이트 완료:', this.sensorGroups);
+    }
+
+    // 센서 데이터에서 센서 ID 목록 추출
+    extractSensorIds(sensors) {
+        const sensorIds = {};
+        
+        sensors.forEach(sensor => {
+            const sensorType = sensor.type.toLowerCase();
+            if (!sensorIds[sensorType]) {
+                sensorIds[sensorType] = [];
+            }
+            sensorIds[sensorType].push(sensor.id);
+        });
+        
+        return sensorIds;
+    }
+
+    // HTML 구조를 동적으로 업데이트
+    buildDynamicSensorGroups(dynamicGroups) {
+        Object.entries(dynamicGroups).forEach(([groupName, groupData]) => {
+            this.updateGroupHeader(groupName, groupData);
+            this.updateGroupCharts(groupName, groupData);
+        });
+    }
+
+    // 그룹 헤더 정보 업데이트
+    updateGroupHeader(groupName, groupData) {
+        const groupElement = document.querySelector(`[data-group="${groupName}"]`);
+        if (!groupElement) {
+            // 그룹 엘리먼트가 없으면 기존 방식으로 찾기
+            return this.updateGroupHeaderByClass(groupName, groupData);
+        }
+        
+        // 상태 텍스트 업데이트
+        const statusElement = groupElement.querySelector('.sensor-group-status');
+        if (statusElement) {
+            statusElement.textContent = groupData.status_text;
+            statusElement.className = `sensor-group-status ${groupData.status}`;
+        }
+        
+        // 타입 요약 업데이트
+        const summaryElement = groupElement.querySelector('.summary-item');
+        if (summaryElement) {
+            summaryElement.textContent = groupData.types_summary;
+        }
+    }
+
+    // 클래스 기반으로 그룹 헤더 업데이트 (폴백)
+    updateGroupHeaderByClass(groupName, groupData) {
+        // 온습도 센서 그룹
+        if (groupName === 'temp-humidity') {
+            const statusElement = document.querySelector('.sensor-group .sensor-group-status');
+            if (statusElement) {
+                statusElement.textContent = groupData.status_text;
+                statusElement.className = `sensor-group-status ${groupData.status}`;
+            }
+            
+            const summaryElement = document.querySelector('.sensor-group .summary-item');
+            if (summaryElement) {
+                summaryElement.textContent = groupData.types_summary;
+            }
+        }
+        
+        // 다른 그룹들도 필요시 추가
+    }
+
+    // 그룹별 차트 라벨 동적 업데이트
+    updateGroupCharts(groupName, groupData) {
+        // 센서 라벨 생성
+        const sensorLabels = groupData.sensors.map(sensor => {
+            const busLabel = sensor.bus === 0 ? 'CH1' : 'CH2';
+            return `${sensor.type} ${busLabel}-Ch${sensor.channel}`;
+        });
+        
+        // 해당 그룹의 메트릭별로 차트 업데이트
+        const group = this.sensorGroups[groupName];
+        if (group && group.metrics) {
+            group.metrics.forEach(metric => {
+                const chartId = `${metric}-multi-chart`;
+                if (this.charts[chartId]) {
+                    this.updateChartLabels(chartId, sensorLabels);
+                }
+            });
+        }
+    }
+
+    // 차트 라벨 동적 업데이트
+    updateChartLabels(chartId, newLabels) {
+        const chart = this.charts[chartId];
+        if (!chart) return;
+        
+        // 기존 데이터셋 수와 새 라벨 수가 다르면 차트 재생성
+        if (chart.data.datasets.length !== newLabels.length) {
+            console.log(`🔄 차트 ${chartId} 재생성 중 (${chart.data.datasets.length} -> ${newLabels.length})`);
+            this.recreateChart(chartId, newLabels);
+        } else {
+            // 라벨만 업데이트
+            chart.data.datasets.forEach((dataset, index) => {
+                if (newLabels[index]) {
+                    dataset.label = newLabels[index];
+                }
+            });
+            chart.update();
+        }
+    }
+
+    // 차트 재생성
+    recreateChart(chartId, sensorLabels) {
+        const canvas = document.getElementById(chartId);
+        if (!canvas) return;
+        
+        // 기존 차트 삭제
+        if (this.charts[chartId]) {
+            this.charts[chartId].destroy();
+            delete this.charts[chartId];
+        }
+        
+        // 센서 타입 추출 (차트 ID에서)
+        const sensorType = chartId.replace('-multi-chart', '');
+        
+        // 새 차트 생성
+        this.createMultiSensorChart(chartId, sensorType, sensorLabels);
     }
 
     // Mock 센서 생성 (그룹 기준)
@@ -226,26 +405,81 @@ class EGIconDashboard {
         }
     }
 
-    // 차트 초기화 (통합보기 Multi-line)
+    // 차트 초기화 (동적 센서 그룹 지원)
     initCharts() {
-        // 온습도 센서 통합 차트 (7개 센서)
-        this.createMultiSensorChart('temperature-multi-chart', 'temperature', 
-            ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5', 'SHT40']);
-        this.createMultiSensorChart('humidity-multi-chart', 'humidity',
-            ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5', 'SHT40']);
+        // 동적 센서 그룹이 로드된 후 차트 생성
+        this.createChartsFromSensorGroups();
+    }
+
+    // 센서 그룹 기반 차트 생성
+    createChartsFromSensorGroups() {
+        Object.entries(this.sensorGroups).forEach(([groupName, group]) => {
+            if (group.totalSensors > 0) {
+                // 각 메트릭별로 차트 생성
+                group.metrics.forEach(metric => {
+                    const chartId = `${metric}-multi-chart`;
+                    const sensorLabels = this.generateSensorLabels(group, metric);
+                    
+                    if (sensorLabels.length > 1) {
+                        // 멀티 센서 차트
+                        this.createMultiSensorChart(chartId, metric, sensorLabels);
+                    } else if (sensorLabels.length === 1) {
+                        // 단일 센서 차트
+                        this.createGroupChart(chartId, metric, sensorLabels[0]);
+                    }
+                });
+            }
+        });
+    }
+
+    // 센서 그룹에서 라벨 생성
+    generateSensorLabels(group, metric) {
+        const labels = [];
         
-        // 압력 센서 통합 차트 (6개 센서)
-        this.createMultiSensorChart('pressure-multi-chart', 'pressure',
-            ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5']);
-        this.createMultiSensorChart('airquality-multi-chart', 'airquality',
-            ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5']);
+        // 동적 구성이 있으면 사용
+        if (group.dynamicConfig && group.sensors) {
+            Object.values(group.sensors).forEach(sensorList => {
+                if (Array.isArray(sensorList)) {
+                    sensorList.forEach((sensorId, index) => {
+                        // 센서 ID에서 타입과 채널 정보 추출
+                        const parts = sensorId.split('_');
+                        if (parts.length >= 3) {
+                            const sensorType = parts[0].toUpperCase();
+                            const bus = parseInt(parts[1]);
+                            const channel = parseInt(parts[2]);
+                            const busLabel = bus === 0 ? 'CH1' : 'CH2';
+                            labels.push(`${sensorType} ${busLabel}-Ch${channel}`);
+                        } else {
+                            // 폴백: 기본 라벨
+                            labels.push(`${group.title} ${index + 1}`);
+                        }
+                    });
+                }
+            });
+        } else {
+            // 기존 하드코딩 방식 (폴백)
+            return this.generateFallbackLabels(group, metric);
+        }
         
-        // 조도 센서 통합 차트 (2개 센서)
-        this.createMultiSensorChart('light-multi-chart', 'light',
-            ['BH1750 Ch3', 'BH1750 Ch5']);
-        
-        // 진동 센서 차트 (1개)
-        this.createGroupChart('vibration-chart', 'vibration', '진동센서');
+        return labels;
+    }
+
+    // 폴백 라벨 생성 (기존 하드코딩 방식)
+    generateFallbackLabels(group, metric) {
+        switch (metric) {
+            case 'temperature':
+            case 'humidity':
+                return ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5', 'SHT40'];
+            case 'pressure':
+            case 'airquality':
+                return ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5'];
+            case 'light':
+                return ['BH1750 Ch3', 'BH1750 Ch5'];
+            case 'vibration':
+                return ['진동센서'];
+            default:
+                return [`${group.title}`];
+        }
     }
 
     // 그룹 차트 생성
@@ -638,7 +872,7 @@ class EGIconDashboard {
         this.updateStatusBar();
     }
 
-    // 센서 그룹별 데이터 업데이트
+    // 센서 그룹별 데이터 업데이트 (동적 센서 지원)
     updateSensorGroupData(groupName, timestamp) {
         const group = this.sensorGroups[groupName];
         if (!group) return;
@@ -647,26 +881,43 @@ class EGIconDashboard {
             const sensorData = [];
             let sensorIndex = 0;
 
-            // 각 센서 타입별로 Mock 데이터 생성
-            Object.values(group.sensors).forEach(sensorList => {
-                if (Array.isArray(sensorList)) {
-                    sensorList.forEach(sensorId => {
-                        const mockValue = this.generateMockValueForSensor(metric, sensorIndex, timestamp);
-                        sensorData.push({
-                            sensorId: sensorId,
-                            value: mockValue,
-                            sensorIndex: sensorIndex
+            // 동적 센서 구성 지원
+            if (group.sensors && typeof group.sensors === 'object') {
+                // 각 센서 타입별로 Mock 데이터 생성
+                Object.values(group.sensors).forEach(sensorList => {
+                    if (Array.isArray(sensorList)) {
+                        sensorList.forEach(sensorId => {
+                            const mockValue = this.generateMockValueForSensor(metric, sensorIndex, timestamp);
+                            sensorData.push({
+                                sensorId: sensorId,
+                                value: mockValue,
+                                sensorIndex: sensorIndex
+                            });
+                            sensorIndex++;
                         });
-                        sensorIndex++;
+                    }
+                });
+            } else {
+                // 폴백: 기본 센서 수 사용
+                const defaultSensorCount = group.totalSensors || 1;
+                for (let i = 0; i < defaultSensorCount; i++) {
+                    const mockValue = this.generateMockValueForSensor(metric, i, timestamp);
+                    sensorData.push({
+                        sensorId: `${metric}_${i}`,
+                        value: mockValue,
+                        sensorIndex: i
                     });
                 }
-            });
+            }
 
-            // Multi-line 차트 업데이트
-            this.updateMultiSensorChart(groupName, metric, sensorData, timestamp);
-            
-            // 요약 위젯 업데이트
-            this.updateSummaryWidgets(groupName, metric, sensorData);
+            // 센서 데이터가 있을 때만 업데이트
+            if (sensorData.length > 0) {
+                // Multi-line 차트 업데이트
+                this.updateMultiSensorChart(groupName, metric, sensorData, timestamp);
+                
+                // 요약 위젯 업데이트
+                this.updateSummaryWidgets(groupName, metric, sensorData);
+            }
         });
     }
 
