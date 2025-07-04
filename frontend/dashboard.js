@@ -360,7 +360,10 @@ class EGIconDashboard {
         Object.entries(sensorData).forEach(([sensorId, data]) => {
             this.connectedSensors.add(sensorId);
             this.updateSensorWidget(sensorId, data.value);
-            this.updateChartData(data.type, data.value, now);
+            
+            // 센서 타입을 ID에서 추출해서 차트 업데이트
+            const sensorType = this.getSensorTypeFromId(sensorId);
+            this.updateChartData(sensorType, data.value, now);
         });
         
         this.updateStatusBar();
@@ -477,11 +480,17 @@ class EGIconDashboard {
         
         // 배치로 센서 데이터 업데이트
         this.connectedSensors.forEach(sensorId => {
-            const [type] = sensorId.split('_');
-            const mockValue = this.generateMockValue(type, now);
+            // 실제 센서는 Mock 데이터로 업데이트하지 않음
+            const widget = document.querySelector(`[data-sensor="${sensorId}"]`);
+            if (widget && widget.getAttribute('data-real-sensor') === 'true') {
+                return; // 실제 센서는 건너뛰기
+            }
+            
+            const sensorType = this.getSensorTypeFromId(sensorId);
+            const mockValue = this.generateMockValue(sensorType, now);
             
             this.updateSensorWidget(sensorId, mockValue);
-            this.updateChartData(type, mockValue, now);
+            this.updateChartData(sensorType, mockValue, now);
         });
 
         this.updateStatusBar();
@@ -514,14 +523,45 @@ class EGIconDashboard {
     // 센서 위젯 업데이트
     updateSensorWidget(sensorId, value) {
         // 센서 ID에 따라 해당 위젯 찾기
-        const [type] = sensorId.split('_');
-        const unit = this.sensorTypes[type].unit;
+        let sensorType = this.getSensorTypeFromId(sensorId);
         
-        // 모든 해당 타입의 위젯을 찾아서 업데이트
-        const widgets = document.querySelectorAll(`.sensor-widget.${type} .widget-value`);
+        if (!this.sensorTypes[sensorType]) {
+            console.warn(`알 수 없는 센서 타입: ${sensorType} (ID: ${sensorId})`);
+            return;
+        }
+        
+        const unit = this.sensorTypes[sensorType].unit;
+        
+        // data-sensor 속성으로 특정 위젯 찾기 (더 정확한 매칭)
+        const specificWidget = document.querySelector(`[data-sensor="${sensorId}"] .widget-value`);
+        if (specificWidget) {
+            specificWidget.innerHTML = `${value.toFixed(1)}<span class="widget-unit">${unit}</span>`;
+            return;
+        }
+        
+        // 타입별 위젯 찾기 (폴백)
+        const widgets = document.querySelectorAll(`.sensor-widget.${sensorType} .widget-value`);
         widgets.forEach(widget => {
             widget.innerHTML = `${value.toFixed(1)}<span class="widget-unit">${unit}</span>`;
         });
+    }
+
+    // 센서 ID에서 센서 타입 추출
+    getSensorTypeFromId(sensorId) {
+        // 실제 센서 ID 매핑
+        if (sensorId.startsWith('bh1750_')) {
+            return 'light';
+        }
+        if (sensorId.startsWith('sht40_')) {
+            return 'temperature'; // 또는 humidity
+        }
+        if (sensorId.startsWith('bme688_')) {
+            return 'temperature'; // 또는 humidity, pressure, airquality
+        }
+        
+        // Mock 센서 ID (기존 방식)
+        const [type] = sensorId.split('_');
+        return type;
     }
 
     // 차트 데이터 업데이트 (그룹별)
