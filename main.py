@@ -359,8 +359,12 @@ async def scan_single_bus(bus_number: int):
         scan_result = scanner.scan_single_bus(bus_number)
         
         if scan_result["success"]:
+            # 디버깅을 위한 스캔 결과 출력
+            print(f"🔍 Bus {bus_number} 스캔 결과:", scan_result)
+            
             # 버스별 센서 데이터 추출
             bus_data = scan_result["buses"].get(str(bus_number), {})
+            print(f"📊 Bus {bus_number} 데이터:", bus_data)
             detected_sensors = []
             
             # TCA9548A 채널별 센서 추출
@@ -372,8 +376,8 @@ async def scan_single_bus(bus_number: int):
                                 "bus": bus_number,
                                 "mux_channel": int(channel_num),
                                 "address": sensor["address"],
-                                "sensor_name": sensor["sensor_name"],
-                                "sensor_type": sensor["sensor_type"],
+                                "sensor_name": sensor.get("sensor_name", sensor.get("sensor_type", "Unknown")),
+                                "sensor_type": sensor.get("sensor_type", "Unknown"),
                                 "status": "연결됨"
                             }
                             detected_sensors.append(sensor_info)
@@ -385,8 +389,8 @@ async def scan_single_bus(bus_number: int):
                         "bus": bus_number,
                         "mux_channel": i,  # 직접 연결된 센서의 경우 인덱스 사용
                         "address": sensor["address"],
-                        "sensor_name": sensor["sensor_name"],
-                        "sensor_type": sensor["sensor_type"],
+                        "sensor_name": sensor.get("sensor_name", sensor.get("sensor_type", "Unknown")),
+                        "sensor_type": sensor.get("sensor_type", "Unknown"),
                         "status": "연결됨"
                     }
                     detected_sensors.append(sensor_info)
