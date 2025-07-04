@@ -663,13 +663,15 @@ async def scan_dual_mux_system():
 async def scan_single_bus(bus_number: int):
     """단일 I2C 버스 스캔 - 실제 하드웨어 스캔"""
     try:
-        print(f"🔍 Bus {bus_number} 스캔 시작...")
+        print(f"🔍 API: Bus {bus_number} 단일 스캔 요청 받음")
         
         if bus_number not in [0, 1]:
             raise ValueError("지원되지 않는 버스 번호입니다. (0 또는 1만 지원)")
         
         # 하드웨어 스캐너 사용
         scanner = get_scanner()
+        print(f"📋 스캐너 정보: 라즈베리파이={scanner.is_raspberry_pi}, TCA정보={list(scanner.tca_info.keys())}")
+        
         scan_result = scanner.scan_single_bus(bus_number)
         
         if scan_result["success"]:

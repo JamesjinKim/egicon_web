@@ -63,13 +63,16 @@ class HardwareScanner:
             try:
                 bus = smbus2.SMBus(bus_num)
                 self.buses[bus_num] = bus
-                print(f"I2C 버스 {bus_num} 초기화 성공")
+                print(f"✅ I2C 버스 {bus_num} 초기화 성공")
             except Exception as e:
-                print(f"I2C 버스 {bus_num} 초기화 실패: {e}")
+                print(f"❌ I2C 버스 {bus_num} 초기화 실패: {e}")
+        
+        print(f"📋 총 {len(self.buses)}개 I2C 버스 활성화: {list(self.buses.keys())}")
     
     def _detect_tca9548a(self):
-        """TCA9548A 멀티플렉서 감지 (simpleTCA9548A.py 기반)"""
+        """TCA9548A 멀티플렉서 감지 (simpleTCA9548A.py 기반) - 이중 버스 지원"""
         for bus_num, bus in self.buses.items():
+            tca_found = False
             for addr in self.TCA9548A_ADDRESSES:
                 try:
                     # TCA9548A 응답 테스트
@@ -79,6 +82,7 @@ class HardwareScanner:
                         'channels': list(range(8))
                     }
                     print(f"TCA9548A 발견: Bus {bus_num}, 주소 0x{addr:02X}")
+                    tca_found = True
                     break
                 except:
                     try:
@@ -89,9 +93,15 @@ class HardwareScanner:
                             'channels': list(range(8))
                         }
                         print(f"TCA9548A 발견: Bus {bus_num}, 주소 0x{addr:02X}")
+                        tca_found = True
                         break
                     except:
                         continue
+            
+            if not tca_found:
+                print(f"TCA9548A 미발견: Bus {bus_num}")
+        
+        print(f"총 {len(self.tca_info)}개 TCA9548A 감지됨: {list(self.tca_info.keys())}")
     
     def _select_channel(self, bus_num: int, channel: int) -> bool:
         """TCA9548A 채널 선택"""
@@ -184,17 +194,23 @@ class HardwareScanner:
             return mock_devices
         
         if bus_num not in self.buses:
+            print(f"❌ Bus {bus_num}가 초기화되지 않음")
             return devices
             
         bus = self.buses[bus_num]
+        print(f"🔍 Bus {bus_num} 직접 스캔 시작")
         
         # 주요 센서 주소 스캔
         all_addresses = []
         for addresses in self.SENSOR_ADDRESSES.values():
             all_addresses.extend(addresses)
         
-        for addr in set(all_addresses):
+        scan_addresses = sorted(set(all_addresses))
+        print(f"  📋 스캔 대상 주소: {[f'0x{addr:02X}' for addr in scan_addresses]}")
+        
+        for addr in scan_addresses:
             try:
+                print(f"    🔍 주소 0x{addr:02X} 테스트 중...")
                 bus.read_byte(addr)
                 sensor_type = self._detect_sensor_type(bus_num, addr)
                 comm_ok = self._test_sensor_communication(bus_num, addr, sensor_type)
@@ -205,9 +221,13 @@ class HardwareScanner:
                     "status": "connected" if comm_ok else "detected"
                 })
                 
-            except Exception:
+                print(f"    ✅ 0x{addr:02X}: {sensor_type} {'연결됨' if comm_ok else '감지됨'}")
+                
+            except Exception as e:
+                print(f"    ⚪ 0x{addr:02X}: 응답 없음 ({str(e)[:50]})")
                 continue
         
+        print(f"🏁 Bus {bus_num} 직접 스캔 완료: {len(devices)}개 센서")
         return devices
     
     def scan_bus_with_mux(self, bus_num: int) -> Dict[int, List[Dict]]:
@@ -227,20 +247,34 @@ class HardwareScanner:
             return mock_results
         
         if bus_num not in self.tca_info:
+            print(f"⚠️ Bus {bus_num}에 TCA9548A가 감지되지 않음")
             return results
+        
+        tca_addr = self.tca_info[bus_num]['address']
+        print(f"🔍 Bus {bus_num} TCA9548A(0x{tca_addr:02X}) 스캔 시작")
         
         # 각 채널별 스캔
         for channel in range(8):
             results[channel] = []
+            print(f"  📡 채널 {channel} 스캔 중...")
             
             if not self._select_channel(bus_num, channel):
+                print(f"    ❌ 채널 {channel} 선택 실패")
                 continue
             
             # 채널에서 센서 검색
             channel_devices = self.scan_bus_direct(bus_num)
             results[channel] = channel_devices
             
+            if channel_devices:
+                print(f"    ✅ 채널 {channel}: {len(channel_devices)}개 센서 발견")
+            else:
+                print(f"    ⚪ 채널 {channel}: 센서 없음")
+            
             self._disable_all_channels(bus_num)
+        
+        total_sensors = sum(len(devices) for devices in results.values())
+        print(f"🏁 Bus {bus_num} 스캔 완료: 총 {total_sensors}개 센서")
         
         return results
     
