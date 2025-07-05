@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPS30 미세먼지 센서 - EG-ICON</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="description" content="SPS30 UART 미세먼지 센서 실시간 모니터링">
+</head>
+<body>
+    <!-- 로딩 오버레이 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- 사이드바 -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <button class="sidebar-toggle" id="sidebar-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            <h2>EG-ICON</h2>
+        </div>
+        <div class="sidebar-menu">
+            <a href="/" class="menu-item">
+                <i class="fas fa-home"></i>
+                <span>대시보드</span>
+            </a>
+            <a href="#" class="menu-item" data-menu="temperature">
+                <i class="fas fa-thermometer-half"></i>
+                <span>온도센서</span>
+            </a>
+            <a href="#" class="menu-item" data-menu="humidity">
+                <i class="fas fa-tint"></i>
+                <span>습도센서</span>
+            </a>
+            <a href="#" class="menu-item" data-menu="light">
+                <i class="fas fa-sun"></i>
+                <span>조도센서</span>
+            </a>
+            <a href="/dustsensor" class="menu-item active" data-menu="dustsensor">
+                <i class="fas fa-smog"></i>
+                <span>미세먼지센서</span>
+            </a>
+            <a href="#" class="menu-item" data-menu="vibration">
+                <i class="fas fa-wave-square"></i>
+                <span>진동센서</span>
+            </a>
+            <a href="/settings" class="menu-item" data-menu="settings">
+                <i class="fas fa-cog"></i>
+                <span>설정</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 메인 콘텐츠 -->
+    <div class="main-content" id="main-content">
+        <!-- 헤더 -->
+        <div class="header">
+            <h1>SPS30 미세먼지 센서 모니터링</h1>
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="user-details">
+                    <span class="user-name">ShinHoTechnology</span>
+                    <span class="user-role">관리자</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 상태 정보 표시 -->
+        <div class="status-bar">
+            <div class="status-item">
+                <i class="fas fa-microchip"></i>
+                <span id="sensor-connection">센서 연결: 확인 중...</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock"></i>
+                <span id="last-update">마지막 업데이트: --</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-wifi"></i>
+                <span id="websocket-status">실시간 연결: 연결 중...</span>
+            </div>
+        </div>
+
+        <!-- SPS30 센서 정보 -->
+        <div class="sensor-info-card">
+            <div class="sensor-info-header">
+                <i class="fas fa-info-circle"></i>
+                <h3>센서 정보</h3>
+            </div>
+            <div class="sensor-info-content">
+                <div class="info-item">
+                    <label>센서 모델:</label>
+                    <span id="sensor-model">SPS30</span>
+                </div>
+                <div class="info-item">
+                    <label>시리얼 번호:</label>
+                    <span id="sensor-serial">--</span>
+                </div>
+                <div class="info-item">
+                    <label>연결 포트:</label>
+                    <span id="sensor-port">--</span>
+                </div>
+                <div class="info-item">
+                    <label>데이터 업데이트 간격:</label>
+                    <span id="update-interval">10초</span>
+                </div>
+                <div class="info-item">
+                    <label>측정 성공률:</label>
+                    <span id="success-rate">--%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 실시간 측정값 위젯들 -->
+        <div class="dust-widgets-container">
+            <div class="dust-widget pm1">
+                <div class="widget-icon">🔸</div>
+                <div class="widget-content">
+                    <div class="widget-label">PM1.0</div>
+                    <div class="widget-value" id="pm1-value">--</div>
+                    <div class="widget-unit">μg/m³</div>
+                    <div class="widget-status" id="pm1-status">측정 중</div>
+                </div>
+            </div>
+
+            <div class="dust-widget pm25 featured">
+                <div class="widget-icon">🌫️</div>
+                <div class="widget-content">
+                    <div class="widget-label">PM2.5</div>
+                    <div class="widget-value" id="pm25-value">--</div>
+                    <div class="widget-unit">μg/m³</div>
+                    <div class="widget-status" id="pm25-status">측정 중</div>
+                </div>
+            </div>
+
+            <div class="dust-widget pm4">
+                <div class="widget-icon">💨</div>
+                <div class="widget-content">
+                    <div class="widget-label">PM4.0</div>
+                    <div class="widget-value" id="pm4-value">--</div>
+                    <div class="widget-unit">μg/m³</div>
+                    <div class="widget-status" id="pm4-status">측정 중</div>
+                </div>
+            </div>
+
+            <div class="dust-widget pm10">
+                <div class="widget-icon">☁️</div>
+                <div class="widget-content">
+                    <div class="widget-label">PM10</div>
+                    <div class="widget-value" id="pm10-value">--</div>
+                    <div class="widget-unit">μg/m³</div>
+                    <div class="widget-status" id="pm10-status">측정 중</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 공기질 등급 표시 -->
+        <div class="air-quality-indicator">
+            <div class="aqi-header">
+                <h3>종합 공기질 등급</h3>
+                <div class="aqi-grade" id="aqi-grade">--</div>
+            </div>
+            <div class="aqi-description" id="aqi-description">데이터 수집 중입니다</div>
+            <div class="aqi-scale">
+                <div class="aqi-item good">
+                    <div class="aqi-color"></div>
+                    <span>좋음 (0-15)</span>
+                </div>
+                <div class="aqi-item moderate">
+                    <div class="aqi-color"></div>
+                    <span>보통 (16-35)</span>
+                </div>
+                <div class="aqi-item unhealthy">
+                    <div class="aqi-color"></div>
+                    <span>나쁨 (36-75)</span>
+                </div>
+                <div class="aqi-item hazardous">
+                    <div class="aqi-color"></div>
+                    <span>매우나쁨 (76+)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 실시간 차트 -->
+        <div class="charts-container">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>실시간 미세먼지 농도 추이</h3>
+                    <div class="chart-controls">
+                        <button class="btn btn-sm" id="chart-range-1h">1시간</button>
+                        <button class="btn btn-sm active" id="chart-range-6h">6시간</button>
+                        <button class="btn btn-sm" id="chart-range-24h">24시간</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="dust-trend-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3>PM 농도 비교</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="pm-comparison-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 통계 정보 -->
+        <div class="statistics-container">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <i class="fas fa-chart-line"></i>
+                    <h4>오늘 평균</h4>
+                </div>
+                <div class="stat-values">
+                    <div class="stat-item">
+                        <label>PM2.5:</label>
+                        <span id="today-avg-pm25">-- μg/m³</span>
+                    </div>
+                    <div class="stat-item">
+                        <label>PM10:</label>
+                        <span id="today-avg-pm10">-- μg/m³</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h4>최고 농도</h4>
+                </div>
+                <div class="stat-values">
+                    <div class="stat-item">
+                        <label>PM2.5:</label>
+                        <span id="max-pm25">-- μg/m³</span>
+                    </div>
+                    <div class="stat-item">
+                        <label>PM10:</label>
+                        <span id="max-pm10">-- μg/m³</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <i class="fas fa-thumbs-up"></i>
+                    <h4>최저 농도</h4>
+                </div>
+                <div class="stat-values">
+                    <div class="stat-item">
+                        <label>PM2.5:</label>
+                        <span id="min-pm25">-- μg/m³</span>
+                    </div>
+                    <div class="stat-item">
+                        <label>PM10:</label>
+                        <span id="min-pm10">-- μg/m³</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="dustsensor.js"></script>
+</body>
+</html>

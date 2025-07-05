@@ -99,6 +99,16 @@ async def get_settings_js():
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="settings.js not found")
 
+@app.get("/dustsensor.js")
+async def get_dustsensor_js():
+    """dustsensor.js 파일 서빙"""
+    try:
+        with open("frontend/dustsensor.js", "r", encoding="utf-8") as f:
+            content = f.read()
+        return Response(content=content, media_type="application/javascript")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="dustsensor.js not found")
+
 @app.get("/style.css")
 async def get_style_css():
     """style.css 파일 서빙"""
@@ -131,6 +141,15 @@ async def settings():
             return HTMLResponse(content=f.read())
     except FileNotFoundError:
         return HTMLResponse(content="<h1>Settings not found</h1>", status_code=404)
+
+@app.get("/dustsensor", response_class=HTMLResponse)
+async def dustsensor():
+    """SPS30 미세먼지 센서 페이지"""
+    try:
+        with open("frontend/dustsensor.html", "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>Dust Sensor page not found</h1>", status_code=404)
 
 # 시스템 정보 엔드포인트
 @app.get("/api/system/info")

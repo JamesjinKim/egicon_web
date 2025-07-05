@@ -866,25 +866,46 @@ class EGIconDashboard {
             light: []
         };
         
+        // sensorData가 배열인지 객체인지 확인
+        let dataArray = [];
+        if (Array.isArray(sensorData)) {
+            dataArray = sensorData;
+        } else if (typeof sensorData === 'object') {
+            dataArray = Object.entries(sensorData).map(([id, data]) => ({
+                sensorId: id,
+                ...data
+            }));
+        }
+        
         // WebSocket 데이터 처리 및 그룹화
-        Object.entries(sensorData).forEach(([sensorId, data]) => {
-            this.connectedSensors.add(sensorId);
+        dataArray.forEach((data) => {
+            // SPS30 센서 데이터 처리
+            if (data.sensor_type === 'SPS30' && data.interface === 'UART') {
+                this.updateSPS30Data(data);
+                return;
+            }
             
-            // 센서 타입 추출 (BME688 세분화 센서 지원)
-            const sensorType = this.getSensorTypeFromId(sensorId);
-            
-            if (sensorType && groupedData[sensorType] !== undefined) {
-                // 센서 인덱스 추출 (차트 라인 매핑용)
-                const sensorIndex = this.extractSensorIndex(sensorId);
+            // 기존 I2C 센서 데이터 처리
+            const sensorId = data.sensorId || data.sensor_id;
+            if (sensorId) {
+                this.connectedSensors.add(sensorId);
                 
-                groupedData[sensorType].push({
-                    sensorId: sensorId,
-                    value: data.value,
-                    sensorIndex: sensorIndex,
-                    timestamp: now
-                });
+                // 센서 타입 추출 (BME688 세분화 센서 지원)
+                const sensorType = this.getSensorTypeFromId(sensorId);
                 
-                console.log(`📊 실시간 데이터: ${sensorId} = ${data.value} (타입: ${sensorType}, 인덱스: ${sensorIndex})`);
+                if (sensorType && groupedData[sensorType] !== undefined) {
+                    // 센서 인덱스 추출 (차트 라인 매핑용)
+                    const sensorIndex = this.extractSensorIndex(sensorId);
+                    
+                    groupedData[sensorType].push({
+                        sensorId: sensorId,
+                        value: data.value,
+                        sensorIndex: sensorIndex,
+                        timestamp: now
+                    });
+                    
+                    console.log(`📊 실시간 데이터: ${sensorId} = ${data.value} (타입: ${sensorType}, 인덱스: ${sensorIndex})`);
+                }
             }
         });
         
@@ -968,9 +989,98 @@ class EGIconDashboard {
             // SPS30 공기질 센서 처리
             if (sensor.sensor_type === 'SPS30' && sensor.interface === 'UART') {
                 console.log('📊 SPS30 공기질 센서 발견:', sensor);
-                // 향후 공기질 위젯 추가 시 처리
+                this.updateSPS30Status(sensor);
             }
         });
+    }
+
+    // SPS30 센서 상태 업데이트
+    updateSPS30Status(sensor) {
+        const statusElement = document.getElementById('sps30-status');
+        if (statusElement) {
+            statusElement.textContent = '1개 연결됨';
+            statusElement.className = 'sensor-group-status online';
+        }
+
+        const modelElement = document.getElementById('sps30-model');
+        if (modelElement) {
+            modelElement.textContent = `SPS30 (${sensor.serial_number?.substring(0, 8) || 'UART'})`;
+        }
+    }
+
+    // SPS30 실시간 데이터 처리
+    updateSPS30Data(sensorData) {
+        if (sensorData.sensor_type === 'SPS30' && sensorData.values) {
+            const values = sensorData.values;
+            
+            // PM2.5 위젯 업데이트
+            const pm25Element = document.getElementById('pm25-value');
+            if (pm25Element) {
+                pm25Element.textContent = `${values.pm25?.toFixed(1) || '--'} μg/m³`;
+            }
+            
+            const pm25LevelElement = document.getElementById('pm25-level');
+            if (pm25LevelElement) {
+                pm25LevelElement.textContent = this.getAirQualityLevel(values.pm25);
+            }
+
+            // PM10 위젯 업데이트
+            const pm10Element = document.getElementById('pm10-value');
+            if (pm10Element) {
+                pm10Element.textContent = `${values.pm10?.toFixed(1) || '--'} μg/m³`;
+            }
+            
+            const pm10LevelElement = document.getElementById('pm10-level');
+            if (pm10LevelElement) {
+                pm10LevelElement.textContent = this.getAirQualityLevel(values.pm10);
+            }
+
+            // 공기질 등급 업데이트
+            const qualityElement = document.getElementById('air-quality-grade');
+            const descElement = document.getElementById('air-quality-desc');
+            
+            if (qualityElement && descElement) {
+                const { grade, description } = this.getAirQualityInfo(values.pm25);
+                qualityElement.textContent = grade;
+                descElement.textContent = description;
+            }
+
+            // 메인 차트 업데이트 (있다면)
+            this.updateSPS30MainChart(values);
+            
+            console.log('📊 SPS30 메인 위젯 업데이트:', values);
+        }
+    }
+
+    // 공기질 등급 계산
+    getAirQualityLevel(pmValue) {
+        if (pmValue <= 15) return '좋음';
+        else if (pmValue <= 35) return '보통';
+        else if (pmValue <= 75) return '나쁨';
+        else return '매우나쁨';
+    }
+
+    // 공기질 정보 반환
+    getAirQualityInfo(pm25Value) {
+        if (pm25Value <= 15) {
+            return { grade: '좋음', description: '공기질이 좋습니다' };
+        } else if (pm25Value <= 35) {
+            return { grade: '보통', description: '민감한 사람은 주의하세요' };
+        } else if (pm25Value <= 75) {
+            return { grade: '나쁨', description: '외출 시 마스크 착용' };
+        } else {
+            return { grade: '매우나쁨', description: '외출을 자제하세요' };
+        }
+    }
+
+    // SPS30 메인 차트 업데이트
+    updateSPS30MainChart(values) {
+        // 간단한 메인 차트가 있다면 업데이트
+        const chart = Chart.getChart('sps30-main-chart');
+        if (chart) {
+            // 차트 데이터 업데이트 로직 구현
+            console.log('📊 SPS30 메인 차트 업데이트');
+        }
     }
 
     // Mock 센서를 실제 센서로 교체
