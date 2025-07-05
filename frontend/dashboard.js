@@ -576,22 +576,51 @@ class EGIconDashboard {
         return labels;
     }
 
-    // 폴백 라벨 생성 (기존 하드코딩 방식)
+    // 폴백 라벨 생성 (동적 센서 구성 기반)
     generateFallbackLabels(group, metric) {
-        switch (metric) {
-            case 'temperature':
-            case 'humidity':
-                return ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5', 'SHT40'];
-            case 'pressure':
-            case 'airquality':
-                return ['BME688 Ch0', 'BME688 Ch1', 'BME688 Ch2', 'BME688 Ch3', 'BME688 Ch4', 'BME688 Ch5'];
-            case 'light':
-                return ['BH1750 Ch3', 'BH1750 Ch5'];
-            case 'vibration':
-                return ['진동센서'];
-            default:
-                return [`${group.title}`];
+        const labels = [];
+        
+        // 동적 센서 구성이 있으면 사용
+        if (group.sensors && typeof group.sensors === 'object') {
+            // 센서 타입별로 분류된 경우
+            Object.entries(group.sensors).forEach(([sensorType, sensorList]) => {
+                if (Array.isArray(sensorList)) {
+                    sensorList.forEach((sensorId) => {
+                        // 센서 ID에서 라벨 생성 (예: bme688_1_0 -> BME688 CH2-Ch0)
+                        const parts = sensorId.split('_');
+                        if (parts.length >= 3) {
+                            const type = parts[0].toUpperCase();
+                            const bus = parseInt(parts[1]);
+                            const channel = parseInt(parts[2]);
+                            const busLabel = bus === 0 ? 'CH1' : 'CH2';
+                            labels.push(`${type} ${busLabel}-Ch${channel}`);
+                        } else {
+                            labels.push(`${sensorType.toUpperCase()} 센서`);
+                        }
+                    });
+                }
+            });
         }
+        
+        // 동적 구성이 없거나 비어있으면 기본 라벨
+        if (labels.length === 0) {
+            switch (metric) {
+                case 'temperature':
+                case 'humidity':
+                    return ['온습도 센서 1', '온습도 센서 2', '온습도 센서 3'];
+                case 'pressure':
+                case 'airquality':
+                    return ['압력 센서 1', '압력 센서 2'];
+                case 'light':
+                    return ['조도 센서 1', '조도 센서 2'];
+                case 'vibration':
+                    return ['진동 센서'];
+                default:
+                    return [`${group.title} 센서`];
+            }
+        }
+        
+        return labels;
     }
 
     // 그룹 차트 생성
@@ -890,22 +919,22 @@ class EGIconDashboard {
             if (sensorId) {
                 this.connectedSensors.add(sensorId);
                 
-                // 센서 타입 추출 (BME688 세분화 센서 지원)
-                const sensorType = this.getSensorTypeFromId(sensorId);
-                
-                if (sensorType && groupedData[sensorType] !== undefined) {
-                    // 센서 인덱스 추출 (차트 라인 매핑용)
-                    const sensorIndex = this.extractSensorIndex(sensorId);
-                    
-                    groupedData[sensorType].push({
-                        sensorId: sensorId,
-                        value: data.value,
-                        sensorIndex: sensorIndex,
-                        timestamp: now
-                    });
-                    
-                    console.log(`📊 실시간 데이터: ${sensorId} = ${data.value} (타입: ${sensorType}, 인덱스: ${sensorIndex})`);
-                }
+                // 서버에서 오는 데이터 구조 처리
+                // 각 센서 타입별로 개별 메트릭을 추출
+                ['temperature', 'humidity', 'pressure', 'light'].forEach(metric => {
+                    if (data[metric] !== undefined) {
+                        const sensorIndex = this.extractSensorIndex(sensorId);
+                        
+                        groupedData[metric].push({
+                            sensorId: sensorId,
+                            value: data[metric],
+                            sensorIndex: sensorIndex,
+                            timestamp: now
+                        });
+                        
+                        console.log(`📊 실시간 데이터: ${sensorId} ${metric} = ${data[metric]} (인덱스: ${sensorIndex})`);
+                    }
+                });
             }
         });
         
@@ -1311,21 +1340,37 @@ class EGIconDashboard {
 
     // 센서 ID에서 인덱스 추출 (차트 라인 매핑용)
     extractSensorIndex(sensorId) {
-        // BME688 센서: bme688_0_2_temp -> 채널 2 = 인덱스 2
-        // BH1750 센서: bh1750_0_5 -> 채널 5 = 인덱스 0 (조도센서는 1개뿐)
+        // 동적 센서 구성에서 실제 센서 순서를 기반으로 인덱스 결정
+        // 하드코딩된 채널 매핑 대신 실제 스캔된 센서 순서 사용
         
+        // 현재 그룹의 센서 목록에서 해당 센서의 위치 찾기
+        for (const [groupName, groupData] of Object.entries(this.sensorGroups)) {
+            if (groupData.sensors && Array.isArray(groupData.sensors)) {
+                const sensorIndex = groupData.sensors.findIndex(sensor => 
+                    sensor === sensorId || sensor.sensor_id === sensorId
+                );
+                if (sensorIndex !== -1) {
+                    return sensorIndex;
+                }
+            } else if (groupData.sensors && typeof groupData.sensors === 'object') {
+                // 센서 타입별로 분류된 경우
+                let globalIndex = 0;
+                for (const [sensorType, sensorList] of Object.entries(groupData.sensors)) {
+                    if (Array.isArray(sensorList)) {
+                        const typeIndex = sensorList.indexOf(sensorId);
+                        if (typeIndex !== -1) {
+                            return globalIndex + typeIndex;
+                        }
+                        globalIndex += sensorList.length;
+                    }
+                }
+            }
+        }
+        
+        // 폴백: 센서 ID에서 채널 번호 사용 (기존 방식)
         const parts = sensorId.split('_');
         if (parts.length >= 3) {
-            const channel = parseInt(parts[2]);
-            
-            // BME688의 경우 채널 번호가 인덱스
-            if (sensorId.startsWith('bme688_')) {
-                return channel;
-            }
-            // BH1750의 경우 별도 처리 (현재는 1개뿐이므로 0)
-            else if (sensorId.startsWith('bh1750_')) {
-                return 0;
-            }
+            return parseInt(parts[2]);
         }
         
         return 0; // 기본값
