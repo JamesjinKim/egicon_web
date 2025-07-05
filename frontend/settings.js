@@ -212,8 +212,24 @@ class EGIconSettings {
             return;
         }
         
-        // I2C 디바이스 표시 (버스별 구분)
-        i2cDevices.forEach(device => {
+        // I2C 디바이스 정렬 (버스 → 채널 순서)
+        const sortedI2CDevices = i2cDevices.sort((a, b) => {
+            // 1차 정렬: 버스 번호
+            if (a.bus !== b.bus) {
+                return a.bus - b.bus;
+            }
+            // 2차 정렬: 채널 번호 (null/undefined는 마지막으로)
+            if (a.mux_channel === null || a.mux_channel === undefined) {
+                return 1;
+            }
+            if (b.mux_channel === null || b.mux_channel === undefined) {
+                return -1;
+            }
+            return a.mux_channel - b.mux_channel;
+        });
+        
+        // I2C 디바이스 표시 (정렬된 순서)
+        sortedI2CDevices.forEach(device => {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><span class="comm-badge i2c">I2C</span></td>
