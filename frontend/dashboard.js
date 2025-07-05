@@ -658,8 +658,8 @@ class EGIconDashboard {
         // SDP810 전용 차트 생성
         this.createSDP810Charts();
         
-        // BME688 pressure-gas 그룹 차트 생성
-        this.createPressureGasCharts();
+        // BME688 pressure-gas 그룹 차트는 센서 발견 후 동적 생성
+        console.log('📊 BME688 차트는 센서 발견 후 동적으로 생성됩니다');
     }
 
     // 센서 그룹 기반 차트 생성
@@ -898,6 +898,12 @@ class EGIconDashboard {
         if (existingChart) {
             console.log(`🗑️ 기존 차트 파괴: ${canvasId}`);
             existingChart.destroy();
+        }
+        
+        // this.charts에서도 제거
+        if (this.charts[canvasId]) {
+            console.log(`🗑️ this.charts에서 기존 차트 제거: ${canvasId}`);
+            delete this.charts[canvasId];
         }
 
         const sensorConfig = this.sensorTypes[sensorType];
