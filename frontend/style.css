@@ -472,6 +472,8 @@ body {
 .fas.fa-microchip::before { content: "🔌"; }
 .fas.fa-wifi::before { content: "📶"; }
 .fas.fa-info-circle::before { content: "ℹ️"; }
+.fas.fa-exclamation-triangle::before { content: "⚠️"; }
+.fas.fa-thumbs-up::before { content: "👍"; }
 .fas.fa-network-wired::before { content: "🌐"; }
 .fas.fa-vial::before { content: "🧪"; }
 .fas.fa-spinner::before { content: "⏳"; }
