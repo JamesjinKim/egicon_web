@@ -209,6 +209,7 @@ def setup_api_routes(app: FastAPI):
                 "sht40": {"sensors": [], "count": 0},  # SHT40 전용 그룹 추가
                 "sdp810": {"sensors": [], "count": 0},  # SDP810 전용 그룹 추가
                 "pressure": {"sensors": [], "count": 0}, 
+                "pressure-gas": {"sensors": [], "count": 0},  # 메인 대시보드용 BME688 그룹
                 "light": {"sensors": [], "count": 0},
                 "air-quality": {"sensors": [], "count": 0}
             }
@@ -239,6 +240,7 @@ def setup_api_routes(app: FastAPI):
                 if sensor_type == "BME688":
                     # BME688: 온도/습도 제거, 기압/가스저항만 사용
                     groups["pressure"]["sensors"].append(sensor)  # 기압 전용
+                    groups["pressure-gas"]["sensors"].append(sensor)  # 메인 대시보드용 (기압+가스저항)
                     groups["air-quality"]["sensors"].append(sensor)  # 가스저항 전용
                 elif sensor_type == "SHT40":
                     groups["sht40"]["sensors"].append(sensor)  # SHT40은 별도 그룹으로

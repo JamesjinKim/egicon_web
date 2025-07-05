@@ -1328,10 +1328,71 @@ class EGIconDashboard {
         const sdp810Sensor = { bus: 1, mux_channel: 0 };
         this.startSDP810DataPolling('sdp810_1_0_25', sdp810Sensor);
         
-        // BME688 API 폴링 시작 (기압/가스저항 데이터)
-        console.log('🔧 BME688 강제 폴링 시작...');
-        const bme688Sensor = { bus: 1, mux_channel: 1 };  // 예시 위치
-        this.startBME688DataPolling('bme688_1_1_77', bme688Sensor);
+        // BME688 API 폴링 시작 (실제 감지된 센서 기반)
+        this.startBME688PollingForDiscoveredSensors();
+    }
+
+    // 감지된 BME688 센서에 대해 폴링 시작
+    async startBME688PollingForDiscoveredSensors() {
+        try {
+            console.log('🔍 BME688 센서 검색 및 폴링 시작...');
+            
+            // 센서 그룹에서 BME688 센서 찾기
+            const response = await fetch('/api/sensors/groups');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const groupsData = await response.json();
+            console.log('📡 센서 그룹 데이터:', groupsData);
+            
+            // pressure-gas 그룹에서 BME688 센서 찾기
+            const pressureGasGroup = groupsData.groups && groupsData.groups['pressure-gas'];
+            if (pressureGasGroup && pressureGasGroup.sensors && pressureGasGroup.sensors.length > 0) {
+                console.log(`✅ BME688 센서 ${pressureGasGroup.sensors.length}개 발견`);
+                
+                // 첫 번째 BME688 센서로 폴링 시작
+                const firstBME688 = pressureGasGroup.sensors[0];
+                const sensorInfo = {
+                    bus: firstBME688.bus,
+                    mux_channel: firstBME688.mux_channel
+                };
+                
+                const sensorId = `bme688_${firstBME688.bus}_${firstBME688.mux_channel}_77`;
+                console.log(`🚀 BME688 폴링 시작: ${sensorId}`, sensorInfo);
+                
+                this.startBME688DataPolling(sensorId, sensorInfo);
+                
+                // pressure-gas 그룹 상태 업데이트
+                this.updatePressureGasGroupStatus(pressureGasGroup);
+                
+            } else {
+                console.warn('⚠️ pressure-gas 그룹에서 BME688 센서를 찾을 수 없음');
+            }
+            
+        } catch (error) {
+            console.error('❌ BME688 센서 검색 실패:', error);
+        }
+    }
+
+    // pressure-gas 그룹 상태 업데이트
+    updatePressureGasGroupStatus(groupData) {
+        const sensorCount = groupData.sensors.length;
+        
+        // 그룹 상태 업데이트
+        const statusElement = document.getElementById('pressure-gas-status');
+        if (statusElement) {
+            statusElement.textContent = `${sensorCount}개 연결됨`;
+            statusElement.className = 'sensor-group-status online';
+        }
+        
+        // 그룹 요약 업데이트
+        const summaryElement = document.getElementById('pressure-gas-summary');
+        if (summaryElement) {
+            summaryElement.textContent = `BME688×${sensorCount}`;
+        }
+        
+        console.log(`✅ pressure-gas 그룹 상태 업데이트: ${sensorCount}개 센서`);
     }
 
     // 실제 센서 데이터 처리
