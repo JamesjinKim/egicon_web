@@ -916,18 +916,18 @@ class EGIconDashboard {
         try {
             console.log('🔍 실제 센서 데이터 로딩 중...');
             
-            const response = await fetch('/api/sensors/real-status');
+            const response = await fetch('/api/sensors');
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            const result = await response.json();
-            console.log('📡 실제 센서 데이터:', result);
+            const sensors = await response.json();
+            console.log('📡 실제 센서 데이터:', sensors);
             
-            if (result.sensors && Object.keys(result.sensors).length > 0) {
+            if (sensors && Array.isArray(sensors) && sensors.length > 0) {
                 // 실제 센서 데이터가 있으면 Mock 데이터와 병합
-                this.mergeRealSensorData(result.sensors);
-                console.log(`✅ 실제 센서 ${Object.keys(result.sensors).length}개 연결됨`);
+                this.mergeRealSensorData(sensors);
+                console.log(`✅ 실제 센서 ${sensors.length}개 연결됨`);
             } else {
                 console.log('⚠️ 실제 센서 데이터 없음, Mock 데이터 사용');
             }
@@ -938,24 +938,37 @@ class EGIconDashboard {
     }
 
     // 실제 센서 데이터와 Mock 데이터 병합
-    mergeRealSensorData(realSensors) {
-        Object.entries(realSensors).forEach(([sensorId, sensorData]) => {
+    mergeRealSensorData(sensors) {
+        if (!Array.isArray(sensors)) {
+            console.error('❌ 센서 데이터가 배열이 아닙니다:', sensors);
+            return;
+        }
+        
+        sensors.forEach((sensor) => {
             // BH1750 조도 센서의 경우 light_1 위젯 교체
-            if (sensorData.type === 'light') {
+            if (sensor.sensor_type === 'BH1750') {
+                const sensorId = `${sensor.sensor_type.toLowerCase()}_${sensor.bus}_${sensor.mux_channel || 0}`;
+                
                 // 기존 light_1 Mock 센서를 실제 센서로 교체
-                this.replaceMockSensor('light_1', sensorId, sensorData);
+                this.replaceMockSensor('light_1', sensorId, sensor);
                 
                 // 위젯 제목 업데이트
                 const widget = document.querySelector('[data-sensor="light_1"]');
                 if (widget) {
                     const titleElement = widget.querySelector('.widget-title');
                     if (titleElement) {
-                        titleElement.textContent = `BH1750 조도 (Ch${sensorData.channel + 1})`;
+                        titleElement.textContent = `BH1750 조도 (Bus${sensor.bus}:Ch${sensor.mux_channel})`;
                     }
                     // 실제 센서 ID로 data 속성 변경
                     widget.setAttribute('data-sensor', sensorId);
                     widget.setAttribute('data-real-sensor', 'true');
                 }
+            }
+            
+            // SPS30 공기질 센서 처리
+            if (sensor.sensor_type === 'SPS30' && sensor.interface === 'UART') {
+                console.log('📊 SPS30 공기질 센서 발견:', sensor);
+                // 향후 공기질 위젯 추가 시 처리
             }
         });
     }
