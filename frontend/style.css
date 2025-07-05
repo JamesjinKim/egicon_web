@@ -456,8 +456,11 @@ body {
 .fas.fa-lightbulb::before { content: "💡"; }
 .fas.fa-compress-alt::before { content: "📏"; }
 .fas.fa-wave-square::before { content: "〜"; }
+.fas.fa-mobile-vibrate::before { content: "📳"; }
 .fas.fa-leaf::before { content: "🍃"; }
 .fas.fa-lungs::before { content: "🫁"; }
+.fas.fa-wind::before { content: "🌬️"; }
+.fas.fa-mask::before { content: "😷"; }
 .fas.fa-smog::before { content: "🌫️"; }
 .fas.fa-cog::before { content: "⚙️"; }
 .fas.fa-sync-alt::before { content: "🔄"; }
@@ -466,7 +469,9 @@ body {
 .fas.fa-chart-line::before { content: "📈"; }
 .fas.fa-user::before { content: "👤"; }
 .fas.fa-search::before { content: "🔍"; }
-.fas.fa-microchip::before { content: "💾"; }
+.fas.fa-microchip::before { content: "🔌"; }
+.fas.fa-wifi::before { content: "📶"; }
+.fas.fa-info-circle::before { content: "ℹ️"; }
 .fas.fa-network-wired::before { content: "🌐"; }
 .fas.fa-vial::before { content: "🧪"; }
 .fas.fa-spinner::before { content: "⏳"; }
@@ -1417,10 +1422,11 @@ body {
     box-shadow: 0 4px 20px var(--shadow-color);
     border: 1px solid #e0e0e0;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     position: relative;
     overflow: hidden;
+    min-height: 120px;
 }
 
 .dust-widget:hover {
@@ -1460,9 +1466,11 @@ body {
 }
 
 .widget-icon {
-    font-size: 2.5rem;
-    margin-right: 20px;
-    opacity: 0.8;
+    font-size: 2rem;
+    margin-right: 15px;
+    opacity: 0.7;
+    align-self: flex-start;
+    margin-top: 5px;
 }
 
 .widget-content {

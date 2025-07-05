@@ -573,8 +573,8 @@ class EGIconDashboard {
             item.addEventListener('click', (e) => {
                 const menu = item.getAttribute('data-menu');
                 
-                // 설정 메뉴는 페이지 이동을 허용
-                if (menu === 'settings') {
+                // 설정 메뉴와 미세먼지센서 메뉴는 페이지 이동을 허용
+                if (menu === 'settings' || menu === 'dustsensor') {
                     return; // preventDefault 하지 않고 기본 링크 동작 허용
                 }
                 
