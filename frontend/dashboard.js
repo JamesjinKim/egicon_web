@@ -34,7 +34,7 @@ class EGIconDashboard {
                 metrics: ["temperature", "humidity"],
                 sensors: {
                     // SHT40 센서 (Bus 0 CH1, Bus 1 CH2)
-                    sht40: ["sht40_0_1_44", "sht40_1_2_44"]  // Mock 센서 (Bus 0 CH1, Bus 1 CH2)
+                    sht40: []  // 동적으로 발견됨
                 },
                 totalSensors: 2,
                 containerId: "sht40-widgets"
@@ -45,7 +45,7 @@ class EGIconDashboard {
                 metrics: ["pressure"],
                 sensors: {
                     // SDP810 센서 (동적으로 발견됨)
-                    sdp810: ["sdp810_1_0_25"]  // Mock 센서 (Bus 1 CH0)
+                    sdp810: []  // 동적으로 발견됨
                 },
                 totalSensors: 1,
                 containerId: "sdp810-widgets"
@@ -147,8 +147,7 @@ class EGIconDashboard {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         
-        // Mock 데이터 인터벌
-        this.mockDataInterval = null;
+        // 실제 센서 데이터만 사용
 
         this.init();
     }
@@ -205,8 +204,7 @@ class EGIconDashboard {
             
         } catch (error) {
             console.warn('⚠️ 동적 센서 그룹 로딩 실패, 하드코딩 모드 사용:', error);
-            // 실패 시 기존 하드코딩된 그룹 사용
-            this.generateMockSensors();
+            // 실패 시 기존 하드코딩된 그룹 사용 (실제 센서 데이터만)
         }
     }
 
@@ -548,30 +546,14 @@ class EGIconDashboard {
         this.createMultiSensorChart(chartId, sensorType, sensorLabels);
     }
 
-    // Mock 센서 생성 (그룹 기준)
-    generateMockSensors() {
-        console.log('🔧 Mock 센서 생성 중...');
+    // 실제 센서 연결 초기화
+    initializeConnectedSensors() {
+        console.log('🔧 실제 센서 연결 상태 초기화...');
         
-        // 각 그룹의 센서들을 connectedSensors에 추가
-        Object.values(this.sensorGroups).forEach(group => {
-            if (group.sensors && typeof group.sensors === 'object') {
-                // sensors가 객체인 경우 (센서 타입별로 분류된 경우)
-                Object.values(group.sensors).forEach(sensorArray => {
-                    if (Array.isArray(sensorArray)) {
-                        sensorArray.forEach(sensorId => {
-                            this.connectedSensors.add(sensorId);
-                        });
-                    }
-                });
-            } else if (Array.isArray(group.sensors)) {
-                // sensors가 배열인 경우
-                group.sensors.forEach(sensorId => {
-                    this.connectedSensors.add(sensorId);
-                });
-            }
-        });
+        // 실제 센서만 추가 (동적 데이터에서)
+        // Mock 데이터는 생성하지 않음
         
-        console.log('✅ Mock 센서 생성 완료:', this.connectedSensors.size, '개');
+        console.log('✅ 실제 센서 초기화 완료:', this.connectedSensors.size, '개');
     }
 
     // 사이드바 이벤트 초기화
@@ -1136,8 +1118,8 @@ class EGIconDashboard {
 
     // 실시간 연결 시작
     startRealtimeConnection() {
-        // 먼저 로컬 Mock 데이터로 시작
-        this.startLocalMockData();
+        // 실제 센서 데이터만 사용
+        // Mock 데이터 시스템 제거
         
         // 그 다음 WebSocket 연결 시도
         setTimeout(() => {
@@ -1300,11 +1282,11 @@ class EGIconDashboard {
             console.log('📡 실제 센서 데이터:', sensors);
             
             if (sensors && Array.isArray(sensors) && sensors.length > 0) {
-                // 실제 센서 데이터가 있으면 Mock 데이터와 병합
+                // 실제 센서 데이터 처리
                 this.mergeRealSensorData(sensors);
                 console.log(`✅ 실제 센서 ${sensors.length}개 연결됨`);
             } else {
-                console.log('⚠️ 실제 센서 데이터 없음, Mock 데이터 사용');
+                console.log('⚠️ 실제 센서 데이터 없음');
             }
             
         } catch (error) {
@@ -1312,7 +1294,7 @@ class EGIconDashboard {
         }
     }
 
-    // 실제 센서 데이터와 Mock 데이터 병합
+    // 실제 센서 데이터 처리
     mergeRealSensorData(sensors) {
         if (!Array.isArray(sensors)) {
             console.error('❌ 센서 데이터가 배열이 아닙니다:', sensors);
@@ -1324,8 +1306,8 @@ class EGIconDashboard {
             if (sensor.sensor_type === 'BH1750') {
                 const sensorId = `${sensor.sensor_type.toLowerCase()}_${sensor.bus}_${sensor.mux_channel || 0}`;
                 
-                // 기존 light_1 Mock 센서를 실제 센서로 교체
-                this.replaceMockSensor('light_1', sensorId, sensor);
+                // 실제 센서로 대체
+                this.replaceWithRealSensor('light_1', sensorId, sensor);
                 
                 // 위젯 제목 업데이트
                 const widget = document.querySelector('[data-sensor="light_1"]');
@@ -2004,38 +1986,8 @@ class EGIconDashboard {
         }
     }
 
-    // Mock 센서를 실제 센서로 교체
-    replaceMockSensor(mockSensorId, realSensorId, realSensorData) {
-        // 연결된 센서 목록에서 교체
-        this.connectedSensors.delete(mockSensorId);
-        this.connectedSensors.add(realSensorId);
-        
-        // 센서 그룹에서 교체 (sensors는 객체이므로 센서 타입별로 검색)
-        Object.values(this.sensorGroups).forEach(group => {
-            if (group.sensors && typeof group.sensors === 'object') {
-                Object.keys(group.sensors).forEach(sensorType => {
-                    if (Array.isArray(group.sensors[sensorType])) {
-                        const index = group.sensors[sensorType].indexOf(mockSensorId);
-                        if (index !== -1) {
-                            group.sensors[sensorType][index] = realSensorId;
-                            console.log(`✅ ${sensorType} 그룹에서 ${mockSensorId} → ${realSensorId} 교체 완료`);
-                        }
-                    }
-                });
-            }
-        });
-        
-        // 차트 데이터에서 교체
-        if (this.charts[realSensorData.type]) {
-            this.charts[realSensorData.type].data.datasets.forEach(dataset => {
-                if (dataset.label.includes(mockSensorId)) {
-                    dataset.label = `BH1750 조도 (Ch${realSensorData.channel + 1})`;
-                }
-            });
-        }
-        
-        console.log(`🔄 Mock 센서 ${mockSensorId}를 실제 센서 ${realSensorId}로 교체됨`);
-    }
+    // 센서 ID 교체 (제거됨)
+    // 실제 센서 데이터만 사용
 
     // WebSocket 재연결
     attemptReconnect() {
@@ -2049,140 +2001,26 @@ class EGIconDashboard {
                 this.connectWebSocket();
             }, delay);
         } else {
-            console.error('❌ WebSocket 재연결 포기, 로컬 Mock 데이터로 전환');
-            console.log('📊 서버 연결 없이 Mock 데이터 모드로 동작합니다');
-            this.startLocalMockData();
+            console.error('❌ WebSocket 재연결 포기');
+            console.log('📊 서버 연결 없이 대기 모드로 동작합니다');
+            // Mock 데이터 시스템 제거됨
         }
     }
 
-    // 로컬 Mock 데이터 시작
-    startLocalMockData() {
-        if (this.mockDataInterval) return;
-        
-        console.log('🔄 로컬 Mock 데이터 모드로 전환');
-        
-        // 첫 번째 데이터 즉시 업데이트
-        this.updateMockData();
-        
-        // 주기적 업데이트 시작
-        this.mockDataInterval = setInterval(() => {
-            this.updateMockData();
-        }, this.config.updateInterval);
-    }
+    // Mock 데이터 시스템 제거됨
+    // 실제 센서 데이터만 사용
 
-    // Mock 데이터 업데이트 (Multi-line 차트 지원)
-    updateMockData() {
-        const now = new Date();
-        
-        // 센서 그룹별 데이터 생성 및 업데이트
-        this.updateSensorGroupData('temp-humidity', now);
-        this.updateSensorGroupData('sht40', now);
-        this.updateSensorGroupData('sdp810', now);
-        this.updateSensorGroupData('pressure', now);
-        this.updateSensorGroupData('light', now);
-        this.updateSensorGroupData('vibration', now);
+    // Mock 데이터 업데이트 제거됨
+    // 실제 센서 데이터만 사용
 
-        this.updateStatusBar();
-    }
+    // Mock 데이터 그룹 업데이트 제거됨
+    // 실제 센서 데이터만 사용
 
-    // 센서 그룹별 데이터 업데이트 (동적 센서 지원)
-    updateSensorGroupData(groupName, timestamp) {
-        const group = this.sensorGroups[groupName];
-        if (!group) return;
+    // Mock 값 생성 제거됨
+    // 실제 센서 데이터만 사용
 
-        group.metrics.forEach(metric => {
-            const sensorData = [];
-            let sensorIndex = 0;
-
-            // 동적 센서 구성 지원
-            if (group.sensors && typeof group.sensors === 'object') {
-                // 각 센서 타입별로 Mock 데이터 생성
-                Object.values(group.sensors).forEach(sensorList => {
-                    if (Array.isArray(sensorList)) {
-                        sensorList.forEach(sensorId => {
-                            const mockValue = this.generateMockValueForSensor(metric, sensorIndex, timestamp);
-                            sensorData.push({
-                                sensorId: sensorId,
-                                value: mockValue,
-                                sensorIndex: sensorIndex
-                            });
-                            sensorIndex++;
-                        });
-                    }
-                });
-            } else {
-                // 폴백: 기본 센서 수 사용
-                const defaultSensorCount = group.totalSensors || 1;
-                for (let i = 0; i < defaultSensorCount; i++) {
-                    const mockValue = this.generateMockValueForSensor(metric, i, timestamp);
-                    sensorData.push({
-                        sensorId: `${metric}_${i}`,
-                        value: mockValue,
-                        sensorIndex: i
-                    });
-                }
-            }
-
-            // 센서 데이터가 있을 때만 업데이트
-            if (sensorData.length > 0) {
-                // Multi-line 차트 업데이트
-                this.updateMultiSensorChart(groupName, metric, sensorData, timestamp);
-                
-                // 요약 위젯 업데이트
-                this.updateSummaryWidgets(groupName, metric, sensorData);
-            }
-        });
-    }
-
-    // 센서별 고유 Mock 값 생성
-    generateMockValueForSensor(sensorType, sensorIndex, timestamp) {
-        const timeMs = timestamp.getTime();
-        const baseOffset = sensorIndex * 0.5; // 센서별 오프셋
-        const phaseOffset = sensorIndex * Math.PI / 4; // 위상 차이
-        
-        switch (sensorType) {
-            case 'temperature':
-                return 22 + baseOffset + 3 * Math.sin(timeMs / 60000 + phaseOffset) + (Math.random() - 0.5) * 1;
-            case 'humidity':
-                return 60 + baseOffset * 2 + 10 * Math.sin(timeMs / 80000 + phaseOffset) + (Math.random() - 0.5) * 2;
-            case 'pressure':
-                return 1013 + baseOffset + 5 * Math.sin(timeMs / 120000 + phaseOffset) + (Math.random() - 0.5) * 1;
-            case 'light':
-                const hour = timestamp.getHours();
-                const daylight = Math.max(0, Math.sin((hour - 6) * Math.PI / 12));
-                return daylight * 1000 + baseOffset * 100 + Math.random() * 100;
-            case 'airquality':
-                return 80 + baseOffset * 3 + 20 * Math.sin(timeMs / 180000 + phaseOffset) + (Math.random() - 0.5) * 10;
-            case 'vibration':
-                return Math.random() * 15 + (Math.random() > 0.9 ? Math.random() * 20 : 0);
-            default:
-                return Math.random() * 100;
-        }
-    }
-
-    // 센서별 Mock 값 생성
-    generateMockValue(sensorType, timestamp) {
-        const timeMs = timestamp.getTime();
-        
-        switch (sensorType) {
-            case 'temperature':
-                return 20 + 10 * Math.sin(timeMs / 60000) + (Math.random() - 0.5) * 3;
-            case 'humidity':
-                return 50 + 20 * Math.sin(timeMs / 80000 + 1) + (Math.random() - 0.5) * 5;
-            case 'pressure':
-                return 1013 + 10 * Math.sin(timeMs / 120000 + 2) + (Math.random() - 0.5) * 2;
-            case 'light':
-                const hour = timestamp.getHours();
-                const daylight = Math.max(0, Math.sin((hour - 6) * Math.PI / 12));
-                return daylight * 1500 + Math.random() * 200;
-            case 'vibration':
-                return Math.random() * 20 + (Math.random() > 0.9 ? Math.random() * 30 : 0);
-            case 'airquality':
-                return 100 + 50 * Math.sin(timeMs / 180000 + 3) + (Math.random() - 0.5) * 20;
-            default:
-                return Math.random() * 100;
-        }
-    }
+    // Mock 값 생성 제거됨
+    // 실제 센서 데이터만 사용
 
     // 센서 위젯 업데이트
     updateSensorWidget(sensorId, value) {
@@ -2234,7 +2072,7 @@ class EGIconDashboard {
             return 'temperature'; // 기본값
         }
         
-        // Mock 센서 ID (기존 방식)
+        // 센서 ID 처리
         const [type] = sensorId.split('_');
         return type;
     }
@@ -2740,8 +2578,6 @@ window.addEventListener('beforeunload', () => {
         if (window.dashboard.ws) {
             window.dashboard.ws.close();
         }
-        if (window.dashboard.mockDataInterval) {
-            clearInterval(window.dashboard.mockDataInterval);
-        }
+        // Mock 데이터 인터벌 제거됨
     }
 });
