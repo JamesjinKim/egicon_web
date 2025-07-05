@@ -408,30 +408,28 @@ class EGIconDashboard {
 
     // 초기 센서 상태 설정
     initializeSensorStatus(groupName, groupData) {
-        console.log(`🔧 초기 센서 상태 설정: ${groupName} - ${groupData.total_count}개 센서`);
+        // API 응답에서 count 필드 사용
+        const totalCount = groupData.count || groupData.total_count || 0;
+        const activeCount = groupData.active_count || totalCount; // 기본적으로 모든 센서가 활성으로 간주
+        
+        console.log(`🔧 초기 센서 상태 설정: ${groupName} - ${totalCount}개 센서 (${activeCount}개 활성)`);
         
         // 그룹별 상태 엘리먼트 업데이트
         if (groupName === 'temp-humidity') {
             const groupStatusElement = document.getElementById('temp-humidity-status');
             if (groupStatusElement) {
-                const activeCount = groupData.active_count || groupData.total_count;
-                const totalCount = groupData.total_count;
                 groupStatusElement.textContent = `${activeCount}/${totalCount} 활성`;
                 console.log(`✅ 온습도 그룹 상태 초기 설정: ${activeCount}/${totalCount} 활성`);
             }
         } else if (groupName === 'pressure') {
             const groupStatusElement = document.getElementById('pressure-status');
             if (groupStatusElement) {
-                const activeCount = groupData.active_count || groupData.total_count;
-                const totalCount = groupData.total_count;
                 groupStatusElement.textContent = `${activeCount}/${totalCount} 활성`;
                 console.log(`✅ 압력 그룹 상태 초기 설정: ${activeCount}/${totalCount} 활성`);
             }
         } else if (groupName === 'light') {
             const groupStatusElement = document.getElementById('light-status');
             if (groupStatusElement) {
-                const activeCount = groupData.active_count || groupData.total_count;
-                const totalCount = groupData.total_count;
                 groupStatusElement.textContent = `${activeCount}/${totalCount} 활성`;
                 console.log(`✅ 조도 그룹 상태 초기 설정: ${activeCount}/${totalCount} 활성`);
             }
