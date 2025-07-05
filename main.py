@@ -19,7 +19,7 @@ from websocket_manager import setup_websocket_routes
 from hardware_scanner import cleanup_scanner
 
 # SPS30 백그라운드 스레드 import
-from ref.sps30_background_thread import SPS30BackgroundThread
+from sps30_background import SPS30BackgroundThread
 
 # 전역 SPS30 백그라운드 스레드 인스턴스
 sps30_thread = None
