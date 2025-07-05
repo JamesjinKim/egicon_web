@@ -403,26 +403,102 @@ class EGIconSettings {
     // 센서 테스트
     async testSensor(busNumber, channel, address = null) {
         try {
-            console.log(`🧪 센서 테스트: CH${busNumber + 1}, MUX Ch ${channel}`);
+            console.log(`🧪 센서 테스트: Bus ${busNumber}, Channel ${channel}, Address ${address}`);
             
-            const response = await fetch(`${this.API_URL}/sensors/test`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    i2c_bus: busNumber,
-                    mux_channel: channel,
-                    address: address
-                })
-            });
+            // 주소를 숫자로 변환
+            const addressNum = typeof address === 'string' && address.startsWith('0x') 
+                ? parseInt(address, 16) 
+                : parseInt(address);
             
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // 센서 타입 식별
+            const sensorType = this.sensorTypeMap[addressNum];
+            console.log(`🔍 감지된 센서 타입: ${sensorType} (주소: ${address})`);
+            
+            let apiEndpoint;
+            let testResult;
+            
+            // 센서 타입별 전용 API 호출
+            switch (sensorType) {
+                case 'SHT40':
+                    apiEndpoint = `${this.API_URL}/sensors/sht40/test`;
+                    break;
+                case 'SDP810':
+                    apiEndpoint = `${this.API_URL}/sensors/sdp810/test`;
+                    break;
+                case 'BME688':
+                    // BME688은 기본 테스트 API 사용
+                    apiEndpoint = `${this.API_URL}/sensors/test`;
+                    break;
+                case 'BH1750':
+                    // BH1750은 기본 테스트 API 사용
+                    apiEndpoint = `${this.API_URL}/sensors/test`;
+                    break;
+                default:
+                    // 알 수 없는 센서는 기본 테스트 API 사용
+                    apiEndpoint = `${this.API_URL}/sensors/test`;
+                    break;
             }
             
-            const result = await response.json();
-            this.showSensorTestModal(result);
+            // 센서별 특화 테스트 또는 일반 테스트 실행
+            if (sensorType === 'SHT40' || sensorType === 'SDP810') {
+                // 센서별 전용 테스트 API 호출
+                console.log(`📡 ${sensorType} 전용 테스트 API 호출: ${apiEndpoint}`);
+                
+                const response = await fetch(apiEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                testResult = await response.json();
+                
+                // 결과를 표준 형식으로 변환
+                if (testResult.success) {
+                    testResult.data = {
+                        sensor_type: sensorType,
+                        bus: busNumber,
+                        channel: channel,
+                        address: address,
+                        test_details: testResult[`${sensorType.toLowerCase()}_devices`] || testResult.data,
+                        message: `${sensorType} 센서 테스트 완료`
+                    };
+                }
+            } else {
+                // 일반 I2C 센서 테스트
+                console.log(`📡 일반 I2C 테스트 API 호출: ${apiEndpoint}`);
+                
+                const response = await fetch(apiEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        i2c_bus: busNumber,
+                        mux_channel: channel,
+                        address: address
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                testResult = await response.json();
+                
+                // 결과에 센서 타입 정보 추가
+                if (testResult.success && testResult.data) {
+                    testResult.data.sensor_type = sensorType || 'Unknown';
+                    testResult.data.detected_address = address;
+                }
+            }
+            
+            console.log(`✅ ${sensorType} 센서 테스트 결과:`, testResult);
+            this.showSensorTestModal(testResult, sensorType);
             
         } catch (error) {
             console.error('센서 테스트 실패:', error);
@@ -509,18 +585,116 @@ class EGIconSettings {
     }
     
     // 센서 테스트 결과 모달 표시
-    showSensorTestModal(result) {
+    showSensorTestModal(result, sensorType = 'Unknown') {
+        let testDetails = '';
+        
+        if (result.success) {
+            // 센서 타입별 상세 정보 표시
+            switch (sensorType) {
+                case 'SHT40':
+                    const sht40Devices = result.sht40_devices || [];
+                    if (sht40Devices.length > 0) {
+                        testDetails = `
+                            <div class="sensor-details">
+                                <h5>🌡️ SHT40 온습도 센서</h5>
+                                <p><strong>발견된 센서:</strong> ${sht40Devices.length}개</p>
+                                ${sht40Devices.map((device, index) => `
+                                    <div class="device-info">
+                                        <p><strong>센서 ${index + 1}:</strong></p>
+                                        <ul>
+                                            <li>위치: Bus ${device.bus} Channel ${device.mux_channel}</li>
+                                            <li>주소: ${device.address}</li>
+                                            <li>상태: ${device.status}</li>
+                                            <li>측정값: ${device.test_result || '테스트 결과 없음'}</li>
+                                        </ul>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    } else {
+                        testDetails = '<p>SHT40 센서를 찾을 수 없습니다.</p>';
+                    }
+                    break;
+                    
+                case 'SDP810':
+                    const sdp810Devices = result.sdp810_devices || [];
+                    if (sdp810Devices.length > 0) {
+                        testDetails = `
+                            <div class="sensor-details">
+                                <h5>🌬️ SDP810 차압센서</h5>
+                                <p><strong>발견된 센서:</strong> ${sdp810Devices.length}개</p>
+                                ${sdp810Devices.map((device, index) => `
+                                    <div class="device-info">
+                                        <p><strong>센서 ${index + 1}:</strong></p>
+                                        <ul>
+                                            <li>위치: Bus ${device.bus} Channel ${device.mux_channel}</li>
+                                            <li>주소: ${device.address}</li>
+                                            <li>상태: ${device.status}</li>
+                                            <li>측정값: ${device.test_result || '테스트 결과 없음'}</li>
+                                        </ul>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    } else {
+                        testDetails = '<p>SDP810 센서를 찾을 수 없습니다.</p>';
+                    }
+                    break;
+                    
+                default:
+                    // 일반 센서 또는 BME688, BH1750 등
+                    if (result.data) {
+                        testDetails = `
+                            <div class="sensor-details">
+                                <h5>📊 ${sensorType} 센서</h5>
+                                <div class="device-info">
+                                    <ul>
+                                        <li>센서 타입: ${result.data.sensor_type || sensorType}</li>
+                                        <li>버스: ${result.data.bus || 'Unknown'}</li>
+                                        <li>채널: ${result.data.channel || 'Unknown'}</li>
+                                        <li>주소: ${result.data.detected_address || result.data.address || 'Unknown'}</li>
+                                        <li>메시지: ${result.data.message || '테스트 완료'}</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // 추가 데이터가 있으면 표시
+                        if (result.data.test_value !== undefined) {
+                            testDetails += `<p><strong>측정값:</strong> ${result.data.test_value}</p>`;
+                        }
+                    } else {
+                        testDetails = '<p>센서 테스트가 완료되었습니다.</p>';
+                    }
+                    break;
+            }
+        } else {
+            // 실패한 경우 오류 정보 표시
+            testDetails = `
+                <div class="error-details">
+                    <p><strong>오류 메시지:</strong> ${result.error || result.message || '알 수 없는 오류'}</p>
+                    ${result.data ? `<pre>${JSON.stringify(result.data, null, 2)}</pre>` : ''}
+                </div>
+            `;
+        }
+        
         const modalHtml = `
             <div class="modal-overlay" id="test-result-modal">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h3>센서 테스트 결과</h3>
+                        <h3>🧪 센서 테스트 결과</h3>
                         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
                     </div>
                     <div class="modal-body">
                         <div class="test-result ${result.success ? 'success' : 'error'}">
                             <h4>${result.success ? '✅ 테스트 성공' : '❌ 테스트 실패'}</h4>
-                            <pre>${JSON.stringify(result.data, null, 2)}</pre>
+                            ${testDetails}
+                            
+                            <!-- 디버그 정보 (접을 수 있는 형태) -->
+                            <details style="margin-top: 20px;">
+                                <summary style="cursor: pointer; font-weight: bold;">🔧 상세 디버그 정보</summary>
+                                <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px;">${JSON.stringify(result, null, 2)}</pre>
+                            </details>
                         </div>
                     </div>
                 </div>
@@ -528,6 +702,12 @@ class EGIconSettings {
         `;
         
         document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // 모달이 표시된 후 자동으로 스크롤을 맨 위로
+        const modal = document.getElementById('test-result-modal');
+        if (modal) {
+            modal.scrollTop = 0;
+        }
     }
     
     // 토스트 알림 표시 (egicon_dash 스타일)
