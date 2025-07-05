@@ -227,17 +227,17 @@ def test_iis3dwb_sensor():
     try:
         # 먼저 SPI 활성화 상태 확인
         print("🔧 SPI 상태 확인...")
-        try:
-            with open("/boot/config.txt", "r") as f:
-                config = f.read()
-                if "dtparam=spi=on" not in config:
-                    print("❌ SPI가 비활성화되어 있습니다")
-                    print("💡 해결: sudo raspi-config → Interface Options → SPI → Enable")
-                    return
-                else:
-                    print("✅ SPI 활성화됨")
-        except:
-            print("⚠️ SPI 상태 확인 불가")
+        import os
+        
+        # SPI 디바이스 존재 여부로 확인 (더 정확함)
+        spi_devices = [f for f in os.listdir("/dev") if f.startswith("spidev")]
+        
+        if spi_devices:
+            print(f"✅ SPI 활성화됨 (디바이스: {', '.join(spi_devices)})")
+        else:
+            print("❌ SPI 디바이스를 찾을 수 없습니다")
+            print("💡 해결: sudo raspi-config → Interface Options → SPI → Enable")
+            return
         
         # IIS3DWB 센서 초기화 (CS0 시도)
         try:
