@@ -1425,6 +1425,11 @@ class EGIconDashboard {
                     console.log(`📋 그룹 매핑: ${metric} → ${groupName}`);
                     // 실시간 업데이트에서는 상태 업데이트 건너뛰기 (skipStatusUpdate = true)
                     this.updateSummaryWidgets(groupName, metric, sensorDataArray, true);
+                    
+                    // pressure-gas 그룹 헤더 상태 업데이트
+                    if (groupName === 'pressure-gas' && (metric === 'pressure' || metric === 'gas_resistance')) {
+                        this.updatePressureGasGroupHeader(sensorDataArray.length);
+                    }
                 } else {
                     console.warn(`⚠️ 그룹 매핑 실패: ${metric}`);
                 }
@@ -2021,7 +2026,40 @@ class EGIconDashboard {
             statusRangeElement.textContent = '정상 동작 중';
         }
         
+        // 그룹 헤더 상태 업데이트
+        const groupStatusElement = document.getElementById('pressure-gas-status');
+        if (groupStatusElement) {
+            const sensorCount = this.sensorGroups['pressure-gas']?.sensors?.bme688?.length || 6;
+            groupStatusElement.textContent = `${sensorCount}개 연결됨`;
+            groupStatusElement.className = 'sensor-group-status online';
+        }
+        
+        // 그룹 요약 업데이트
+        const groupSummaryElement = document.getElementById('pressure-gas-summary');
+        if (groupSummaryElement) {
+            const sensorCount = this.sensorGroups['pressure-gas']?.sensors?.bme688?.length || 6;
+            groupSummaryElement.textContent = `BME688×${sensorCount}`;
+        }
+        
         console.log(`✅ BME688 위젯 업데이트 완료 - 평균 기압: ${avgPressure.toFixed(1)}hPa, 평균 가스저항: ${avgGasResistance.toFixed(0)}Ω`);
+    }
+
+    // pressure-gas 그룹 헤더 상태 업데이트
+    updatePressureGasGroupHeader(sensorCount) {
+        // 그룹 헤더 상태 업데이트
+        const groupStatusElement = document.getElementById('pressure-gas-status');
+        if (groupStatusElement) {
+            groupStatusElement.textContent = `${sensorCount}개 연결됨`;
+            groupStatusElement.className = 'sensor-group-status online';
+        }
+        
+        // 그룹 요약 업데이트
+        const groupSummaryElement = document.getElementById('pressure-gas-summary');
+        if (groupSummaryElement) {
+            groupSummaryElement.textContent = `BME688×${sensorCount}`;
+        }
+        
+        console.log(`✅ pressure-gas 그룹 헤더 업데이트: ${sensorCount}개 센서`);
     }
 
     // SPS30 센서 상태 업데이트
