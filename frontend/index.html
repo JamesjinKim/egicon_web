@@ -192,9 +192,9 @@
             <div class="sensor-group-header">
                 <i class="fas fa-sun"></i>
                 <span class="sensor-group-title">조도 센서</span>
-                <span class="sensor-group-status online">2개 연결됨</span>
+                <span class="sensor-group-status online" id="light-group-status">연결 확인 중...</span>
                 <div class="sensor-group-summary">
-                    <span class="summary-item">BH1750×2</span>
+                    <span class="summary-item" id="light-group-summary">센서 검색 중</span>
                 </div>
             </div>
             
@@ -213,8 +213,8 @@
                     <div class="summary-icon">📊</div>
                     <div class="summary-content">
                         <div class="summary-label">센서 상태</div>
-                        <div class="summary-value" id="light-status">2/2 활성</div>
-                        <div class="summary-range">모든 센서 정상</div>
+                        <div class="summary-value" id="light-status">0/0 활성</div>
+                        <div class="summary-range">센서 확인 중</div>
                     </div>
                 </div>
             </div>
@@ -222,7 +222,7 @@
             <!-- 통합 차트 -->
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3 class="chart-title">조도 센서 통합 차트 (2개)</h3>
+                    <h3 class="chart-title" id="light-chart-title">조도 센서 통합 차트 (0개)</h3>
                     <div class="chart-container">
                         <canvas id="light-multi-chart"></canvas>
                     </div>
