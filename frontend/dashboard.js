@@ -818,8 +818,9 @@ class EGIconDashboard {
     // WebSocket 연결
     connectWebSocket() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/realtime`;
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
         
+        console.log('🔗 WebSocket 연결 시도:', wsUrl);
         this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {
@@ -844,7 +845,11 @@ class EGIconDashboard {
         };
         
         this.ws.onerror = (error) => {
-            console.error('📡 WebSocket 오류:', error);
+            console.error('📡 WebSocket 연결 오류:', {
+                url: wsUrl,
+                error: error,
+                readyState: this.ws.readyState
+            });
             this.attemptReconnect();
         };
     }
@@ -985,13 +990,16 @@ class EGIconDashboard {
     attemptReconnect() {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            console.log(`🔄 WebSocket 재연결 시도 ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+            const delay = 1000 * this.reconnectAttempts;
+            console.log(`🔄 WebSocket 재연결 시도 ${this.reconnectAttempts}/${this.maxReconnectAttempts} (${delay}ms 후)`);
             
             setTimeout(() => {
+                console.log('🔗 WebSocket 재연결 실행 중...');
                 this.connectWebSocket();
-            }, 1000 * this.reconnectAttempts);
+            }, delay);
         } else {
             console.error('❌ WebSocket 재연결 포기, 로컬 Mock 데이터로 전환');
+            console.log('📊 서버 연결 없이 Mock 데이터 모드로 동작합니다');
             this.startLocalMockData();
         }
     }
