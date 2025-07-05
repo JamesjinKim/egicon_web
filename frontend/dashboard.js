@@ -1860,17 +1860,17 @@ class EGIconDashboard {
         
         console.log(`📊 SDP810 차트 데이터 추가: ${sensorId} = ${value} Pa @ ${timestamp}`);
         
-        // 센서 ID에 따른 명칭 결정
+        // 센서 ID에 따른 명칭 결정 (현장 요청에 따라 배기 차압으로 변경)
         const getSensorDisplayName = (sensorId) => {
-            // 센서 ID나 채널에 따라 흡기/배기 구분
+            // 현장의 요청에 따라 기본적으로 배기 차압으로 표시
             if (sensorId.includes('unknown') || sensorId.includes('_0_') || sensorId.includes('_ch0_')) {
-                return '흡기';
-            } else if (sensorId.includes('_1_') || sensorId.includes('_ch1_')) {
                 return '배기';
+            } else if (sensorId.includes('_1_') || sensorId.includes('_ch1_')) {
+                return '흡기';
             } else {
-                // 기본적으로 첫 번째는 흡기, 두 번째는 배기로 처리
+                // 기본적으로 첫 번째는 배기, 두 번째는 흡기로 처리
                 const datasetCount = chart.data.datasets.length;
-                return datasetCount === 0 ? '흡기' : '배기';
+                return datasetCount === 0 ? '배기' : '흡기';
             }
         };
         
@@ -1886,7 +1886,7 @@ class EGIconDashboard {
             console.log(`📊 SDP810 새 데이터셋 생성: ${displayName} (${sensorId})`);
             
             // 흡기/배기에 따른 색상 구분
-            const datasetColor = displayName === '흡기' ? '#4bc0c0' : '#ff6384'; // 흡기: 청록색, 배기: 빨간색
+            const datasetColor = displayName === '배기' ? '#ff6384' : '#4bc0c0'; // 배기: 빨간색, 흡기: 청록색
             
             dataset = {
                 label: `${displayName} 차압`,
