@@ -1322,6 +1322,7 @@ class EGIconDashboard {
             temperature: [],
             humidity: [],
             pressure: [],
+            gas_resistance: [],
             light: []
         };
         
@@ -1363,7 +1364,7 @@ class EGIconDashboard {
                 
                 // 서버에서 오는 데이터 구조 처리
                 // 각 센서 타입별로 개별 메트릭을 추출
-                ['temperature', 'humidity', 'pressure', 'light'].forEach(metric => {
+                ['temperature', 'humidity', 'pressure', 'gas_resistance', 'light'].forEach(metric => {
                     if (data[metric] !== undefined) {
                         const sensorIndex = this.extractSensorIndex(sensorId);
                         
@@ -1453,23 +1454,31 @@ class EGIconDashboard {
             
             // pressure-gas 그룹에서 BME688 센서 찾기
             const pressureGasGroup = groupsData.groups && groupsData.groups['pressure-gas'];
-            if (pressureGasGroup && pressureGasGroup.sensors && pressureGasGroup.sensors.length > 0) {
-                console.log(`✅ BME688 센서 ${pressureGasGroup.sensors.length}개 발견`);
+            if (pressureGasGroup && pressureGasGroup.sensors && pressureGasGroup.sensors.bme688) {
+                const bme688Sensors = pressureGasGroup.sensors.bme688;
+                console.log(`✅ BME688 센서 ${bme688Sensors.length}개 발견`, bme688Sensors);
                 
-                // 첫 번째 BME688 센서로 폴링 시작
-                const firstBME688 = pressureGasGroup.sensors[0];
-                const sensorInfo = {
-                    bus: firstBME688.bus,
-                    mux_channel: firstBME688.mux_channel
-                };
-                
-                const sensorId = `bme688_${firstBME688.bus}_${firstBME688.mux_channel}_77`;
-                console.log(`🚀 BME688 폴링 시작: ${sensorId}`, sensorInfo);
-                
-                this.startBME688DataPolling(sensorId, sensorInfo);
+                // 모든 BME688 센서에 대해 폴링 시작
+                bme688Sensors.forEach((sensor, index) => {
+                    const sensorInfo = {
+                        bus: sensor.bus,
+                        mux_channel: sensor.mux_channel
+                    };
+                    
+                    const sensorId = `bme688_${sensor.bus}_${sensor.mux_channel}_77`;
+                    console.log(`🚀 BME688 폴링 시작 [${index + 1}/${bme688Sensors.length}]: ${sensorId}`, sensorInfo);
+                    
+                    // 각 센서마다 약간의 딜레이를 두어 동시 요청 방지
+                    setTimeout(() => {
+                        this.startBME688DataPolling(sensorId, sensorInfo, index);
+                    }, index * 500); // 0.5초씩 간격
+                });
                 
                 // pressure-gas 그룹 상태 업데이트
-                this.updatePressureGasGroupStatus(pressureGasGroup);
+                this.updatePressureGasGroupStatus({ sensors: bme688Sensors });
+                
+                // 다중 센서 차트 초기화 (6개 센서)
+                this.initializeBME688MultiSensorCharts(bme688Sensors);
                 
             } else {
                 console.warn('⚠️ pressure-gas 그룹에서 BME688 센서를 찾을 수 없음');
@@ -1654,90 +1663,132 @@ class EGIconDashboard {
         
         // BME688 센서 그룹의 센서 목록 업데이트 (기압/가스저항 전용)
         if (this.sensorGroups['pressure-gas']) {
-            this.sensorGroups['pressure-gas'].sensors.bme688 = [sensorId];
-            this.sensorGroups['pressure-gas'].totalSensors = 1;
+            // 기존 센서 목록에 추가 (누적)
+            if (!this.sensorGroups['pressure-gas'].sensors.bme688) {
+                this.sensorGroups['pressure-gas'].sensors.bme688 = [];
+            }
+            
+            // 중복 방지
+            if (!this.sensorGroups['pressure-gas'].sensors.bme688.includes(sensorId)) {
+                this.sensorGroups['pressure-gas'].sensors.bme688.push(sensorId);
+            }
+            
+            this.sensorGroups['pressure-gas'].totalSensors = this.sensorGroups['pressure-gas'].sensors.bme688.length;
         }
         
         // 센서 상태 업데이트
         const statusElement = document.getElementById('pressure-gas-status');
         if (statusElement) {
-            statusElement.textContent = '1/1 활성';
+            const sensorCount = this.sensorGroups['pressure-gas']?.sensors.bme688?.length || 1;
+            statusElement.textContent = `${sensorCount}개 연결됨`;
             statusElement.className = 'sensor-group-status online';
         }
         
         // 센서 그룹 요약 업데이트
         const summaryElement = document.querySelector('[data-group="pressure-gas"] .sensor-group-summary .summary-item');
         if (summaryElement) {
-            summaryElement.textContent = `BME688×1 (Bus${sensor.bus}:Ch${sensor.mux_channel})`;
+            const sensorCount = this.sensorGroups['pressure-gas']?.sensors.bme688?.length || 1;
+            summaryElement.textContent = `BME688×${sensorCount}`;
         }
         
-        // BME688 폴링 시작
-        this.startBME688DataPolling(sensorId, sensor);
+        console.log(`✅ BME688 센서 추가 완료: ${sensorId} (총 ${this.sensorGroups['pressure-gas']?.sensors.bme688?.length || 1}개)`);
+    }
+
+    // BME688 다중 센서 차트 초기화
+    initializeBME688MultiSensorCharts(sensors) {
+        console.log(`📊 BME688 다중 센서 차트 초기화: ${sensors.length}개 센서`);
+        
+        // 기압 차트용 센서 라벨 생성
+        const pressureLabels = sensors.map((sensor, index) => 
+            `BME688-${sensor.bus}.${sensor.mux_channel} 기압`
+        );
+        
+        // 가스저항 차트용 센서 라벨 생성  
+        const gasLabels = sensors.map((sensor, index) => 
+            `BME688-${sensor.bus}.${sensor.mux_channel} 가스저항`
+        );
+        
+        // 기존 차트 파괴 후 다중 센서 차트 생성
+        this.createMultiSensorChart('pressure-multi-chart', 'pressure', pressureLabels);
+        this.createMultiSensorChart('gas-resistance-multi-chart', 'gas_resistance', gasLabels);
+        
+        console.log(`✅ BME688 다중 센서 차트 초기화 완료`);
     }
 
     // BME688 데이터 폴링 시작 (기압/가스저항만)
-    startBME688DataPolling(sensorId, sensor) {
-        console.log(`🔄 BME688 데이터 폴링 시작: ${sensorId}`, sensor);
+    startBME688DataPolling(sensorId, sensor, sensorIndex) {
+        console.log(`🔄 BME688 데이터 폴링 시작: ${sensorId} (인덱스: ${sensorIndex})`, sensor);
         console.log(`⏰ 폴링 간격: ${this.config.updateInterval}ms`);
         
         // 즉시 한 번 실행
-        this.fetchBME688Data(sensor);
+        this.fetchBME688Data(sensor, sensorId, sensorIndex);
         
         // 주기적 업데이트 설정
         const intervalId = setInterval(() => {
-            console.log(`⏰ BME688 정기 폴링 실행: ${new Date().toLocaleTimeString()}`);
-            this.fetchBME688Data(sensor);
+            this.fetchBME688Data(sensor, sensorId, sensorIndex);
         }, this.config.updateInterval);
         
-        // 인터벌 ID 저장 (필요시 정리용)
-        this.bme688PollingInterval = intervalId;
-        console.log(`✅ BME688 폴링 설정 완료: interval ID ${intervalId}`);
+        // 인터벌 ID 저장 (배열로 관리)
+        if (!this.bme688PollingIntervals) {
+            this.bme688PollingIntervals = [];
+        }
+        this.bme688PollingIntervals.push(intervalId);
+        
+        console.log(`✅ BME688 폴링 설정 완료: ${sensorId} - interval ID ${intervalId}`);
     }
 
     // BME688 센서 데이터 가져오기 (기압/가스저항 전용)
-    async fetchBME688Data(sensor) {
+    async fetchBME688Data(sensor, sensorId, sensorIndex) {
         const apiUrl = `/api/sensors/bme688/${sensor.bus}/${sensor.mux_channel}`;
-        console.log(`📡 BME688 API 호출: ${apiUrl}`);
         
         try {
             const response = await fetch(apiUrl);
-            console.log(`📡 BME688 API 응답: ${response.status} ${response.statusText}`);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const result = await response.json();
-            console.log(`📊 BME688 API 결과:`, result);
             
             if (result.success && result.data) {
-                // 데이터를 표준 형식으로 변환
-                const sensorData = {
-                    sensor_id: result.data.sensor_id,
-                    sensor_type: 'BME688',
-                    data: {
-                        pressure: result.data.data.pressure,
-                        gas_resistance: result.data.data.gas_resistance
-                    },
-                    timestamp: result.data.timestamp
+                const pressure = result.data.data.pressure;
+                const gasResistance = result.data.data.gas_resistance;
+                const timestamp = new Date(result.data.timestamp);
+                
+                // 다중 센서 시스템용 데이터 형식
+                const pressureData = {
+                    sensorId: sensorId,
+                    sensor_id: sensorId,
+                    value: pressure,
+                    sensorIndex: sensorIndex,
+                    timestamp: timestamp,
+                    pressure: pressure // WebSocket 호환용
                 };
                 
-                console.log(`🔄 BME688 변환된 데이터:`, sensorData);
+                const gasResistanceData = {
+                    sensorId: sensorId,
+                    sensor_id: sensorId,
+                    value: gasResistance,
+                    sensorIndex: sensorIndex, 
+                    timestamp: timestamp,
+                    gas_resistance: gasResistance // WebSocket 호환용
+                };
                 
-                // BME688 데이터 업데이트
-                this.updateBME688Data(sensorData);
+                console.log(`📊 BME688 데이터 [${sensorIndex}]: 기압=${pressure}hPa, 가스저항=${gasResistance}Ω`);
+                
+                // 다중 센서 차트 업데이트를 위해 기존 WebSocket 데이터 처리 시스템 활용
+                this.handleRealtimeData([pressureData, gasResistanceData]);
+                
+                // 위젯 업데이트 (첫 번째 센서 기준)
+                if (sensorIndex === 0) {
+                    this.updateBME688Widgets(pressure, gasResistance);
+                }
+                
             } else {
-                console.warn(`⚠️ BME688 API 응답 이상:`, result);
+                console.warn(`⚠️ BME688 API 응답 이상 [${sensorIndex}]:`, result);
             }
         } catch (error) {
-            console.error(`❌ BME688 데이터 가져오기 실패 (Bus${sensor.bus}:Ch${sensor.mux_channel}):`, error);
-            
-            // 연결 오류 상태 표시
-            const statusElement = document.getElementById('pressure-gas-status');
-            if (statusElement) {
-                statusElement.textContent = '센서 오류';
-                statusElement.className = 'sensor-group-status offline';
-            }
+            console.error(`❌ BME688 데이터 가져오기 실패 [${sensorIndex}] (Bus${sensor.bus}:Ch${sensor.mux_channel}):`, error);
         }
     }
 
@@ -1853,6 +1904,73 @@ class EGIconDashboard {
         
         chart.update('none');
         console.log(`✅ 차트 업데이트 완료: ${label} (총 ${data.datasets[0].data.length}개 포인트)`);
+    }
+
+    // BME688 위젯 업데이트 (기압/가스저항)
+    updateBME688Widgets(pressure, gasResistance) {
+        // 현재 값 저장
+        if (!this.bme688Data) this.bme688Data = { pressure: [], gas_resistance: [] };
+        
+        const timestamp = new Date();
+        
+        // 기압 데이터 저장
+        this.bme688Data.pressure.push({ value: pressure, timestamp });
+        if (this.bme688Data.pressure.length > 20) { // 최근 20개 값만 유지
+            this.bme688Data.pressure.shift();
+        }
+        
+        // 가스저항 데이터 저장  
+        this.bme688Data.gas_resistance.push({ value: gasResistance, timestamp });
+        if (this.bme688Data.gas_resistance.length > 20) {
+            this.bme688Data.gas_resistance.shift();
+        }
+        
+        // 기압 통계 계산
+        const pressures = this.bme688Data.pressure.map(d => d.value);
+        const avgPressure = pressures.reduce((a, b) => a + b, 0) / pressures.length;
+        const minPressure = Math.min(...pressures);
+        const maxPressure = Math.max(...pressures);
+        
+        // 가스저항 통계 계산
+        const gasResistances = this.bme688Data.gas_resistance.map(d => d.value);
+        const avgGasResistance = gasResistances.reduce((a, b) => a + b, 0) / gasResistances.length;
+        const minGasResistance = Math.min(...gasResistances);
+        const maxGasResistance = Math.max(...gasResistances);
+        
+        // 기압 위젯 업데이트
+        const pressureAvgElement = document.getElementById('pressure-average');
+        if (pressureAvgElement) {
+            pressureAvgElement.textContent = `${avgPressure.toFixed(1)} hPa`;
+        }
+        
+        const pressureRangeElement = document.getElementById('pressure-range');
+        if (pressureRangeElement) {
+            pressureRangeElement.textContent = `${minPressure.toFixed(1)} ~ ${maxPressure.toFixed(1)} hPa`;
+        }
+        
+        // 가스저항 위젯 업데이트
+        const gasAvgElement = document.getElementById('gas-resistance-average');
+        if (gasAvgElement) {
+            gasAvgElement.textContent = `${avgGasResistance.toFixed(0)} Ω`;
+        }
+        
+        const gasRangeElement = document.getElementById('gas-resistance-range');
+        if (gasRangeElement) {
+            gasRangeElement.textContent = `${minGasResistance.toFixed(0)} ~ ${maxGasResistance.toFixed(0)} Ω`;
+        }
+        
+        // 상태 위젯 업데이트
+        const statusValueElement = document.getElementById('pressure-gas-status-widget');
+        if (statusValueElement) {
+            statusValueElement.textContent = '센서 활성';
+        }
+        
+        const statusRangeElement = document.getElementById('pressure-gas-range');
+        if (statusRangeElement) {
+            statusRangeElement.textContent = '정상 동작 중';
+        }
+        
+        console.log(`✅ BME688 위젯 업데이트 완료 - 평균 기압: ${avgPressure.toFixed(1)}hPa, 평균 가스저항: ${avgGasResistance.toFixed(0)}Ω`);
     }
 
     // SPS30 센서 상태 업데이트
@@ -2548,7 +2666,8 @@ class EGIconDashboard {
         const metricToGroup = {
             'temperature': 'temp-humidity',
             'humidity': 'temp-humidity',
-            'pressure': 'pressure',
+            'pressure': 'pressure-gas',  // BME688 pressure maps to pressure-gas group
+            'gas_resistance': 'pressure-gas',  // BME688 gas_resistance maps to pressure-gas group
             'light': 'light',
             'vibration': 'vibration',
             'airquality': 'pressure'
@@ -2563,8 +2682,8 @@ class EGIconDashboard {
         const chart = this.charts[chartId];
         
         if (!chart) {
-            // pressure와 airquality는 메인 대시보드에서 제거되었으므로 경고 억제
-            if (metric === 'pressure' || metric === 'airquality') {
+            // airquality는 메인 대시보드에서 제거되었으므로 경고 억제
+            if (metric === 'airquality') {
                 console.log(`📊 ${metric} 차트는 메인 대시보드에서 제거되어 스킵됨`);
             } else {
                 console.warn(`⚠️ 차트를 찾을 수 없음: ${chartId}`);
@@ -2572,8 +2691,8 @@ class EGIconDashboard {
             return;
         }
 
-        // pressure와 gas_resistance는 BME688 전용 업데이트 시스템을 사용하므로 스킵
-        if (metric === 'pressure' || metric === 'gas_resistance') {
+        // airquality는 BME688 전용 업데이트 시스템을 사용하므로 스킵
+        if (metric === 'airquality') {
             console.log(`📊 ${metric} 차트는 BME688 전용 업데이트 시스템 사용으로 스킵됨`);
             return;
         }
