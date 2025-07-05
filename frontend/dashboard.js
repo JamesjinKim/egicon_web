@@ -1455,7 +1455,17 @@ class EGIconDashboard {
             return;
         }
         
-        const values = sensorData.map(s => s.value);
+        // 안전한 숫자 값 추출 및 유효성 검사
+        const values = sensorData.map(s => {
+            const value = s.value || s.values || s;
+            return typeof value === 'number' && !isNaN(value) ? value : 0;
+        }).filter(val => typeof val === 'number' && !isNaN(val));
+        
+        if (values.length === 0) {
+            console.warn(`⚠️ ${metric}: 유효한 숫자 데이터가 없습니다`);
+            return;
+        }
+        
         const average = values.reduce((a, b) => a + b, 0) / values.length;
         const min = Math.min(...values);
         const max = Math.max(...values);
