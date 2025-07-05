@@ -187,25 +187,38 @@ class EGIconDashboard {
     }
 
     // API에서 받은 그룹 데이터로 sensorGroups 업데이트
-    updateSensorGroupsFromAPI(dynamicGroups) {
+    updateSensorGroupsFromAPI(apiResponse) {
+        console.log('🔍 API 응답 구조 확인:', apiResponse);
+        
+        // API 응답에서 groups 데이터 추출
+        const dynamicGroups = apiResponse.groups || apiResponse;
+        
+        if (!dynamicGroups || typeof dynamicGroups !== 'object') {
+            console.error('❌ 잘못된 API 응답 구조:', apiResponse);
+            return;
+        }
+        
         Object.entries(dynamicGroups).forEach(([groupName, groupData]) => {
-            if (this.sensorGroups[groupName]) {
+            if (this.sensorGroups[groupName] && groupData.sensors) {
                 // 기존 그룹 구조 유지하되 동적 데이터로 업데이트
                 this.sensorGroups[groupName] = {
                     ...this.sensorGroups[groupName],
-                    totalSensors: groupData.total_count,
+                    totalSensors: groupData.count || groupData.sensors.length,
                     sensors: this.extractSensorIds(groupData.sensors),
                     dynamicConfig: {
-                        statusText: groupData.status_text,
-                        typesSummary: groupData.types_summary,
-                        isOnline: groupData.status === 'online'
+                        statusText: `${groupData.count || 0}개 연결됨`,
+                        typesSummary: this.generateTypesSummary(groupData.sensors),
+                        isOnline: (groupData.count || 0) > 0
                     }
                 };
                 
                 // 연결된 센서 목록 업데이트
                 groupData.sensors.forEach(sensor => {
-                    this.connectedSensors.add(sensor.id);
+                    const sensorId = sensor.sensor_name || sensor.sensor_type || 'unknown';
+                    this.connectedSensors.add(`${sensorId}_${sensor.bus}_${sensor.mux_channel}`);
                 });
+                
+                console.log(`📊 그룹 ${groupName} 업데이트: ${groupData.count}개 센서`);
             }
         });
         
@@ -216,20 +229,59 @@ class EGIconDashboard {
     extractSensorIds(sensors) {
         const sensorIds = {};
         
+        if (!Array.isArray(sensors)) {
+            console.warn('⚠️ sensors가 배열이 아닙니다:', sensors);
+            return sensorIds;
+        }
+        
         sensors.forEach(sensor => {
-            const sensorType = sensor.type.toLowerCase();
+            const sensorType = (sensor.sensor_type || sensor.type || 'unknown').toLowerCase();
             if (!sensorIds[sensorType]) {
                 sensorIds[sensorType] = [];
             }
-            sensorIds[sensorType].push(sensor.id);
+            
+            // 센서 ID 생성 (센서명_버스_채널)
+            const sensorId = `${sensorType}_${sensor.bus}_${sensor.mux_channel}`;
+            sensorIds[sensorType].push(sensorId);
         });
         
         return sensorIds;
     }
+    
+    // 센서 타입 요약 생성
+    generateTypesSummary(sensors) {
+        if (!Array.isArray(sensors)) {
+            return "센서 없음";
+        }
+        
+        const typeCounts = {};
+        sensors.forEach(sensor => {
+            const type = sensor.sensor_type || sensor.type || 'Unknown';
+            typeCounts[type] = (typeCounts[type] || 0) + 1;
+        });
+        
+        return Object.entries(typeCounts)
+            .map(([type, count]) => `${type}×${count}`)
+            .join(' + ');
+    }
 
     // HTML 구조를 동적으로 업데이트
-    buildDynamicSensorGroups(dynamicGroups) {
+    buildDynamicSensorGroups(apiResponse) {
+        console.log('🏗️ HTML 구조 동적 업데이트 시작:', apiResponse);
+        
+        // API 응답에서 groups 데이터 추출
+        const dynamicGroups = apiResponse.groups || apiResponse;
+        
+        if (!dynamicGroups || typeof dynamicGroups !== 'object') {
+            console.error('❌ buildDynamicSensorGroups: 잘못된 데이터 구조');
+            return;
+        }
+        
         Object.entries(dynamicGroups).forEach(([groupName, groupData]) => {
+            if (!groupData || !groupData.sensors) {
+                console.warn(`⚠️ 그룹 ${groupName}에 센서 데이터가 없습니다`);
+                return;
+            }
             this.updateGroupHeader(groupName, groupData);
             this.updateGroupCharts(groupName, groupData);
             
@@ -313,10 +365,19 @@ class EGIconDashboard {
 
     // 그룹별 차트 라벨 동적 업데이트
     updateGroupCharts(groupName, groupData) {
+        console.log(`🔄 그룹 ${groupName} 차트 업데이트:`, groupData);
+        
+        if (!groupData.sensors || !Array.isArray(groupData.sensors)) {
+            console.warn(`⚠️ 그룹 ${groupName}의 센서 데이터가 배열이 아닙니다:`, groupData.sensors);
+            return;
+        }
+        
         // 센서 라벨 생성
         const sensorLabels = groupData.sensors.map(sensor => {
             const busLabel = sensor.bus === 0 ? 'CH1' : 'CH2';
-            return `${sensor.type} ${busLabel}-Ch${sensor.channel}`;
+            const sensorType = sensor.sensor_type || sensor.type || 'Unknown';
+            const channel = sensor.mux_channel !== undefined ? sensor.mux_channel : sensor.channel;
+            return `${sensorType} ${busLabel}-Ch${channel}`;
         });
         
         // 해당 그룹의 메트릭별로 차트 업데이트
@@ -371,12 +432,28 @@ class EGIconDashboard {
 
     // Mock 센서 생성 (그룹 기준)
     generateMockSensors() {
+        console.log('🔧 Mock 센서 생성 중...');
+        
         // 각 그룹의 센서들을 connectedSensors에 추가
         Object.values(this.sensorGroups).forEach(group => {
-            group.sensors.forEach(sensorId => {
-                this.connectedSensors.add(sensorId);
-            });
+            if (group.sensors && typeof group.sensors === 'object') {
+                // sensors가 객체인 경우 (센서 타입별로 분류된 경우)
+                Object.values(group.sensors).forEach(sensorArray => {
+                    if (Array.isArray(sensorArray)) {
+                        sensorArray.forEach(sensorId => {
+                            this.connectedSensors.add(sensorId);
+                        });
+                    }
+                });
+            } else if (Array.isArray(group.sensors)) {
+                // sensors가 배열인 경우
+                group.sensors.forEach(sensorId => {
+                    this.connectedSensors.add(sensorId);
+                });
+            }
         });
+        
+        console.log('✅ Mock 센서 생성 완료:', this.connectedSensors.size, '개');
     }
 
     // 사이드바 이벤트 초기화
