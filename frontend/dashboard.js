@@ -876,9 +876,20 @@ class EGIconDashboard {
     createMultiSensorChart(canvasId, sensorType, sensorLabels) {
         console.log(`📊 다중 센서 차트 생성 시작: ${canvasId}, 타입: ${sensorType}, 라벨: ${sensorLabels.length}개`);
         
+        // DOM 로드 확인
+        if (document.readyState !== 'complete') {
+            console.log(`⏳ DOM 로드 대기 중... readyState: ${document.readyState}`);
+            setTimeout(() => {
+                this.createMultiSensorChart(canvasId, sensorType, sensorLabels);
+            }, 100);
+            return;
+        }
+        
         const ctx = document.getElementById(canvasId);
         if (!ctx) {
             console.error(`❌ 차트 캔버스를 찾을 수 없음: ${canvasId}`);
+            console.log(`🔍 DOM 상태: readyState=${document.readyState}, 모든 캔버스:`, 
+                Array.from(document.querySelectorAll('canvas')).map(c => c.id));
             return;
         }
 
@@ -1488,8 +1499,10 @@ class EGIconDashboard {
                 // pressure-gas 그룹 상태 업데이트
                 this.updatePressureGasGroupStatus({ sensors: bme688Sensors });
                 
-                // 다중 센서 차트 초기화 (6개 센서)
-                this.initializeBME688MultiSensorCharts(bme688Sensors);
+                // 다중 센서 차트 초기화 (6개 센서) - 딜레이로 안전하게
+                setTimeout(() => {
+                    this.initializeBME688MultiSensorCharts(bme688Sensors);
+                }, 2000); // 2초 후 차트 초기화
                 
             } else {
                 console.warn('⚠️ pressure-gas 그룹에서 BME688 센서를 찾을 수 없음');
@@ -1708,6 +1721,23 @@ class EGIconDashboard {
     // BME688 다중 센서 차트 초기화
     initializeBME688MultiSensorCharts(sensors) {
         console.log(`📊 BME688 다중 센서 차트 초기화: ${sensors.length}개 센서`);
+        
+        // DOM 요소 존재 확인
+        const pressureCanvas = document.getElementById('pressure-multi-chart');
+        const gasCanvas = document.getElementById('gas-resistance-multi-chart');
+        
+        if (!pressureCanvas || !gasCanvas) {
+            console.error(`❌ BME688 차트 캔버스 요소 누락:`, {
+                pressure: !!pressureCanvas,
+                gas: !!gasCanvas
+            });
+            
+            // 1초 후 재시도
+            setTimeout(() => {
+                this.initializeBME688MultiSensorCharts(sensors);
+            }, 1000);
+            return;
+        }
         
         // 기압 차트용 센서 라벨 생성
         const pressureLabels = sensors.map((sensor, index) => 
@@ -3043,8 +3073,41 @@ class EGIconDashboard {
         
         console.log(`📊 요약 위젯 업데이트: ${metric} - 평균: ${average.toFixed(1)}${unit}, 범위: ${min.toFixed(1)}~${max.toFixed(1)}${unit}, 센서수: ${sensorData.length}`);
         
-        // pressure와 airquality는 메인 대시보드에서 제거되었으므로 스킵
-        if (metric === 'pressure' || metric === 'airquality') {
+        // pressure와 gas_resistance는 pressure-gas 그룹 위젯 사용
+        if (metric === 'pressure') {
+            // pressure는 pressure-average 위젯 사용
+            const avgElement = document.getElementById('pressure-average');
+            if (avgElement) {
+                avgElement.textContent = `${average.toFixed(1)}${unit}`;
+                console.log(`✅ pressure 평균값 업데이트 성공: ${average.toFixed(1)}${unit}`);
+            }
+            
+            const rangeElement = document.getElementById('pressure-range');
+            if (rangeElement) {
+                rangeElement.textContent = `${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`;
+                console.log(`✅ pressure 범위 업데이트 성공: ${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`);
+            }
+            return;
+        }
+        
+        if (metric === 'gas_resistance') {
+            // gas_resistance는 gas-resistance-average 위젯 사용
+            const avgElement = document.getElementById('gas-resistance-average');
+            if (avgElement) {
+                avgElement.textContent = `${average.toFixed(0)}${unit}`;
+                console.log(`✅ gas_resistance 평균값 업데이트 성공: ${average.toFixed(0)}${unit}`);
+            }
+            
+            const rangeElement = document.getElementById('gas-resistance-range');
+            if (rangeElement) {
+                rangeElement.textContent = `${min.toFixed(0)} ~ ${max.toFixed(0)}${unit}`;
+                console.log(`✅ gas_resistance 범위 업데이트 성공: ${min.toFixed(0)} ~ ${max.toFixed(0)}${unit}`);
+            }
+            return;
+        }
+        
+        // airquality는 메인 대시보드에서 제거되었으므로 스킵
+        if (metric === 'airquality') {
             console.log(`⚠️ ${metric} 위젯은 메인 대시보드에서 제거되어 스킵합니다`);
             return;
         }
