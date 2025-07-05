@@ -35,11 +35,12 @@ class EGIconDashboard {
                 icon: "📏",
                 metrics: ["pressure", "airquality"],
                 sensors: {
-                    // BME688 센서 6개에서 압력 데이터
-                    bme688: ["bme688_1_0", "bme688_1_1", "bme688_1_2", "bme688_1_3", "bme688_1_4", "bme688_1_5"]
+                    // BME688 센서 6개에서 압력 데이터 (메인 대시보드에서 제거됨)
+                    bme688: []
                 },
-                totalSensors: 6,
-                containerId: "pressure-widgets"
+                totalSensors: 0,
+                containerId: "pressure-widgets",
+                disabled: true  // 메인 대시보드에서 비활성화
             },
             "light": {
                 title: "조도 센서",
@@ -526,6 +527,12 @@ class EGIconDashboard {
     // 센서 그룹 기반 차트 생성
     createChartsFromSensorGroups() {
         Object.entries(this.sensorGroups).forEach(([groupName, group]) => {
+            // 비활성화된 그룹은 건너뛰기
+            if (group.disabled) {
+                console.log(`📊 그룹 ${groupName}은 비활성화되어 차트 생성 스킵`);
+                return;
+            }
+            
             if (group.totalSensors > 0) {
                 // 각 메트릭별로 차트 생성
                 group.metrics.forEach(metric => {
@@ -1396,7 +1403,12 @@ class EGIconDashboard {
         const chart = this.charts[chartId];
         
         if (!chart) {
-            console.warn(`차트를 찾을 수 없음: ${chartId}`);
+            // pressure와 airquality는 메인 대시보드에서 제거되었으므로 경고 억제
+            if (metric === 'pressure' || metric === 'airquality') {
+                console.log(`📊 ${metric} 차트는 메인 대시보드에서 제거되어 스킵됨`);
+            } else {
+                console.warn(`⚠️ 차트를 찾을 수 없음: ${chartId}`);
+            }
             return;
         }
         
