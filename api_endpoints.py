@@ -152,6 +152,25 @@ def setup_api_routes(app: FastAPI):
                 "air-quality": {"sensors": [], "count": 0}
             }
             
+            # SPS30 백그라운드 스레드에서 UART 센서 추가
+            try:
+                from main import get_sps30_thread
+                sps30_thread = get_sps30_thread()
+                
+                if sps30_thread and sps30_thread.is_healthy():
+                    sps30_sensor = {
+                        "sensor_type": "SPS30",
+                        "sensor_name": "SPS30",
+                        "interface": "UART",
+                        "port": sps30_thread.port_path,
+                        "serial_number": sps30_thread.serial_number,
+                        "status": "connected"
+                    }
+                    groups["air-quality"]["sensors"].append(sps30_sensor)
+                    
+            except Exception as e:
+                print(f"⚠️ SPS30 그룹 추가 실패: {e}")
+            
             # I2C 센서 그룹화
             for sensor in scan_result.get("sensors", []):
                 sensor_type = sensor.get("sensor_type", "").upper()

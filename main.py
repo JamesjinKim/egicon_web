@@ -18,9 +18,21 @@ from api_endpoints import setup_api_routes
 from websocket_manager import setup_websocket_routes
 from hardware_scanner import cleanup_scanner
 
+# SPS30 백그라운드 스레드 import
+from ref.sps30_background_thread import SPS30BackgroundThread
+
+# 전역 SPS30 백그라운드 스레드 인스턴스
+sps30_thread = None
+
+def get_sps30_thread():
+    """SPS30 백그라운드 스레드 인스턴스 반환"""
+    return sps30_thread
+
 # 라이프사이클 이벤트 핸들러 (FastAPI 최신 방식)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global sps30_thread
+    
     # 서버 시작 시 초기화
     print("🚀 EG-ICON Dashboard 서버 시작")
     print("📡 모듈 분리 완료:")
@@ -29,10 +41,29 @@ async def lifespan(app: FastAPI):
     print("   - websocket_manager.py: 실시간 WebSocket 통신")
     print("   - hardware_scanner.py: 하드웨어 스캔")
     
+    # SPS30 백그라운드 스레드 초기화 및 시작
+    print("🌪️ SPS30 백그라운드 스레드 초기화 중...")
+    try:
+        sps30_thread = SPS30BackgroundThread(update_interval=10)  # 10초 간격
+        if sps30_thread.start():
+            print("✅ SPS30 백그라운드 스레드 시작됨")
+        else:
+            print("⚠️ SPS30 백그라운드 스레드 시작 실패 (센서 없음 또는 라이브러리 없음)")
+    except Exception as e:
+        print(f"❌ SPS30 백그라운드 스레드 초기화 실패: {e}")
+        sps30_thread = None
+    
     yield
     
     # 서버 종료 시 정리
     print("🛑 EG-ICON Dashboard 서버 종료")
+    
+    # SPS30 백그라운드 스레드 중지
+    if sps30_thread:
+        print("🛑 SPS30 백그라운드 스레드 중지 중...")
+        sps30_thread.stop()
+        print("✅ SPS30 백그라운드 스레드 중지 완료")
+    
     cleanup_scanner()
 
 # FastAPI 앱 생성 (lifespan 이벤트 포함)
@@ -117,9 +148,60 @@ async def system_info():
             "i2c_scanning": True,
             "uart_scanning": True,
             "realtime_websocket": True,
-            "dynamic_sensor_groups": True
+            "dynamic_sensor_groups": True,
+            "sps30_background": sps30_thread is not None
         }
     }
+
+# SPS30 데이터 엔드포인트
+@app.get("/api/sensors/sps30/data")
+async def get_sps30_data():
+    """SPS30 센서 현재 데이터 반환"""
+    if not sps30_thread:
+        return {
+            "success": False,
+            "error": "SPS30 백그라운드 스레드가 초기화되지 않음",
+            "data": None
+        }
+    
+    try:
+        data = sps30_thread.get_current_data()
+        return {
+            "success": True,
+            "data": data,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "data": None
+        }
+
+@app.get("/api/sensors/sps30/status")
+async def get_sps30_status():
+    """SPS30 백그라운드 스레드 상태 반환"""
+    if not sps30_thread:
+        return {
+            "success": False,
+            "error": "SPS30 백그라운드 스레드가 초기화되지 않음",
+            "status": None
+        }
+    
+    try:
+        status = sps30_thread.get_status()
+        return {
+            "success": True,
+            "status": status,
+            "health": sps30_thread.is_healthy(),
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "status": None
+        }
 
 # 헬스체크 엔드포인트
 @app.get("/health")

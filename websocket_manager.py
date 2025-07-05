@@ -138,8 +138,42 @@ class RealTimeDataCollector:
                     except Exception as sensor_error:
                         print(f"⚠️ 센서 데이터 읽기 실패 {sensor.get('sensor_name', 'Unknown')}: {sensor_error}")
             
-            # UART 센서 데이터 추가 (SPS30 등 - 향후 구현)
-            # TODO: SPS30 백그라운드 스레드에서 데이터 가져오기
+            # SPS30 UART 센서 데이터 추가
+            try:
+                from main import get_sps30_thread
+                sps30_thread = get_sps30_thread()
+                
+                if sps30_thread and sps30_thread.is_healthy():
+                    sps30_data = sps30_thread.get_current_data()
+                    
+                    if sps30_data and sps30_data.get('connected', False):
+                        # SPS30 데이터를 센서 데이터 형식으로 변환
+                        sps30_sensor_data = {
+                            "sensor_id": "sps30_uart",
+                            "sensor_name": "SPS30",
+                            "sensor_type": "SPS30",
+                            "interface": "UART",
+                            "timestamp": current_time,
+                            "values": {
+                                "pm1": sps30_data.get('pm1', 0.0),
+                                "pm25": sps30_data.get('pm25', 0.0),
+                                "pm4": sps30_data.get('pm4', 0.0),
+                                "pm10": sps30_data.get('pm10', 0.0)
+                            },
+                            "units": {
+                                "pm1": "μg/m³",
+                                "pm25": "μg/m³", 
+                                "pm4": "μg/m³",
+                                "pm10": "μg/m³"
+                            },
+                            "status": "connected",
+                            "data_age": sps30_data.get('data_age_seconds', 0)
+                        }
+                        sensor_data_list.append(sps30_sensor_data)
+                        print(f"📊 SPS30 데이터 추가: PM2.5={sps30_data.get('pm25', 0):.1f} μg/m³")
+                    
+            except Exception as sps30_error:
+                print(f"⚠️ SPS30 데이터 추가 실패: {sps30_error}")
             
             # 데이터가 있으면 브로드캐스트
             if sensor_data_list:
