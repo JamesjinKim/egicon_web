@@ -1948,11 +1948,18 @@ class EGIconDashboard {
         this.connectedSensors.delete(mockSensorId);
         this.connectedSensors.add(realSensorId);
         
-        // 센서 그룹에서 교체
+        // 센서 그룹에서 교체 (sensors는 객체이므로 센서 타입별로 검색)
         Object.values(this.sensorGroups).forEach(group => {
-            const index = group.sensors.indexOf(mockSensorId);
-            if (index !== -1) {
-                group.sensors[index] = realSensorId;
+            if (group.sensors && typeof group.sensors === 'object') {
+                Object.keys(group.sensors).forEach(sensorType => {
+                    if (Array.isArray(group.sensors[sensorType])) {
+                        const index = group.sensors[sensorType].indexOf(mockSensorId);
+                        if (index !== -1) {
+                            group.sensors[sensorType][index] = realSensorId;
+                            console.log(`✅ ${sensorType} 그룹에서 ${mockSensorId} → ${realSensorId} 교체 완료`);
+                        }
+                    }
+                });
             }
         });
         
