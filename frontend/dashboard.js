@@ -1340,12 +1340,98 @@ class EGIconDashboard {
                 }
             }
             
+            // SDP810 차압 센서 처리
+            if (sensor.sensor_type === 'SDP810') {
+                const sensorId = `${sensor.sensor_type.toLowerCase()}_${sensor.bus}_${sensor.mux_channel || 0}_25`;
+                console.log('📊 SDP810 차압 센서 발견:', sensor, '→', sensorId);
+                
+                // SDP810 센서 그룹 업데이트
+                this.updateSDP810SensorFromRealData(sensor, sensorId);
+            }
+            
             // SPS30 공기질 센서 처리
             if (sensor.sensor_type === 'SPS30' && sensor.interface === 'UART') {
                 console.log('📊 SPS30 공기질 센서 발견:', sensor);
                 this.updateSPS30Status(sensor);
             }
         });
+    }
+
+    // SDP810 실제 센서 데이터 업데이트
+    updateSDP810SensorFromRealData(sensor, sensorId) {
+        console.log('📊 SDP810 실제 센서 연결:', sensor, sensorId);
+        
+        // SDP810 센서 그룹의 센서 목록 업데이트
+        if (this.sensorGroups.sdp810) {
+            this.sensorGroups.sdp810.sensors.sdp810 = [sensorId];
+            this.sensorGroups.sdp810.totalSensors = 1;
+        }
+        
+        // 센서 상태 업데이트
+        const statusElement = document.getElementById('sdp810-status');
+        if (statusElement) {
+            statusElement.textContent = '1/1 활성';
+            statusElement.className = 'sensor-group-status online';
+        }
+        
+        // 센서 그룹 요약 업데이트
+        const summaryElement = document.querySelector('[data-group="sdp810"] .sensor-group-summary .summary-item');
+        if (summaryElement) {
+            summaryElement.textContent = `SDP810×1 (Bus${sensor.bus}:Ch${sensor.mux_channel})`;
+        }
+        
+        // 실제 센서 데이터 요청 시작
+        this.startSDP810DataPolling(sensorId, sensor);
+        
+        console.log(`✅ SDP810 센서 연결 완료: ${sensorId}`);
+    }
+
+    // SDP810 데이터 폴링 시작
+    startSDP810DataPolling(sensorId, sensor) {
+        console.log(`🔄 SDP810 데이터 폴링 시작: ${sensorId}`);
+        
+        // 즉시 한 번 실행
+        this.fetchSDP810Data(sensor);
+        
+        // 주기적 업데이트 설정
+        setInterval(() => {
+            this.fetchSDP810Data(sensor);
+        }, this.config.updateInterval);
+    }
+
+    // SDP810 센서 데이터 가져오기
+    async fetchSDP810Data(sensor) {
+        try {
+            const response = await fetch(`/api/sensors/sdp810/${sensor.bus}/${sensor.mux_channel}`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            if (result.success && result.data) {
+                // 데이터를 표준 형식으로 변환
+                const sensorData = {
+                    sensor_id: result.data.sensor_id,
+                    sensor_type: 'SDP810',
+                    data: {
+                        differential_pressure: result.data.data.differential_pressure
+                    },
+                    timestamp: result.data.timestamp
+                };
+                
+                // SDP810 데이터 업데이트
+                this.updateSDP810Data(sensorData);
+            }
+        } catch (error) {
+            console.error(`❌ SDP810 데이터 가져오기 실패 (Bus${sensor.bus}:Ch${sensor.mux_channel}):`, error);
+            
+            // 연결 오류 상태 표시
+            const statusElement = document.getElementById('sdp810-status');
+            if (statusElement) {
+                statusElement.textContent = '센서 오류';
+                statusElement.className = 'sensor-group-status offline';
+            }
+        }
     }
 
     // SPS30 센서 상태 업데이트
