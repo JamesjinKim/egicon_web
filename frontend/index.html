@@ -230,6 +230,65 @@
             </div>
         </div>
 
+        <!-- SHT40 온습도 센서 그룹 -->
+        <div class="sensor-group" data-group="sht40">
+            <div class="sensor-group-header">
+                <i class="fas fa-thermometer-half"></i>
+                <i class="fas fa-droplet"></i>
+                <span class="sensor-group-title">SHT40 온습도 센서</span>
+                <div class="sensor-group-summary">
+                    <span class="sensor-group-status online" id="sht40-group-status">연결 확인 중...</span>
+                    <span class="summary-item" id="sht40-group-summary">센서 검색 중</span>
+                </div>
+            </div>
+            
+            <!-- 요약 위젯들 -->
+            <div class="summary-widgets-container">
+                <div class="summary-widget temperature">
+                    <div class="summary-icon">🌡️</div>
+                    <div class="summary-content">
+                        <div class="summary-label">평균 온도</div>
+                        <div class="summary-value" id="sht40-temperature-average">--°C</div>
+                        <div class="summary-range" id="sht40-temperature-range">-- ~ --°C</div>
+                    </div>
+                </div>
+                
+                <div class="summary-widget humidity">
+                    <div class="summary-icon">💧</div>
+                    <div class="summary-content">
+                        <div class="summary-label">평균 습도</div>
+                        <div class="summary-value" id="sht40-humidity-average">--%</div>
+                        <div class="summary-range" id="sht40-humidity-range">-- ~ --%</div>
+                    </div>
+                </div>
+                
+                <div class="summary-widget status">
+                    <div class="summary-icon">📊</div>
+                    <div class="summary-content">
+                        <div class="summary-label">센서 상태</div>
+                        <div class="summary-value" id="sht40-sensor-status">0/0 활성</div>
+                        <div class="summary-range">센서 확인 중</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 통합 차트 -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3 class="chart-title" id="sht40-temp-chart-title">SHT40 온도 센서 차트 (0개)</h3>
+                    <div class="chart-container">
+                        <canvas id="sht40-temperature-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3 class="chart-title" id="sht40-humidity-chart-title">SHT40 습도 센서 차트 (0개)</h3>
+                    <div class="chart-container">
+                        <canvas id="sht40-humidity-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 진동 센서 그룹 -->
         <div class="sensor-group" data-group="vibration">
             <div class="sensor-group-header">

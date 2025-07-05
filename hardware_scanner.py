@@ -33,6 +33,15 @@ except ImportError as e:
     print("   설치 방법: sudo pip3 install sensirion-shdlc-sps30")
     print("   또는 가상환경 비활성화 후 시스템에서 직접 실행")
 
+# SHT40 센서 모듈
+try:
+    from sht40_sensor import SHT40Sensor, scan_sht40_sensors
+    SHT40_AVAILABLE = True
+    print("✅ SHT40 센서 모듈 로드 성공")
+except ImportError as e:
+    SHT40_AVAILABLE = False
+    print(f"⚠️ SHT40 센서 모듈 로드 실패: {e}")
+
 class HardwareScanner:
     """하드웨어 스캔 및 센서 감지 클래스"""
     
@@ -341,6 +350,81 @@ class HardwareScanner:
         print(f"📊 UART 스캔 결과: {len(uart_devices)}개 센서 발견")
         return uart_devices
     
+    def scan_sht40_sensors(self) -> List[Dict]:
+        """SHT40 전용 센서 스캔"""
+        print("🔍 SHT40 전용 센서 스캔 시작...")
+        sht40_devices = []
+        
+        if not self.is_raspberry_pi or not SHT40_AVAILABLE:
+            # Mock 데이터 반환 (개발 환경)
+            mock_sht40_devices = [
+                {
+                    "sensor_type": "SHT40",
+                    "sensor_id": "sht40_0_1_44",
+                    "bus": 0,
+                    "address": "0x44",
+                    "mux_channel": 1,
+                    "mux_address": "0x70",
+                    "interface": "I2C",
+                    "status": "connected",
+                    "measurements": ["temperature", "humidity"],
+                    "units": {"temperature": "°C", "humidity": "%RH"},
+                    "test_result": "온도: 23.5°C, 습도: 45.2%RH"
+                },
+                {
+                    "sensor_type": "SHT40", 
+                    "sensor_id": "sht40_1_2_44",
+                    "bus": 1,
+                    "address": "0x44",
+                    "mux_channel": 2,
+                    "mux_address": "0x70", 
+                    "interface": "I2C",
+                    "status": "connected",
+                    "measurements": ["temperature", "humidity"],
+                    "units": {"temperature": "°C", "humidity": "%RH"},
+                    "test_result": "온도: 24.1°C, 습도: 48.7%RH"
+                }
+            ]
+            sht40_devices.extend(mock_sht40_devices)
+            print("🔧 Mock 모드: SHT40 센서 시뮬레이션")
+            return sht40_devices
+        
+        print("🔗 라즈베리파이 환경: 실제 SHT40 센서 검색")
+        
+        # 멀티플렉서를 통한 SHT40 스캔
+        for bus_num in self.bus_numbers:
+            if bus_num in self.tca_info:
+                # 멀티플렉서 채널별 스캔
+                mux_address = self.tca_info[bus_num]["address"]
+                channels = [1, 2]  # Bus 0 CH1, Bus 1 CH2에 연결 예정
+                
+                try:
+                    found_sensors = scan_sht40_sensors(
+                        bus_numbers=[bus_num],
+                        addresses=[0x44, 0x45],
+                        mux_channels=channels,
+                        mux_address=mux_address
+                    )
+                    sht40_devices.extend(found_sensors)
+                    
+                except Exception as e:
+                    print(f"❌ SHT40 스캔 실패 (버스 {bus_num}): {e}")
+            
+            # 직접 연결된 SHT40도 스캔
+            try:
+                direct_sensors = scan_sht40_sensors(
+                    bus_numbers=[bus_num],
+                    addresses=[0x44, 0x45],
+                    mux_channels=None
+                )
+                sht40_devices.extend(direct_sensors)
+                
+            except Exception as e:
+                print(f"❌ SHT40 직접 스캔 실패 (버스 {bus_num}): {e}")
+        
+        print(f"📊 SHT40 스캔 결과: {len(sht40_devices)}개 센서 발견")
+        return sht40_devices
+    
     def scan_bus_direct(self, bus_num: int) -> List[Dict]:
         """버스 직접 스캔 (TCA9548A 없이)"""
         devices = []
@@ -599,10 +683,32 @@ class HardwareScanner:
                 
                 scan_result["buses"][bus_num] = bus_info
             
+            # SHT40 전용 센서 스캔 추가
+            print("🔍 SHT40 전용 센서 스캔 시작...")
+            sht40_devices = self.scan_sht40_sensors()
+            scan_result["sht40_devices"] = sht40_devices
+            
             # UART 센서 스캔 (전체 시스템에서 한 번만)
             print("🔍 UART 센서 스캔 시작...")
             uart_devices = self.scan_uart_sensors()
             scan_result["uart_devices"] = uart_devices
+            
+            # SHT40 센서도 전체 센서 목록에 추가
+            for sht40_device in sht40_devices:
+                sht40_sensor_data = {
+                    "bus": sht40_device.get("bus"),
+                    "mux_channel": sht40_device.get("mux_channel"),
+                    "address": sht40_device.get("address"),
+                    "sensor_name": sht40_device["sensor_type"],
+                    "sensor_type": sht40_device["sensor_type"],
+                    "sensor_id": sht40_device.get("sensor_id"),
+                    "status": sht40_device["status"],
+                    "interface": "I2C",
+                    "measurements": sht40_device.get("measurements", []),
+                    "units": sht40_device.get("units", {}),
+                    "test_result": sht40_device.get("test_result", "")
+                }
+                scan_result["sensors"].append(sht40_sensor_data)
             
             # UART 센서도 전체 센서 목록에 추가
             for uart_device in uart_devices:
@@ -621,9 +727,10 @@ class HardwareScanner:
                 }
                 scan_result["sensors"].append(uart_sensor_data)
             
-            i2c_count = len([s for s in scan_result['sensors'] if s.get('interface') != 'UART'])
+            i2c_count = len([s for s in scan_result['sensors'] if s.get('interface') == 'I2C'])
             uart_count = len([s for s in scan_result['sensors'] if s.get('interface') == 'UART'])
-            print(f"✅ 전체 시스템 스캔 완료: I2C {i2c_count}개, UART {uart_count}개 센서 발견")
+            sht40_count = len([s for s in scan_result['sensors'] if s.get('sensor_type') == 'SHT40'])
+            print(f"✅ 전체 시스템 스캔 완료: I2C {i2c_count}개 (SHT40 {sht40_count}개 포함), UART {uart_count}개 센서 발견")
             
         except Exception as e:
             scan_result["success"] = False

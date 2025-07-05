@@ -147,6 +147,7 @@ def setup_api_routes(app: FastAPI):
             # 센서별 그룹화
             groups = {
                 "temp-humidity": {"sensors": [], "count": 0},
+                "sht40": {"sensors": [], "count": 0},  # SHT40 전용 그룹 추가
                 "pressure": {"sensors": [], "count": 0}, 
                 "light": {"sensors": [], "count": 0},
                 "air-quality": {"sensors": [], "count": 0}
@@ -175,10 +176,11 @@ def setup_api_routes(app: FastAPI):
             for sensor in scan_result.get("sensors", []):
                 sensor_type = sensor.get("sensor_type", "").upper()
                 
-                if sensor_type in ["BME688", "SHT40"]:
+                if sensor_type == "BME688":
                     groups["temp-humidity"]["sensors"].append(sensor)
-                    if sensor_type == "BME688":
-                        groups["pressure"]["sensors"].append(sensor)
+                    groups["pressure"]["sensors"].append(sensor)
+                elif sensor_type == "SHT40":
+                    groups["sht40"]["sensors"].append(sensor)  # SHT40은 별도 그룹으로
                 elif sensor_type == "BH1750":
                     groups["light"]["sensors"].append(sensor)
                 elif sensor_type == "SPS30":
@@ -224,6 +226,90 @@ def setup_api_routes(app: FastAPI):
                 
         except Exception as e:
             print(f"❌ 센서 데이터 읽기 실패: {e}")
+            return {"success": False, "error": str(e), "data": None}
+
+    # SHT40 전용 엔드포인트
+    @app.get("/api/sensors/sht40")
+    async def get_sht40_sensors():
+        """SHT40 센서 목록 조회"""
+        try:
+            scanner = get_scanner()
+            scan_result = scanner.scan_dual_mux_system()
+            
+            # SHT40 센서만 필터링
+            sht40_sensors = [
+                sensor for sensor in scan_result.get("sensors", [])
+                if sensor.get("sensor_type") == "SHT40"
+            ]
+            
+            return {
+                "success": True,
+                "timestamp": datetime.now().isoformat(),
+                "sht40_sensors": sht40_sensors,
+                "count": len(sht40_sensors)
+            }
+            
+        except Exception as e:
+            print(f"❌ SHT40 센서 목록 조회 실패: {e}")
+            raise HTTPException(status_code=500, detail=f"SHT40 센서 조회 실패: {str(e)}")
+    
+    @app.get("/api/sensors/sht40/{bus}/{channel}")
+    async def get_sht40_sensor_data(bus: int, channel: int):
+        """특정 SHT40 센서 데이터 읽기"""
+        try:
+            # SHT40 센서 데이터 읽기 (Mock 데이터)
+            import random
+            
+            # 실제 하드웨어 환경에서는 sht40_sensor 모듈 사용
+            mock_data = {
+                "sensor_id": f"sht40_{bus}_{channel}_44",
+                "bus": bus,
+                "channel": channel,
+                "address": "0x44",
+                "sensor_type": "SHT40",
+                "timestamp": datetime.now().isoformat(),
+                "data": {
+                    "temperature": round(random.uniform(20.0, 30.0), 2),
+                    "humidity": round(random.uniform(40.0, 70.0), 2)
+                },
+                "units": {
+                    "temperature": "°C",
+                    "humidity": "%RH"
+                },
+                "status": "connected"
+            }
+            
+            return {"success": True, "data": mock_data}
+            
+        except Exception as e:
+            print(f"❌ SHT40 센서 데이터 읽기 실패: {e}")
+            return {"success": False, "error": str(e), "data": None}
+    
+    @app.post("/api/sensors/sht40/test")
+    async def test_sht40_sensor():
+        """SHT40 센서 테스트"""
+        try:
+            scanner = get_scanner()
+            
+            # SHT40 센서 스캔 실행
+            if hasattr(scanner, 'scan_sht40_sensors'):
+                sht40_devices = scanner.scan_sht40_sensors()
+                
+                return {
+                    "success": True,
+                    "timestamp": datetime.now().isoformat(),
+                    "sht40_devices": sht40_devices,
+                    "count": len(sht40_devices)
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "SHT40 스캔 기능이 지원되지 않습니다",
+                    "data": None
+                }
+                
+        except Exception as e:
+            print(f"❌ SHT40 센서 테스트 실패: {e}")
             return {"success": False, "error": str(e), "data": None}
 
     # 시스템 유틸리티 엔드포인트
