@@ -1292,6 +1292,11 @@ class EGIconDashboard {
         } catch (error) {
             console.error('❌ 실제 센서 데이터 로딩 실패:', error);
         }
+        
+        // 강제로 SDP810 API 폴링 시작 (WebSocket 데이터 대신)
+        console.log('🔧 SDP810 강제 폴링 시작...');
+        const sdp810Sensor = { bus: 1, mux_channel: 0 };
+        this.startSDP810DataPolling('sdp810_1_0_25', sdp810Sensor);
     }
 
     // 실제 센서 데이터 처리
@@ -1751,15 +1756,15 @@ class EGIconDashboard {
             const timestamp = new Date();
             let pressureValue = null;
             
-            // 데이터 구조 분석 및 값 추출
+            // 데이터 구조 분석 및 값 추출 (API 데이터만 허용)
             if (sensorData.data && sensorData.data.differential_pressure !== undefined) {
                 // API 응답 형식: { data: { differential_pressure: value } }
                 pressureValue = sensorData.data.differential_pressure;
-                console.log('📊 SDP810 데이터 구조 A: data.differential_pressure =', pressureValue);
+                console.log('📊 SDP810 API 데이터: data.differential_pressure =', pressureValue);
             } else if (sensorData.value !== undefined) {
-                // 실시간 데이터 형식: { value: pressureValue }
-                pressureValue = sensorData.value;
-                console.log('📊 SDP810 데이터 구조 B: value =', pressureValue);
+                // WebSocket 실시간 데이터는 부정확하므로 무시
+                console.log('⚠️ SDP810 WebSocket 데이터 무시 (부정확): value =', sensorData.value);
+                return;
             } else {
                 console.warn('⚠️ SDP810 데이터 구조를 인식할 수 없음:', sensorData);
                 return;
