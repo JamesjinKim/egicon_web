@@ -657,6 +657,9 @@ class EGIconDashboard {
         
         // SDP810 전용 차트 생성
         this.createSDP810Charts();
+        
+        // BME688 pressure-gas 그룹 차트 생성
+        this.createPressureGasCharts();
     }
 
     // 센서 그룹 기반 차트 생성
@@ -1149,6 +1152,94 @@ class EGIconDashboard {
         });
         
         console.log(`📊 SDP810 ${metric} 차트 생성 완료: ${canvasId}`);
+    }
+
+    // BME688 pressure-gas 그룹 차트 생성
+    createPressureGasCharts() {
+        // 기압 차트 생성
+        this.createPressureGasChart('pressure-multi-chart', 'pressure', 'BME688 기압', 'hPa', '#4bc0c0', 950, 1050);
+        
+        // 가스저항 차트 생성
+        this.createPressureGasChart('gas-resistance-multi-chart', 'gas_resistance', 'BME688 가스저항', 'Ω', '#9966ff', 0, 200000);
+        
+        console.log('📊 BME688 pressure-gas 그룹 차트 생성 완료');
+    }
+
+    // BME688 개별 차트 생성
+    createPressureGasChart(canvasId, metric, title, unit, color, min, max) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            console.warn(`⚠️ BME688 ${metric} 차트 캔버스 찾을 수 없음: ${canvasId}`);
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        
+        // 기존 차트가 있으면 제거
+        const existingChart = Chart.getChart(canvasId);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+
+        this.charts[canvasId] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [] // 동적으로 추가됨
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            displayFormats: {
+                                millisecond: 'HH:mm:ss.SSS',
+                                second: 'HH:mm:ss',
+                                minute: 'HH:mm',
+                                hour: 'HH:mm'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '시간'
+                        }
+                    },
+                    y: {
+                        min: min,
+                        max: max,
+                        title: {
+                            display: true,
+                            text: `${title} (${unit})`
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}${unit}`;
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 300
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+        
+        console.log(`📊 BME688 ${metric} 차트 생성 완료: ${canvasId}`);
     }
 
     // 색상 팔레트 반환
@@ -1705,12 +1796,21 @@ class EGIconDashboard {
         const pressureChart = this.charts['pressure-multi-chart'];
         if (pressureChart) {
             this.updateSingleChart(pressureChart, pressure, timestamp, 'BME688 기압');
+        } else {
+            console.warn('⚠️ pressure-multi-chart가 존재하지 않습니다. 차트를 다시 생성합니다.');
+            this.createPressureGasCharts();
         }
         
         // 가스저항 차트 업데이트
         const gasChart = this.charts['gas-resistance-multi-chart'];
         if (gasChart) {
             this.updateSingleChart(gasChart, gasResistance, timestamp, 'BME688 가스저항');
+        } else {
+            console.warn('⚠️ gas-resistance-multi-chart가 존재하지 않습니다. 차트를 다시 생성합니다.');
+            // 차트 생성은 한 번만 호출 (중복 방지)
+            if (!this.charts['pressure-multi-chart']) {
+                this.createPressureGasCharts();
+            }
         }
     }
     
