@@ -776,6 +776,13 @@ class EGIconDashboard {
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
 
+        // 기존 차트가 있으면 파괴
+        const existingChart = Chart.getChart(canvasId);
+        if (existingChart) {
+            console.log(`🗑️ 기존 차트 파괴: ${canvasId}`);
+            existingChart.destroy();
+        }
+
         const sensorConfig = this.sensorTypes[sensorType];
         
         // 그라데이션 생성
@@ -866,6 +873,13 @@ class EGIconDashboard {
     createMultiSensorChart(canvasId, sensorType, sensorLabels) {
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
+
+        // 기존 차트가 있으면 파괴
+        const existingChart = Chart.getChart(canvasId);
+        if (existingChart) {
+            console.log(`🗑️ 기존 차트 파괴: ${canvasId}`);
+            existingChart.destroy();
+        }
 
         const sensorConfig = this.sensorTypes[sensorType];
         
