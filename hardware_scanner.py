@@ -20,62 +20,18 @@ try:
 except ImportError:
     I2C_AVAILABLE = False
 
-# SPS30 UART 센서 라이브러리 (가상환경 vs 시스템 전역 호환)
-SPS30_AVAILABLE = False
-Sps30ShdlcDevice = None
-ShdlcSerialPort = None
-ShdlcConnection = None
-ShdlcError = None
-
-# 1차 시도: 현재 환경(가상환경)에서 직접 import
+# SPS30 UART 센서 라이브러리 (시스템 직접 실행용 - ref/gui_sps30.py와 동일)
 try:
     from shdlc_sps30 import Sps30ShdlcDevice
     from sensirion_shdlc_driver import ShdlcSerialPort, ShdlcConnection
     from sensirion_shdlc_driver.errors import ShdlcError
     SPS30_AVAILABLE = True
-    print("✅ SPS30 라이브러리 로드 성공 (현재 환경)")
+    print("✅ SPS30 라이브러리 로드 성공 (시스템 환경)")
 except ImportError as e:
-    print(f"⚠️ 현재 환경에서 SPS30 라이브러리 로드 실패: {e}")
-    
-    # 2차 시도: 시스템 전역 패키지 경로 추가
-    try:
-        import sys
-        import subprocess
-        
-        # 시스템 전역 site-packages 경로 찾기
-        result = subprocess.run(['/usr/bin/python3', '-c', 'import site; print(site.getsitepackages()[0])'], 
-                              capture_output=True, text=True)
-        if result.returncode == 0:
-            system_site_packages = result.stdout.strip()
-            if system_site_packages not in sys.path:
-                sys.path.insert(0, system_site_packages)
-                print(f"   시스템 site-packages 경로 추가: {system_site_packages}")
-        
-        # 다시 import 시도
-        from shdlc_sps30 import Sps30ShdlcDevice
-        from sensirion_shdlc_driver import ShdlcSerialPort, ShdlcConnection
-        from sensirion_shdlc_driver.errors import ShdlcError
-        SPS30_AVAILABLE = True
-        print("✅ SPS30 라이브러리 로드 성공 (시스템 전역 경로)")
-        
-    except Exception as system_e:
-        print(f"   시스템 전역 경로에서도 실패: {system_e}")
-        
-        # 3차 시도: ref/sps30_sensor.py 모듈 사용
-        try:
-            import os
-            ref_path = os.path.join(os.path.dirname(__file__), 'ref')
-            if ref_path not in sys.path:
-                sys.path.append(ref_path)
-            
-            from sps30_sensor import SPS30Sensor
-            SPS30_AVAILABLE = True
-            print("✅ ref/sps30_sensor.py 모듈 사용 가능")
-        except ImportError as ref_e:
-            print(f"❌ ref/sps30_sensor.py도 사용 불가: {ref_e}")
-            print("   해결방법:")
-            print("   1. 가상환경에서: pip3 install sensirion-shdlc-sps30")
-            print("   2. 또는 가상환경 비활성화 후 서버 실행")
+    SPS30_AVAILABLE = False
+    print(f"⚠️ SPS30 라이브러리 로드 실패: {e}")
+    print("   설치 방법: sudo pip3 install sensirion-shdlc-sps30")
+    print("   또는 가상환경 비활성화 후 시스템에서 직접 실행")
 
 class HardwareScanner:
     """하드웨어 스캔 및 센서 감지 클래스"""
@@ -271,32 +227,9 @@ class HardwareScanner:
         print("🔍 SPS30 UART 센서 검색 시작...")
         
         if not SPS30_AVAILABLE:
-            print("❌ SPS30 라이브러리를 직접 import할 수 없음")
-            print("   ref/sps30_sensor.py 모듈 사용 시도...")
-            
-            # ref/sps30_sensor.py의 find_sps30 정적 메서드 사용 시도
-            try:
-                import sys
-                import os
-                ref_path = os.path.join(os.path.dirname(__file__), 'ref')
-                if ref_path not in sys.path:
-                    sys.path.append(ref_path)
-                
-                from sps30_sensor import SPS30Sensor
-                print("✅ ref/sps30_sensor.py 모듈 로드 성공")
-                
-                port_path, count = SPS30Sensor.find_sps30()
-                if port_path:
-                    # 시리얼 번호 가져오기
-                    sensor = SPS30Sensor(port=port_path)
-                    serial_number = sensor.serial_number if sensor.connected else "Unknown"
-                    return port_path, serial_number
-                else:
-                    return None, None
-                    
-            except Exception as e:
-                print(f"❌ ref/sps30_sensor.py 사용 실패: {e}")
-                return None, None
+            print("❌ SPS30 라이브러리가 설치되지 않음")
+            print("   해결방법: sudo pip3 install sensirion-shdlc-sps30")
+            return None, None
         
         print("✅ SPS30 라이브러리 확인됨")
         
