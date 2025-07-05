@@ -14,7 +14,7 @@ class RealtimeChangeTest:
     """실시간 변화 감지 테스트"""
     
     def __init__(self):
-        self.api_url = "http://192.168.0.39:8001/api/sensors/sdp810/1/0"
+        self.api_url = "http://localhost:8001/api/sensors/sdp810/1/0"
         self.previous_values = []
         self.change_count = 0
         self.no_change_count = 0
