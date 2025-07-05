@@ -1495,7 +1495,8 @@ class EGIconDashboard {
                 const activeCount = sensorData.length;
                 const totalCount = this.sensorGroups[groupName]?.totalSensors || activeCount;
                 statusElement.textContent = `${activeCount}/${totalCount} 활성`;
-            } else if (metric !== 'pressure' && metric !== 'airquality') {
+            } else if (metric !== 'pressure' && metric !== 'airquality' && metric !== 'temperature' && metric !== 'humidity') {
+                // 온습도 센서는 통합 상태만 있고 개별 상태 엘리먼트는 없음
                 console.warn(`⚠️ 상태 엘리먼트를 찾을 수 없음: ${metric}-status`);
             }
             
