@@ -1800,27 +1800,54 @@ class EGIconDashboard {
 
     // SDP810 차압 데이터 업데이트
     updateSDP810PressureData(sensorData) {
+        console.log('🔄 SDP810 차압 데이터 업데이트 시작:', sensorData);
+        
         // 차압 차트 업데이트
         const pressureChart = Chart.getChart('sdp810-pressure-chart');
+        console.log('📊 SDP810 차트 객체:', pressureChart);
+        
         if (pressureChart) {
             this.updateSDP810Chart(pressureChart, sensorData, 'pressure');
+            console.log('✅ SDP810 차트 업데이트 완료');
+        } else {
+            console.warn('⚠️ SDP810 차트를 찾을 수 없음, 차트 재생성 시도');
+            // 차트가 없으면 생성 시도
+            this.createSDP810Charts();
+            
+            // 잠시 후 다시 시도
+            setTimeout(() => {
+                const retryChart = Chart.getChart('sdp810-pressure-chart');
+                if (retryChart) {
+                    this.updateSDP810Chart(retryChart, sensorData, 'pressure');
+                    console.log('✅ SDP810 차트 재생성 후 업데이트 완료');
+                } else {
+                    console.error('❌ SDP810 차트 재생성 실패');
+                }
+            }, 100);
         }
         
         // 차압 요약 위젯 업데이트
         this.updateSDP810PressureSummary(sensorData);
+        console.log('✅ SDP810 차압 요약 업데이트 완료');
     }
 
     // SDP810 차트 업데이트
     updateSDP810Chart(chart, sensorData, metric) {
-        if (!chart || !sensorData) return;
+        if (!chart || !sensorData) {
+            console.error('❌ SDP810 차트 업데이트 실패: 차트 또는 데이터 누락', { chart, sensorData });
+            return;
+        }
         
         const { sensorId, value, timestamp } = sensorData;
         const color = '#4bc0c0'; // 청록색 (차압용)
+        
+        console.log(`📊 SDP810 차트 데이터 추가: ${sensorId} = ${value} Pa @ ${timestamp}`);
         
         // 데이터셋 찾기 또는 생성
         let dataset = chart.data.datasets.find(ds => ds.label.includes(sensorId));
         
         if (!dataset) {
+            console.log(`📊 SDP810 새 데이터셋 생성: ${sensorId}`);
             dataset = {
                 label: `SDP810 차압 (${sensorId})`,
                 data: [],
@@ -1834,17 +1861,21 @@ class EGIconDashboard {
         }
         
         // 새 데이터 포인트 추가
-        dataset.data.push({
+        const dataPoint = {
             x: timestamp,
             y: value
-        });
+        };
+        dataset.data.push(dataPoint);
+        console.log(`📊 SDP810 데이터 포인트 추가:`, dataPoint, `총 ${dataset.data.length}개`);
         
         // 데이터 포인트 제한 (최근 50개)
         if (dataset.data.length > 50) {
             dataset.data.shift();
+            console.log('📊 SDP810 차트 데이터 제한: 50개로 축소');
         }
         
         chart.update('none');
+        console.log('✅ SDP810 차트 업데이트 완료');
     }
 
     // SDP810 차압 요약 업데이트
