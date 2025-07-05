@@ -931,6 +931,7 @@ class EGIconDashboard {
             };
         });
 
+        console.log(`💾 차트 저장: 키="${canvasId}", 센서타입="${sensorType}"`);
         this.charts[canvasId] = new Chart(ctx, {
             type: 'line',
             data: {
@@ -1501,7 +1502,9 @@ class EGIconDashboard {
                 this.updatePressureGasGroupStatus({ sensors: bme688Sensors });
                 
                 // 다중 센서 차트 초기화 (6개 센서) - 딜레이로 안전하게
+                console.log(`⏰ BME688 차트 초기화 2초 후 예약됨...`);
                 setTimeout(() => {
+                    console.log(`🚀 BME688 차트 초기화 시작 (2초 딜레이 후)`);
                     this.initializeBME688MultiSensorCharts(bme688Sensors);
                 }, 2000); // 2초 후 차트 초기화
                 
@@ -2724,6 +2727,10 @@ class EGIconDashboard {
         const normalizedMetric = metric.replace(/_/g, '-');
         const chartId = `${normalizedMetric}-multi-chart`;
         const chart = this.charts[chartId];
+        
+        console.log(`🔍 차트 검색: metric="${metric}" → chartId="${chartId}"`);
+        console.log(`📊 저장된 차트 키들:`, Object.keys(this.charts));
+        console.log(`🎯 찾은 차트:`, !!chart, chart ? `(데이터셋 ${chart.data.datasets.length}개)` : '(없음)');
         
         if (!chart) {
             // airquality는 메인 대시보드에서 제거되었으므로 경고 억제
