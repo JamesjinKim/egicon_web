@@ -1498,7 +1498,6 @@ class EGIconDashboard {
             } else if (metric !== 'pressure' && metric !== 'airquality') {
                 console.warn(`⚠️ 상태 엘리먼트를 찾을 수 없음: ${metric}-status`);
             }
-        }
             
             // 그룹 통합 상태 업데이트 (온습도 센서의 경우)
             if (groupName === 'temp-humidity') {
