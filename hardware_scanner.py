@@ -54,8 +54,8 @@ class HardwareScanner:
         "VL53L0X": [0x29]
     }
     
-    # TCA9548A 주소 범위
-    TCA9548A_ADDRESSES = list(range(0x70, 0x78))
+    # TCA9548A 주소 범위 (실제 사용하는 주소만)
+    TCA9548A_ADDRESSES = [0x70, 0x71]
     
     # UART 센서 정보
     UART_SENSORS = {
