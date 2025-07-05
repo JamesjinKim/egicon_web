@@ -1426,9 +1426,17 @@ class EGIconDashboard {
                     // 실시간 업데이트에서는 상태 업데이트 건너뛰기 (skipStatusUpdate = true)
                     this.updateSummaryWidgets(groupName, metric, sensorDataArray, true);
                     
-                    // pressure-gas 그룹 헤더 상태 업데이트
+                    // pressure-gas 그룹 헤더 상태 업데이트 (BME688 센서만 카운트)
                     if (groupName === 'pressure-gas' && (metric === 'pressure' || metric === 'gas_resistance')) {
-                        this.updatePressureGasGroupHeader(sensorDataArray.length);
+                        // BME688 센서만 필터링하여 카운트
+                        const bme688SensorCount = sensorDataArray.filter(sensor => 
+                            sensor.sensorId && sensor.sensorId.includes('bme688')
+                        ).length;
+                        
+                        // BME688 센서가 있을 때만 업데이트
+                        if (bme688SensorCount > 0) {
+                            this.updatePressureGasGroupHeader(bme688SensorCount);
+                        }
                     }
                 } else {
                     console.warn(`⚠️ 그룹 매핑 실패: ${metric}`);
@@ -2026,19 +2034,23 @@ class EGIconDashboard {
             statusRangeElement.textContent = '정상 동작 중';
         }
         
-        // 그룹 헤더 상태 업데이트
+        // 그룹 헤더 상태 업데이트 (실제 BME688 센서 수 사용)
         const groupStatusElement = document.getElementById('pressure-gas-status');
         if (groupStatusElement) {
-            const sensorCount = this.sensorGroups['pressure-gas']?.sensors?.bme688?.length || 6;
-            groupStatusElement.textContent = `${sensorCount}개 연결됨`;
-            groupStatusElement.className = 'sensor-group-status online';
+            const sensorCount = this.sensorGroups['pressure-gas']?.sensors?.bme688?.length || 0;
+            if (sensorCount > 0) {
+                groupStatusElement.textContent = `${sensorCount}개 연결됨`;
+                groupStatusElement.className = 'sensor-group-status online';
+            }
         }
         
-        // 그룹 요약 업데이트
+        // 그룹 요약 업데이트 (실제 BME688 센서 수 사용)
         const groupSummaryElement = document.getElementById('pressure-gas-summary');
         if (groupSummaryElement) {
-            const sensorCount = this.sensorGroups['pressure-gas']?.sensors?.bme688?.length || 6;
-            groupSummaryElement.textContent = `BME688×${sensorCount}`;
+            const sensorCount = this.sensorGroups['pressure-gas']?.sensors?.bme688?.length || 0;
+            if (sensorCount > 0) {
+                groupSummaryElement.textContent = `BME688×${sensorCount}`;
+            }
         }
         
         console.log(`✅ BME688 위젯 업데이트 완료 - 평균 기압: ${avgPressure.toFixed(1)}hPa, 평균 가스저항: ${avgGasResistance.toFixed(0)}Ω`);
