@@ -212,7 +212,7 @@ async def read_bme688_data(bus_number: int, mux_channel: int, address: int = 0x7
 
 # SPS30 UART 센서 테스트 함수
 async def test_sps30_sensor(port: str) -> Dict[str, Any]:
-    """SPS30 UART 센서 테스트"""
+    """SPS30 UART 센서 테스트 - SHDLC 오류 코드 67 수정"""
     try:
         # SPS30 라이브러리 동적 import
         try:
@@ -228,53 +228,104 @@ async def test_sps30_sensor(port: str) -> Dict[str, Any]:
         
         print(f"🧪 SPS30 테스트 시작: {port}")
         
-        # 짧은 연결 테스트
+        # 안전한 연결 테스트
         with ShdlcSerialPort(port=port, baudrate=115200) as serial_port:
             device = Sps30ShdlcDevice(ShdlcConnection(serial_port))
             
-            # 기본 정보 읽기
-            serial_number = device.device_information_serial_number()
-            print(f"📊 SPS30 시리얼 번호: {serial_number}")
-            
-            # 간단한 측정 테스트
-            device.device_reset()
-            time.sleep(1)
-            device.start_measurement()
-            time.sleep(3)  # 짧은 측정 시간
-            
             try:
-                data = device.read_measured_value()
-                device.stop_measurement()
+                # 1단계: 기본 정보 읽기 (연결 확인)
+                serial_number = device.device_information_serial_number()
+                print(f"📊 SPS30 시리얼 번호: {serial_number}")
                 
-                if data and len(data) >= 3:
-                    pm1 = float(data[0]) if data[0] else 0.0
-                    pm25 = float(data[1]) if data[1] else 0.0  
-                    pm10 = float(data[2]) if data[2] else 0.0
+                # 2단계: 현재 상태 확인 및 안전하게 정리
+                try:
+                    # 혹시 실행 중인 측정 중지 (오류 무시)
+                    device.stop_measurement()
+                    print("🔄 기존 측정 중지 완료")
+                    time.sleep(0.5)
+                except Exception as stop_error:
+                    print(f"ℹ️ 기존 측정 중지 시도 (오류 무시): {stop_error}")
+                
+                # 3단계: 디바이스 리셋 (안전한 초기 상태)
+                try:
+                    device.device_reset()
+                    print("🔄 SPS30 디바이스 리셋 완료")
+                    time.sleep(2)  # 리셋 후 충분한 대기
+                except Exception as reset_error:
+                    print(f"⚠️ 디바이스 리셋 실패 (계속 진행): {reset_error}")
+                
+                # 4단계: 측정 시작
+                try:
+                    device.start_measurement()
+                    print("🚀 SPS30 측정 시작")
+                    time.sleep(5)  # 안정화 시간 증가
                     
-                    return {
-                        "success": True,
-                        "data": {
-                            "serial_number": serial_number,
-                            "port": port,
-                            "pm1": round(pm1, 1),
-                            "pm25": round(pm25, 1), 
-                            "pm10": round(pm10, 1),
-                            "timestamp": datetime.now().isoformat()
+                    # 5단계: 데이터 읽기
+                    data = device.read_measured_value()
+                    print(f"📊 SPS30 데이터 읽기 성공: {data}")
+                    
+                    # 6단계: 측정 중지
+                    device.stop_measurement()
+                    print("🔄 SPS30 측정 중지 완료")
+                    
+                    if data and len(data) >= 3:
+                        pm1 = float(data[0]) if data[0] else 0.0
+                        pm25 = float(data[1]) if data[1] else 0.0  
+                        pm10 = float(data[2]) if data[2] else 0.0
+                        
+                        return {
+                            "success": True,
+                            "data": {
+                                "serial_number": serial_number,
+                                "port": port,
+                                "pm1": round(pm1, 1),
+                                "pm25": round(pm25, 1), 
+                                "pm10": round(pm10, 1),
+                                "timestamp": datetime.now().isoformat(),
+                                "message": "SPS30 테스트 완료"
+                            }
                         }
-                    }
-                else:
+                    else:
+                        return {
+                            "success": False,
+                            "error": "SPS30 데이터 읽기 실패 - 불완전한 데이터",
+                            "data": {"port": port, "serial_number": serial_number}
+                        }
+                        
+                except ShdlcError as shdlc_error:
+                    # SHDLC 특정 오류 처리
+                    error_code = getattr(shdlc_error, 'error_code', 'Unknown')
+                    if error_code == 67:
+                        return {
+                            "success": False,
+                            "error": f"SPS30 상태 오류: 센서가 이미 측정 중이거나 잘못된 상태입니다. 센서를 재시작해주세요.",
+                            "data": {"port": port, "serial_number": serial_number, "error_code": error_code}
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": f"SPS30 SHDLC 오류 코드 {error_code}: {shdlc_error}",
+                            "data": {"port": port, "serial_number": serial_number, "error_code": error_code}
+                        }
+                
+                except Exception as measure_error:
+                    # 측정 중 오류 발생 시 안전하게 정리
+                    try:
+                        device.stop_measurement()
+                    except:
+                        pass
+                    
                     return {
                         "success": False,
-                        "error": "SPS30 데이터 읽기 실패 - 불완전한 데이터",
+                        "error": f"SPS30 측정 실패: {measure_error}",
                         "data": {"port": port, "serial_number": serial_number}
                     }
-                    
-            except Exception as measure_error:
-                device.stop_measurement()
+                
+            except Exception as device_error:
                 return {
                     "success": False,
-                    "error": f"SPS30 측정 실패: {measure_error}",
-                    "data": {"port": port, "serial_number": serial_number}
+                    "error": f"SPS30 디바이스 오류: {device_error}",
+                    "data": {"port": port}
                 }
                 
     except Exception as e:
