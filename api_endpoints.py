@@ -445,27 +445,39 @@ def setup_api_routes(app: FastAPI):
     async def get_sdp810_sensor_data(bus: int, channel: int):
         """특정 SDP810 센서 데이터 읽기"""
         try:
-            # SDP810 센서 데이터 읽기 (Mock 데이터)
-            import random
+            # 실제 SDP810 센서 데이터 읽기 (240 스케일링 + CRC 재시도)
+            from sdp810_sensor import SDP810Sensor
             
-            # 실제 하드웨어 환경에서는 sdp810_sensor 모듈 사용
-            mock_data = {
-                "sensor_id": f"sdp810_{bus}_{channel}_25",
-                "bus": bus,
-                "channel": channel,
-                "address": "0x25",
-                "sensor_type": "SDP810",
-                "timestamp": datetime.now().isoformat(),
-                "data": {
-                    "differential_pressure": round(random.uniform(-10.0, 10.0), 2)
-                },
-                "units": {
-                    "differential_pressure": "Pa"
-                },
-                "status": "connected"
-            }
+            # SDP810 센서 인스턴스 생성
+            sensor = SDP810Sensor(bus_num=bus, mux_address=0x70, mux_channel=channel)
             
-            return {"success": True, "data": mock_data}
+            if sensor.connect():
+                # 재시도 로직으로 압력 읽기 (CRC 오류 시 자동 재시도)
+                pressure = sensor.read_pressure_with_retry(max_retries=3)
+                
+                if pressure is not None:
+                    sensor_data = {
+                        "sensor_id": f"sdp810_{bus}_{channel}_25",
+                        "bus": bus,
+                        "channel": channel,
+                        "address": "0x25",
+                        "sensor_type": "SDP810",
+                        "timestamp": datetime.now().isoformat(),
+                        "data": {
+                            "differential_pressure": round(pressure, 4)
+                        },
+                        "units": {
+                            "differential_pressure": "Pa"
+                        },
+                        "status": "connected"
+                    }
+                    sensor.disconnect()
+                    return {"success": True, "data": sensor_data}
+                else:
+                    sensor.disconnect()
+                    return {"success": False, "error": "센서 읽기 실패 (CRC 오류 재시도 후)", "data": None}
+            else:
+                return {"success": False, "error": "센서 연결 실패", "data": None}
             
         except Exception as e:
             print(f"❌ SDP810 센서 데이터 읽기 실패: {e}")
