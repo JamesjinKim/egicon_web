@@ -101,8 +101,7 @@ class TCA9548AProper:
     def _identify_device(self, address):
         """주소로 장치 타입 식별"""
         device_map = {
-            0x25: "SDP810/SDP800",
-            0x26: "SDP800",
+            0x25: "SDP810",
             0x44: "SHT40",
             0x45: "SHT40",
             0x76: "BME688/BME680",

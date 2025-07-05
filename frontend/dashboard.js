@@ -39,6 +39,17 @@ class EGIconDashboard {
                 totalSensors: 2,
                 containerId: "sht40-widgets"
             },
+            "sdp810": {
+                title: "SDP810 차압센서",
+                icon: "🌬️",
+                metrics: ["pressure"],
+                sensors: {
+                    // SDP810 센서 (동적으로 발견됨)
+                    sdp810: ["sdp810_1_0_25"]  // Mock 센서 (Bus 1 CH0)
+                },
+                totalSensors: 1,
+                containerId: "sdp810-widgets"
+            },
             "pressure": {
                 title: "압력 센서",
                 icon: "📏",
@@ -631,6 +642,9 @@ class EGIconDashboard {
         
         // SHT40 전용 차트 생성
         this.createSHT40Charts();
+        
+        // SDP810 전용 차트 생성
+        this.createSDP810Charts();
     }
 
     // 센서 그룹 기반 차트 생성
@@ -1032,6 +1046,85 @@ class EGIconDashboard {
         console.log(`📊 SHT40 ${metric} 차트 생성 완료: ${canvasId}`);
     }
 
+    // SDP810 전용 차트 생성
+    createSDP810Charts() {
+        // SDP810 차압 차트 생성
+        this.createSDP810Chart('sdp810-pressure-chart', 'pressure', 'SDP810 차압', 'Pa', '#4bc0c0', -50, 50);
+        
+        console.log('📊 SDP810 전용 차트 생성 완료');
+    }
+
+    // SDP810 개별 차트 생성
+    createSDP810Chart(canvasId, metric, title, unit, color, min, max) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            console.warn(`⚠️ SDP810 차트 캔버스 찾을 수 없음: ${canvasId}`);
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        
+        // 기존 차트가 있으면 제거
+        const existingChart = Chart.getChart(canvasId);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+
+        this.charts[canvasId] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: [] // 동적으로 추가됨
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            displayFormats: {
+                                millisecond: 'HH:mm:ss.SSS',
+                                second: 'HH:mm:ss',
+                                minute: 'HH:mm',
+                                hour: 'HH:mm'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '시간'
+                        }
+                    },
+                    y: {
+                        min: min,
+                        max: max,
+                        title: {
+                            display: true,
+                            text: `${title} (${unit})`
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `${title} 실시간 모니터링`
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: 3,
+                        hoverRadius: 5
+                    }
+                }
+            }
+        });
+        
+        console.log(`📊 SDP810 ${metric} 차트 생성 완료: ${canvasId}`);
+    }
+
     // 색상 팔레트 반환
     getColorPalette(index) {
         const colors = [
@@ -1137,6 +1230,12 @@ class EGIconDashboard {
             // SHT40 센서 데이터 처리
             if (data.sensor_type === 'SHT40') {
                 this.updateSHT40Data(data);
+                return;
+            }
+            
+            // SDP810 센서 데이터 처리
+            if (data.sensor_type === 'SDP810') {
+                this.updateSDP810Data(data);
                 return;
             }
             
@@ -1559,6 +1658,156 @@ class EGIconDashboard {
         }
     }
 
+    // SDP810 센서 데이터 업데이트
+    updateSDP810Data(sensorData) {
+        console.log('📊 SDP810 센서 데이터 업데이트:', sensorData);
+        
+        if (sensorData.sensor_type === 'SDP810' && sensorData.data) {
+            const data = sensorData.data;
+            const timestamp = new Date();
+            
+            // 센서 개수 업데이트
+            this.updateSDP810SensorCount();
+            
+            // 차압 데이터 처리
+            if (data.differential_pressure !== undefined) {
+                this.updateSDP810PressureData({
+                    sensorId: sensorData.sensor_id,
+                    value: data.differential_pressure,
+                    timestamp: timestamp
+                });
+            }
+            
+            // 상태 업데이트
+            this.updateSDP810Status(sensorData.sensor_id, 'connected');
+            
+            console.log(`📊 SDP810 데이터 업데이트 완료: ${sensorData.sensor_id} P=${data.differential_pressure}Pa`);
+        }
+    }
+
+    // SDP810 센서 개수 업데이트
+    updateSDP810SensorCount() {
+        const sdp810Group = this.sensorGroups['sdp810'];
+        if (sdp810Group) {
+            const count = sdp810Group.sensors.sdp810 ? sdp810Group.sensors.sdp810.length : 0;
+            
+            // 상태 텍스트 업데이트
+            const statusElement = document.getElementById('sdp810-group-status');
+            if (statusElement) {
+                statusElement.textContent = count > 0 ? `${count}개 연결됨` : '센서 검색 중...';
+                statusElement.className = count > 0 ? 'sensor-group-status online' : 'sensor-group-status offline';
+            }
+            
+            // 요약 텍스트 업데이트
+            const summaryElement = document.getElementById('sdp810-group-summary');
+            if (summaryElement) {
+                summaryElement.textContent = count > 0 ? `SDP810×${count}` : '센서 검색 중';
+            }
+            
+            // 차트 제목 업데이트
+            const chartTitle = document.getElementById('sdp810-chart-title');
+            if (chartTitle) {
+                chartTitle.textContent = `SDP810 차압 센서 차트 (${count}개)`;
+            }
+        }
+    }
+
+    // SDP810 차압 데이터 업데이트
+    updateSDP810PressureData(sensorData) {
+        // 차압 차트 업데이트
+        const pressureChart = Chart.getChart('sdp810-pressure-chart');
+        if (pressureChart) {
+            this.updateSDP810Chart(pressureChart, sensorData, 'pressure');
+        }
+        
+        // 차압 요약 위젯 업데이트
+        this.updateSDP810PressureSummary(sensorData);
+    }
+
+    // SDP810 차트 업데이트
+    updateSDP810Chart(chart, sensorData, metric) {
+        if (!chart || !sensorData) return;
+        
+        const { sensorId, value, timestamp } = sensorData;
+        const color = '#4bc0c0'; // 청록색 (차압용)
+        
+        // 데이터셋 찾기 또는 생성
+        let dataset = chart.data.datasets.find(ds => ds.label.includes(sensorId));
+        
+        if (!dataset) {
+            dataset = {
+                label: `SDP810 차압 (${sensorId})`,
+                data: [],
+                borderColor: color,
+                backgroundColor: color + '20',
+                tension: 0.4,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            };
+            chart.data.datasets.push(dataset);
+        }
+        
+        // 새 데이터 포인트 추가
+        dataset.data.push({
+            x: timestamp,
+            y: value
+        });
+        
+        // 데이터 포인트 제한 (최근 50개)
+        if (dataset.data.length > 50) {
+            dataset.data.shift();
+        }
+        
+        chart.update('none');
+    }
+
+    // SDP810 차압 요약 업데이트
+    updateSDP810PressureSummary(sensorData) {
+        // 현재 값 저장
+        if (!this.sdp810Data) this.sdp810Data = { pressure: [] };
+        
+        const existingIndex = this.sdp810Data.pressure.findIndex(d => d.sensorId === sensorData.sensorId);
+        if (existingIndex >= 0) {
+            this.sdp810Data.pressure[existingIndex] = sensorData;
+        } else {
+            this.sdp810Data.pressure.push(sensorData);
+        }
+        
+        // 평균 및 범위 계산
+        const pressures = this.sdp810Data.pressure.map(d => d.value);
+        const avgPressure = pressures.reduce((a, b) => a + b, 0) / pressures.length;
+        const minPressure = Math.min(...pressures);
+        const maxPressure = Math.max(...pressures);
+        
+        // 위젯 업데이트
+        const avgElement = document.getElementById('sdp810-pressure-average');
+        if (avgElement) {
+            avgElement.textContent = `${avgPressure.toFixed(2)} Pa`;
+        }
+        
+        const rangeElement = document.getElementById('sdp810-pressure-range');
+        if (rangeElement) {
+            rangeElement.textContent = `${minPressure.toFixed(2)} ~ ${maxPressure.toFixed(2)} Pa`;
+        }
+    }
+
+    // SDP810 상태 업데이트
+    updateSDP810Status(sensorId, status) {
+        const statusElement = document.getElementById('sdp810-sensor-status');
+        if (statusElement) {
+            const sdp810Group = this.sensorGroups['sdp810'];
+            const totalSensors = sdp810Group && sdp810Group.sensors.sdp810 ? sdp810Group.sensors.sdp810.length : 0;
+            const activeSensors = totalSensors; // 간단히 연결된 센서는 모두 활성으로 간주
+            
+            statusElement.textContent = `${activeSensors}/${totalSensors} 활성`;
+            
+            const rangeElement = statusElement.nextElementSibling;
+            if (rangeElement) {
+                rangeElement.textContent = activeSensors === totalSensors ? '모든 센서 정상' : '일부 센서 비활성';
+            }
+        }
+    }
+
     // Mock 센서를 실제 센서로 교체
     replaceMockSensor(mockSensorId, realSensorId, realSensorData) {
         // 연결된 센서 목록에서 교체
@@ -1625,6 +1874,7 @@ class EGIconDashboard {
         // 센서 그룹별 데이터 생성 및 업데이트
         this.updateSensorGroupData('temp-humidity', now);
         this.updateSensorGroupData('sht40', now);
+        this.updateSensorGroupData('sdp810', now);
         this.updateSensorGroupData('pressure', now);
         this.updateSensorGroupData('light', now);
         this.updateSensorGroupData('vibration', now);

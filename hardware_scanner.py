@@ -350,6 +350,136 @@ class HardwareScanner:
         print(f"📊 UART 스캔 결과: {len(uart_devices)}개 센서 발견")
         return uart_devices
     
+    def scan_sdp810_sensors(self) -> List[Dict]:
+        """SDP810 차압센서 전용 스캔 (모든 채널에서 0x25 주소 검색)"""
+        print("🔍 SDP810 차압센서 전용 스캔 시작...")
+        sdp810_devices = []
+        
+        if not self.is_raspberry_pi or not I2C_AVAILABLE:
+            # Mock 데이터 반환 (개발 환경)
+            mock_sdp810_devices = [
+                {
+                    "sensor_type": "SDP810",
+                    "sensor_id": "sdp810_1_0_25",
+                    "bus": 1,
+                    "address": "0x25",
+                    "mux_channel": 0,
+                    "mux_address": "0x70",
+                    "interface": "I2C",
+                    "status": "connected",
+                    "measurements": ["differential_pressure"],
+                    "units": {"differential_pressure": "Pa"},
+                    "test_result": "차압: -0.08 Pa"
+                }
+            ]
+            sdp810_devices.extend(mock_sdp810_devices)
+            print("🔧 Mock 모드: SDP810 센서 시뮬레이션")
+            return sdp810_devices
+        
+        print("🔗 라즈베리파이 환경: 실제 SDP810 센서 검색")
+        
+        # 모든 버스와 채널에서 0x25 주소 검색
+        for bus_num in [0, 1]:
+            if bus_num not in self.buses:
+                continue
+                
+            bus = self.buses[bus_num]
+            
+            if bus_num in self.tca_info:
+                # 멀티플렉서를 통한 스캔
+                mux_address = self.tca_info[bus_num]["address"]
+                print(f"  🔍 Bus {bus_num} 멀티플렉서 채널 스캔 중...")
+                
+                for channel in range(8):
+                    try:
+                        # 채널 선택
+                        if not self._select_channel(bus_num, channel):
+                            continue
+                        
+                        # 0x25 주소에서 SDP810 확인
+                        bus.read_byte(0x25)
+                        
+                        # SDP810 통신 테스트
+                        if self._test_sdp810_communication(bus, 0x25):
+                            sensor_data = {
+                                "sensor_type": "SDP810",
+                                "sensor_id": f"sdp810_{bus_num}_{channel}_25",
+                                "bus": bus_num,
+                                "address": "0x25",
+                                "mux_channel": channel,
+                                "mux_address": f"0x{mux_address:02X}",
+                                "interface": "I2C",
+                                "status": "connected",
+                                "measurements": ["differential_pressure"],
+                                "units": {"differential_pressure": "Pa"},
+                                "test_result": "SDP810 차압센서 확인됨"
+                            }
+                            sdp810_devices.append(sensor_data)
+                            print(f"    ✅ Bus {bus_num} CH{channel}: SDP810 발견")
+                        
+                        self._disable_all_channels(bus_num)
+                        
+                    except Exception as e:
+                        # 0x25 주소 응답 없음 - 정상적인 상황
+                        continue
+            
+            else:
+                # 직접 연결 스캔
+                print(f"  🔍 Bus {bus_num} 직접 연결 스캔 중...")
+                try:
+                    bus.read_byte(0x25)
+                    
+                    if self._test_sdp810_communication(bus, 0x25):
+                        sensor_data = {
+                            "sensor_type": "SDP810",
+                            "sensor_id": f"sdp810_{bus_num}_direct_25",
+                            "bus": bus_num,
+                            "address": "0x25",
+                            "mux_channel": None,
+                            "mux_address": None,
+                            "interface": "I2C",
+                            "status": "connected",
+                            "measurements": ["differential_pressure"],
+                            "units": {"differential_pressure": "Pa"},
+                            "test_result": "SDP810 차압센서 확인됨"
+                        }
+                        sdp810_devices.append(sensor_data)
+                        print(f"    ✅ Bus {bus_num} 직접: SDP810 발견")
+                
+                except Exception as e:
+                    # 0x25 주소 응답 없음 - 정상적인 상황
+                    continue
+        
+        print(f"📊 SDP810 스캔 결과: {len(sdp810_devices)}개 센서 발견")
+        return sdp810_devices
+    
+    def _test_sdp810_communication(self, bus, address) -> bool:
+        """SDP810 센서 통신 테스트"""
+        try:
+            # 3바이트 읽기 시도 (압력 데이터 + CRC)
+            read_msg = smbus2.i2c_msg.read(address, 3)
+            bus.i2c_rdwr(read_msg)
+            raw_data = list(read_msg)
+            
+            if len(raw_data) == 3:
+                # 압력 데이터 파싱
+                import struct
+                pressure_msb = raw_data[0]
+                pressure_lsb = raw_data[1]
+                
+                # 압력 계산
+                raw_pressure = struct.unpack('>h', bytes([pressure_msb, pressure_lsb]))[0]
+                pressure_pa = raw_pressure / 60.0
+                
+                # 합리적인 압력 범위 확인 (-500 ~ +500 Pa)
+                if -500 <= pressure_pa <= 500:
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            return False
+
     def scan_sht40_sensors(self) -> List[Dict]:
         """SHT40 전용 센서 스캔"""
         print("🔍 SHT40 전용 센서 스캔 시작...")
@@ -699,6 +829,17 @@ class HardwareScanner:
                 print(f"⚠️ SHT40 스캔 실패, 건너뛰기: {e}")
                 scan_result["sht40_devices"] = []
             
+            # SDP810 전용 센서 스캔 추가
+            sdp810_devices = []
+            try:
+                print("🔍 SDP810 전용 센서 스캔 시작...")
+                sdp810_devices = self.scan_sdp810_sensors()
+                scan_result["sdp810_devices"] = sdp810_devices
+                print(f"✅ SDP810 스캔 완료: {len(sdp810_devices)}개 발견")
+            except Exception as e:
+                print(f"⚠️ SDP810 스캔 실패, 건너뛰기: {e}")
+                scan_result["sdp810_devices"] = []
+            
             # UART 센서 스캔 (전체 시스템에서 한 번만)
             uart_devices = []
             try:
@@ -727,6 +868,23 @@ class HardwareScanner:
                 }
                 scan_result["sensors"].append(sht40_sensor_data)
             
+            # SDP810 센서도 전체 센서 목록에 추가
+            for sdp810_device in sdp810_devices:
+                sdp810_sensor_data = {
+                    "bus": sdp810_device.get("bus"),
+                    "mux_channel": sdp810_device.get("mux_channel"),
+                    "address": sdp810_device.get("address"),
+                    "sensor_name": sdp810_device["sensor_type"],
+                    "sensor_type": sdp810_device["sensor_type"],
+                    "sensor_id": sdp810_device.get("sensor_id"),
+                    "status": sdp810_device["status"],
+                    "interface": "I2C",
+                    "measurements": sdp810_device.get("measurements", []),
+                    "units": sdp810_device.get("units", {}),
+                    "test_result": sdp810_device.get("test_result", "")
+                }
+                scan_result["sensors"].append(sdp810_sensor_data)
+            
             # UART 센서도 전체 센서 목록에 추가
             for uart_device in uart_devices:
                 uart_sensor_data = {
@@ -747,7 +905,8 @@ class HardwareScanner:
             i2c_count = len([s for s in scan_result['sensors'] if s.get('interface') == 'I2C'])
             uart_count = len([s for s in scan_result['sensors'] if s.get('interface') == 'UART'])
             sht40_count = len([s for s in scan_result['sensors'] if s.get('sensor_type') == 'SHT40'])
-            print(f"✅ 전체 시스템 스캔 완료: I2C {i2c_count}개 (SHT40 {sht40_count}개 포함), UART {uart_count}개 센서 발견")
+            sdp810_count = len([s for s in scan_result['sensors'] if s.get('sensor_type') == 'SDP810'])
+            print(f"✅ 전체 시스템 스캔 완료: I2C {i2c_count}개 (SHT40 {sht40_count}개, SDP810 {sdp810_count}개 포함), UART {uart_count}개 센서 발견")
             
         except Exception as e:
             scan_result["success"] = False

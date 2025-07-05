@@ -169,6 +169,7 @@ def setup_api_routes(app: FastAPI):
             groups = {
                 "temp-humidity": {"sensors": [], "count": 0},
                 "sht40": {"sensors": [], "count": 0},  # SHT40 전용 그룹 추가
+                "sdp810": {"sensors": [], "count": 0},  # SDP810 전용 그룹 추가
                 "pressure": {"sensors": [], "count": 0}, 
                 "light": {"sensors": [], "count": 0},
                 "air-quality": {"sensors": [], "count": 0}
@@ -202,6 +203,8 @@ def setup_api_routes(app: FastAPI):
                     groups["pressure"]["sensors"].append(sensor)
                 elif sensor_type == "SHT40":
                     groups["sht40"]["sensors"].append(sensor)  # SHT40은 별도 그룹으로
+                elif sensor_type == "SDP810":
+                    groups["sdp810"]["sensors"].append(sensor)  # SDP810은 별도 그룹으로
                 elif sensor_type == "BH1750":
                     groups["light"]["sensors"].append(sensor)
                 elif sensor_type == "SPS30":
@@ -331,6 +334,95 @@ def setup_api_routes(app: FastAPI):
                 
         except Exception as e:
             print(f"❌ SHT40 센서 테스트 실패: {e}")
+            return {"success": False, "error": str(e), "data": None}
+
+    # SDP810 전용 엔드포인트
+    @app.get("/api/sensors/sdp810")
+    async def get_sdp810_sensors():
+        """SDP810 차압센서 목록 조회"""
+        try:
+            scanner = get_scanner()
+            scan_result = scanner.scan_dual_mux_system()
+            
+            # SDP810 센서만 필터링
+            sdp810_sensors = [
+                sensor for sensor in scan_result.get("sensors", [])
+                if sensor.get("sensor_type") == "SDP810"
+            ]
+            
+            return {
+                "success": True,
+                "timestamp": datetime.now().isoformat(),
+                "sdp810_sensors": sdp810_sensors,
+                "count": len(sdp810_sensors)
+            }
+            
+        except Exception as e:
+            print(f"❌ SDP810 센서 목록 조회 실패: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"SDP810 센서 조회 실패: {str(e)}",
+                "timestamp": datetime.now().isoformat(),
+                "sdp810_sensors": [],
+                "count": 0
+            }
+    
+    @app.get("/api/sensors/sdp810/{bus}/{channel}")
+    async def get_sdp810_sensor_data(bus: int, channel: int):
+        """특정 SDP810 센서 데이터 읽기"""
+        try:
+            # SDP810 센서 데이터 읽기 (Mock 데이터)
+            import random
+            
+            # 실제 하드웨어 환경에서는 sdp810_sensor 모듈 사용
+            mock_data = {
+                "sensor_id": f"sdp810_{bus}_{channel}_25",
+                "bus": bus,
+                "channel": channel,
+                "address": "0x25",
+                "sensor_type": "SDP810",
+                "timestamp": datetime.now().isoformat(),
+                "data": {
+                    "differential_pressure": round(random.uniform(-10.0, 10.0), 2)
+                },
+                "units": {
+                    "differential_pressure": "Pa"
+                },
+                "status": "connected"
+            }
+            
+            return {"success": True, "data": mock_data}
+            
+        except Exception as e:
+            print(f"❌ SDP810 센서 데이터 읽기 실패: {e}")
+            return {"success": False, "error": str(e), "data": None}
+    
+    @app.post("/api/sensors/sdp810/test")
+    async def test_sdp810_sensor():
+        """SDP810 센서 테스트"""
+        try:
+            scanner = get_scanner()
+            
+            # SDP810 센서 스캔 실행
+            if hasattr(scanner, 'scan_sdp810_sensors'):
+                sdp810_devices = scanner.scan_sdp810_sensors()
+                
+                return {
+                    "success": True,
+                    "timestamp": datetime.now().isoformat(),
+                    "sdp810_devices": sdp810_devices,
+                    "count": len(sdp810_devices)
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "SDP810 스캔 기능이 지원되지 않습니다",
+                    "data": None
+                }
+                
+        except Exception as e:
+            print(f"❌ SDP810 센서 테스트 실패: {e}")
             return {"success": False, "error": str(e), "data": None}
 
     # 시스템 유틸리티 엔드포인트
