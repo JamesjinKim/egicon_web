@@ -1464,13 +1464,19 @@ class EGIconDashboard {
         
         console.log(`📊 요약 위젯 업데이트: ${metric} - 평균: ${average.toFixed(1)}${unit}, 범위: ${min.toFixed(1)}~${max.toFixed(1)}${unit}, 센서수: ${sensorData.length}`);
         
+        // pressure와 airquality는 메인 대시보드에서 제거되었으므로 스킵
+        if (metric === 'pressure' || metric === 'airquality') {
+            console.log(`⚠️ ${metric} 위젯은 메인 대시보드에서 제거되어 스킵합니다`);
+            return;
+        }
+        
         // 평균값 업데이트
         const averageElement = document.getElementById(`${metric}-average`);
         if (averageElement) {
             averageElement.textContent = `${average.toFixed(1)}${unit}`;
             console.log(`✅ 평균값 업데이트 성공: ${metric}-average = ${average.toFixed(1)}${unit}`);
         } else {
-            console.error(`❌ 평균값 엘리먼트를 찾을 수 없음: ${metric}-average`);
+            console.warn(`⚠️ 평균값 엘리먼트를 찾을 수 없음: ${metric}-average (정상적으로 제거된 위젯일 수 있습니다)`);
         }
         
         // 범위 업데이트
@@ -1479,7 +1485,7 @@ class EGIconDashboard {
             rangeElement.textContent = `${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`;
             console.log(`✅ 범위 업데이트 성공: ${metric}-range = ${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`);
         } else {
-            console.error(`❌ 범위 엘리먼트를 찾을 수 없음: ${metric}-range`);
+            console.warn(`⚠️ 범위 엘리먼트를 찾을 수 없음: ${metric}-range (정상적으로 제거된 위젯일 수 있습니다)`);
         }
         
         // 상태 업데이트 (실시간에서는 스킵)
@@ -1489,7 +1495,10 @@ class EGIconDashboard {
                 const activeCount = sensorData.length;
                 const totalCount = this.sensorGroups[groupName]?.totalSensors || activeCount;
                 statusElement.textContent = `${activeCount}/${totalCount} 활성`;
+            } else if (metric !== 'pressure' && metric !== 'airquality') {
+                console.warn(`⚠️ 상태 엘리먼트를 찾을 수 없음: ${metric}-status`);
             }
+        }
             
             // 그룹 통합 상태 업데이트 (온습도 센서의 경우)
             if (groupName === 'temp-humidity') {
