@@ -9,8 +9,8 @@ class EGIconDashboard {
     constructor() {
         // 성능 최적화 설정
         this.config = {
-            maxDataPoints: 30,        // 메모리 최적화: 차트 데이터 포인트 제한
-            updateInterval: 2000,     // 실시간성: 2초 간격 업데이트
+            maxDataPoints: 100,       // 메모리 최적화: 차트 데이터 포인트 제한 확대 (450Pa 급변 감지용)
+            updateInterval: 500,      // 실시간성: 0.5초 간격 업데이트 (빠른 변화 감지)
             batchSize: 4,            // 응답속도: 배치 처리 크기
             enableAnimations: true,   // 모던 차트 애니메이션
         };
@@ -1048,8 +1048,8 @@ class EGIconDashboard {
 
     // SDP810 전용 차트 생성
     createSDP810Charts() {
-        // SDP810 차압 차트 생성 (±100 Pa 범위 - 실용적 차압 범위)
-        this.createSDP810Chart('sdp810-pressure-chart', 'pressure', 'SDP810 차압', 'Pa', '#4bc0c0', -100, 100);
+        // SDP810 차압 차트 생성 (±500 Pa 범위 - 450Pa 스파이크 감지용 확장 범위)
+        this.createSDP810Chart('sdp810-pressure-chart', 'pressure', 'SDP810 차압', 'Pa', '#4bc0c0', -500, 500);
         
         console.log('📊 SDP810 전용 차트 생성 완료');
     }
@@ -1923,13 +1923,34 @@ class EGIconDashboard {
             x: timestamp,
             y: value
         };
+        
+        // 급격한 변화 감지 및 경고 (450Pa 스파이크 감지 최적화)
+        if (dataset.data.length > 0) {
+            const lastValue = dataset.data[dataset.data.length - 1].y;
+            const change = Math.abs(value - lastValue);
+            
+            // 변화량별 로깅
+            if (change > 100) { // 100 Pa 이상 변화 시 긴급 경고
+                console.error(`🚨🚨 SDP810 극심한 변화 감지 (${displayName}): ${lastValue.toFixed(2)} → ${value.toFixed(2)} Pa (변화: ${change.toFixed(2)} Pa)`);
+            } else if (change > 50) { // 50 Pa 이상 변화 시 경고
+                console.warn(`🚨 SDP810 급격한 변화 감지 (${displayName}): ${lastValue.toFixed(2)} → ${value.toFixed(2)} Pa (변화: ${change.toFixed(2)} Pa)`);
+            } else if (change > 20) { // 20 Pa 이상 변화 시 정보
+                console.info(`📈 SDP810 중간 변화 감지 (${displayName}): ${lastValue.toFixed(2)} → ${value.toFixed(2)} Pa (변화: ${change.toFixed(2)} Pa)`);
+            }
+            
+            // 450Pa 근처 값 특별 모니터링
+            if (Math.abs(value) > 400) {
+                console.error(`🚨🚨 SDP810 고압 감지 (${displayName}): ${value.toFixed(2)} Pa - 450Pa 스파이크 영역!`);
+            }
+        }
+        
         dataset.data.push(dataPoint);
         console.log(`📊 SDP810 데이터 포인트 추가:`, dataPoint, `총 ${dataset.data.length}개`);
         
-        // 데이터 포인트 제한 (최근 50개)
-        if (dataset.data.length > 50) {
+        // 데이터 포인트 제한 (최근 100개로 확대 - 빠른 변화 추적)
+        if (dataset.data.length > 100) {
             dataset.data.shift();
-            console.log('📊 SDP810 차트 데이터 제한: 50개로 축소');
+            console.log('📊 SDP810 차트 데이터 제한: 100개로 축소');
         }
         
         chart.update('none');
