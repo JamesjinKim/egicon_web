@@ -874,8 +874,13 @@ class EGIconDashboard {
 
     // Multi-line 차트 생성 (복수 센서 통합)
     createMultiSensorChart(canvasId, sensorType, sensorLabels) {
+        console.log(`📊 다중 센서 차트 생성 시작: ${canvasId}, 타입: ${sensorType}, 라벨: ${sensorLabels.length}개`);
+        
         const ctx = document.getElementById(canvasId);
-        if (!ctx) return;
+        if (!ctx) {
+            console.error(`❌ 차트 캔버스를 찾을 수 없음: ${canvasId}`);
+            return;
+        }
 
         // 기존 차트가 있으면 파괴
         const existingChart = Chart.getChart(canvasId);
@@ -885,6 +890,10 @@ class EGIconDashboard {
         }
 
         const sensorConfig = this.sensorTypes[sensorType];
+        if (!sensorConfig) {
+            console.error(`❌ 센서 타입 설정을 찾을 수 없음: ${sensorType}`);
+            return;
+        }
         
         // 색상 팔레트 정의 (센서별 구분)
         const colorPalette = [
@@ -987,6 +996,8 @@ class EGIconDashboard {
                 }
             }
         });
+        
+        console.log(`✅ 다중 센서 차트 생성 완료: ${canvasId} (${datasets.length}개 데이터셋)`);
     }
 
     // SHT40 전용 차트 생성
@@ -2685,9 +2696,18 @@ class EGIconDashboard {
             // airquality는 메인 대시보드에서 제거되었으므로 경고 억제
             if (metric === 'airquality') {
                 console.log(`📊 ${metric} 차트는 메인 대시보드에서 제거되어 스킵됨`);
-            } else {
-                console.warn(`⚠️ 차트를 찾을 수 없음: ${chartId}`);
+                return;
             }
+            
+            console.warn(`⚠️ 차트를 찾을 수 없음: ${chartId}`);
+            
+            // BME688 차트의 경우 즉시 생성 시도
+            if (metric === 'pressure' || metric === 'gas_resistance') {
+                console.log(`🔄 BME688 ${metric} 차트 즉시 생성 시도...`);
+                this.createMissingBME688Chart(metric, sensorDataArray);
+                return;
+            }
+            
             return;
         }
 
@@ -2768,6 +2788,34 @@ class EGIconDashboard {
                 console.log(`🔄 차트 재생성 시도: ${chartId}`);
                 this.recreateChartSafely(chartId, metric);
             }
+        }
+    }
+
+    // 누락된 BME688 차트 생성
+    createMissingBME688Chart(metric, sensorDataArray) {
+        try {
+            console.log(`🔄 누락된 BME688 ${metric} 차트 생성 중...`);
+            
+            // 센서 데이터에서 라벨 생성
+            const labels = sensorDataArray.map((sensor, index) => {
+                // sensor.sensorId에서 정보 추출 (예: bme688_1_1_77)
+                const parts = sensor.sensorId.split('_');
+                if (parts.length >= 3) {
+                    const bus = parts[1];
+                    const channel = parts[2];
+                    return `BME688-${bus}.${channel} ${metric === 'pressure' ? '기압' : '가스저항'}`;
+                }
+                return `BME688 센서 ${index + 1} ${metric === 'pressure' ? '기압' : '가스저항'}`;
+            });
+            
+            // 차트 생성
+            const chartId = `${metric}-multi-chart`;
+            this.createMultiSensorChart(chartId, metric, labels);
+            
+            console.log(`✅ 누락된 BME688 ${metric} 차트 생성 완료: ${labels.length}개 센서`);
+            
+        } catch (error) {
+            console.error(`❌ 누락된 BME688 ${metric} 차트 생성 실패:`, error);
         }
     }
 
