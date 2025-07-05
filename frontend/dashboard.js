@@ -22,10 +22,10 @@ class EGIconDashboard {
                 icon: "🌡️💧", 
                 metrics: ["temperature", "humidity"],
                 sensors: {
-                    // BME688 센서 7개 (CH2 채널 0-6)
-                    bme688: ["bme688_1_0", "bme688_1_1", "bme688_1_2", "bme688_1_3", "bme688_1_4", "bme688_1_5", "bme688_1_6"]
+                    // SHT40 센서만 사용 (BME688 온습도 제거)
+                    sht40: []  // 동적으로 발견됨
                 },
-                totalSensors: 7,
+                totalSensors: 0,  // 동적으로 업데이트됨
                 containerId: "temp-humidity-widgets"
             },
             "sht40": {
@@ -51,16 +51,17 @@ class EGIconDashboard {
                 containerId: "sdp810-widgets"
             },
             "pressure": {
-                title: "압력 센서",
+                title: "기압 센서",
                 icon: "📏",
-                metrics: ["pressure", "airquality"],
+                metrics: ["pressure"],
                 sensors: {
-                    // BME688 센서 6개에서 압력 데이터 (메인 대시보드에서 제거됨)
-                    bme688: []
+                    // BME688 센서 기압 데이터 전용
+                    bme688: [],  // 동적으로 발견됨
+                    sdp810: []   // SDP810 차압 센서도 포함
                 },
-                totalSensors: 0,
+                totalSensors: 0,  // 동적으로 업데이트됨
                 containerId: "pressure-widgets",
-                disabled: true  // 메인 대시보드에서 비활성화
+                disabled: false  // 기압 센서 활성화
             },
             "light": {
                 title: "조도 센서",
@@ -72,6 +73,18 @@ class EGIconDashboard {
                 },
                 totalSensors: 0,
                 containerId: "light-widgets"
+            },
+            "air-quality": {
+                title: "공기질 센서",
+                icon: "🍃",
+                metrics: ["gas_resistance", "airquality"],
+                sensors: {
+                    // BME688 가스저항 + SPS30 미세먼지
+                    bme688: [],  // 동적으로 발견됨 (가스저항)
+                    sps30: []    // SPS30 미세먼지
+                },
+                totalSensors: 0,  // 동적으로 업데이트됨
+                containerId: "air-quality-widgets"
             },
             "vibration": {
                 title: "진동 센서",
@@ -134,6 +147,14 @@ class EGIconDashboard {
                 color: '#00d084',
                 min: 0,
                 max: 100
+            },
+            gas_resistance: {
+                label: '가스저항',
+                icon: '🔬',
+                unit: 'Ω',
+                color: '#9966ff',
+                min: 0,
+                max: 200000
             }
         };
 
@@ -2025,7 +2046,7 @@ class EGIconDashboard {
     // Mock 값 생성 제거됨
     // 실제 센서 데이터만 사용
 
-    // 센서 위젯 업데이트
+    // 센서 위젯 업데이트 (안전 처리 포함)
     updateSensorWidget(sensorId, value) {
         // 센서 ID에 따라 해당 위젯 찾기
         let sensorType = this.getSensorTypeFromId(sensorId);
@@ -2037,17 +2058,23 @@ class EGIconDashboard {
         
         const unit = this.sensorTypes[sensorType].unit;
         
+        // 값 안전 처리: null, undefined, NaN 체크
+        let displayValue = "--";
+        if (value !== null && value !== undefined && !isNaN(value)) {
+            displayValue = typeof value === 'number' ? value.toFixed(1) : String(value);
+        }
+        
         // data-sensor 속성으로 특정 위젯 찾기 (더 정확한 매칭)
         const specificWidget = document.querySelector(`[data-sensor="${sensorId}"] .widget-value`);
         if (specificWidget) {
-            specificWidget.innerHTML = `${value.toFixed(1)}<span class="widget-unit">${unit}</span>`;
+            specificWidget.innerHTML = `${displayValue}<span class="widget-unit">${unit}</span>`;
             return;
         }
         
         // 타입별 위젯 찾기 (폴백)
         const widgets = document.querySelectorAll(`.sensor-widget.${sensorType} .widget-value`);
         widgets.forEach(widget => {
-            widget.innerHTML = `${value.toFixed(1)}<span class="widget-unit">${unit}</span>`;
+            widget.innerHTML = `${displayValue}<span class="widget-unit">${unit}</span>`;
         });
     }
 

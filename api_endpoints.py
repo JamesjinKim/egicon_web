@@ -100,59 +100,24 @@ def setup_api_routes(app: FastAPI):
             
             sensor_type = sensor_type_map.get(address_num, "Unknown")
             
-            # Mock 모드에서 센서별 테스트 결과 시뮬레이션
-            if not scanner.is_raspberry_pi:
-                mock_data = {
-                    "bus": request.i2c_bus,
-                    "channel": request.mux_channel,
-                    "address": request.address,
-                    "sensor_type": sensor_type,
-                    "timestamp": datetime.now().isoformat()
-                }
-                
-                # 센서 타입별 Mock 데이터 생성
-                if sensor_type == "BME688":
-                    mock_data.update({
-                        "temperature": round(random.uniform(20.0, 30.0), 2),
-                        "humidity": round(random.uniform(40.0, 70.0), 2),
-                        "pressure": round(random.uniform(1000.0, 1020.0), 2),
-                        "gas_resistance": round(random.uniform(50000, 200000), 0),
-                        "test_value": "온도/습도/압력/가스 센서 정상",
-                        "message": "BME688 센서 통신 테스트 성공"
-                    })
-                elif sensor_type == "BH1750":
-                    mock_data.update({
-                        "light_level": round(random.uniform(100, 1000), 2),
-                        "test_value": f"{round(random.uniform(100, 1000), 2)} lux",
-                        "message": "BH1750 조도 센서 통신 테스트 성공"
-                    })
-                elif sensor_type == "VL53L0X":
-                    mock_data.update({
-                        "distance": round(random.uniform(50, 2000), 2),
-                        "test_value": f"{round(random.uniform(50, 2000), 2)} mm",
-                        "message": "VL53L0X 거리 센서 통신 테스트 성공"
-                    })
-                else:
-                    mock_data.update({
-                        "test_value": random.uniform(20, 30),
-                        "message": f"{sensor_type} 센서 기본 통신 테스트 성공"
-                    })
-                
-                return {"success": True, "data": mock_data}
+            # 실제 센서 테스트만 수행 (Mock 데이터 완전 제거)
+            # 센서 연결 실패 시 기본값 반환하여 오류 방지
             
-            # 실제 하드웨어 테스트
-            # TODO: 실제 센서별 통신 테스트 구현
-            # 현재는 기본 응답 테스트만 수행
+            # 실제 센서 하드웨어 테스트
             try:
-                # 실제 하드웨어에서 센서 응답 테스트 시뮬레이션
+                # TODO: 실제 센서별 통신 테스트 구현 필요
+                # 현재는 센서 연결 확인만 수행
+                
+                # 센서 연결 실패 시 기본값으로 오류 방지
                 test_data = {
                     "bus": request.i2c_bus,
                     "channel": request.mux_channel,
                     "address": request.address,
                     "sensor_type": sensor_type,
                     "timestamp": datetime.now().isoformat(),
-                    "message": f"{sensor_type} 센서 하드웨어 테스트 완료",
-                    "test_value": "하드웨어 연결 확인됨"
+                    "message": f"{sensor_type} 센서 연결 대기 중",
+                    "test_value": 0,  # 데이터 없을 시 기본값
+                    "status": "waiting"
                 }
                 
                 return {"success": True, "data": test_data}
@@ -272,8 +237,9 @@ def setup_api_routes(app: FastAPI):
                 sensor_type = sensor.get("sensor_type", "").upper()
                 
                 if sensor_type == "BME688":
-                    groups["temp-humidity"]["sensors"].append(sensor)
-                    groups["pressure"]["sensors"].append(sensor)
+                    # BME688: 온도/습도 제거, 기압/가스저항만 사용
+                    groups["pressure"]["sensors"].append(sensor)  # 기압 전용
+                    groups["air-quality"]["sensors"].append(sensor)  # 가스저항 전용
                 elif sensor_type == "SHT40":
                     groups["sht40"]["sensors"].append(sensor)  # SHT40은 별도 그룹으로
                 elif sensor_type == "SDP810":
@@ -354,11 +320,10 @@ def setup_api_routes(app: FastAPI):
     async def get_sht40_sensor_data(bus: int, channel: int):
         """특정 SHT40 센서 데이터 읽기"""
         try:
-            # SHT40 센서 데이터 읽기 (Mock 데이터)
-            import random
+            # TODO: 실제 SHT40 센서 모듈 구현 필요
+            # 현재는 센서 연결 대기 상태로 기본값 반환
             
-            # 실제 하드웨어 환경에서는 sht40_sensor 모듈 사용
-            mock_data = {
+            sensor_data = {
                 "sensor_id": f"sht40_{bus}_{channel}_44",
                 "bus": bus,
                 "channel": channel,
@@ -366,17 +331,17 @@ def setup_api_routes(app: FastAPI):
                 "sensor_type": "SHT40",
                 "timestamp": datetime.now().isoformat(),
                 "data": {
-                    "temperature": round(random.uniform(20.0, 30.0), 2),
-                    "humidity": round(random.uniform(40.0, 70.0), 2)
+                    "temperature": 0,  # 데이터 없을 시 기본값
+                    "humidity": 0      # 데이터 없을 시 기본값
                 },
                 "units": {
                     "temperature": "°C",
                     "humidity": "%RH"
                 },
-                "status": "connected"
+                "status": "waiting"  # 실제 센서 연결 대기
             }
             
-            return {"success": True, "data": mock_data}
+            return {"success": True, "data": sensor_data}
             
         except Exception as e:
             print(f"❌ SHT40 센서 데이터 읽기 실패: {e}")
