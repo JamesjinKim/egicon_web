@@ -471,10 +471,8 @@ def setup_api_routes(app: FastAPI):
                         },
                         "status": "connected"
                     }
-                    sensor.disconnect()
                     return {"success": True, "data": sensor_data}
                 else:
-                    sensor.disconnect()
                     return {"success": False, "error": "센서 읽기 실패 (CRC 오류 재시도 후)", "data": None}
             else:
                 return {"success": False, "error": "센서 연결 실패", "data": None}
