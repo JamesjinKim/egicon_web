@@ -1748,18 +1748,33 @@ class EGIconDashboard {
     updateSDP810Data(sensorData) {
         console.log('📊 SDP810 센서 데이터 업데이트:', sensorData);
         
-        if (sensorData.sensor_type === 'SDP810' && sensorData.data) {
-            const data = sensorData.data;
+        if (sensorData.sensor_type === 'SDP810') {
             const timestamp = new Date();
+            let pressureValue = null;
+            
+            // 데이터 구조 분석 및 값 추출
+            if (sensorData.data && sensorData.data.differential_pressure !== undefined) {
+                // API 응답 형식: { data: { differential_pressure: value } }
+                pressureValue = sensorData.data.differential_pressure;
+                console.log('📊 SDP810 데이터 구조 A: data.differential_pressure =', pressureValue);
+            } else if (sensorData.value !== undefined) {
+                // 실시간 데이터 형식: { value: pressureValue }
+                pressureValue = sensorData.value;
+                console.log('📊 SDP810 데이터 구조 B: value =', pressureValue);
+            } else {
+                console.warn('⚠️ SDP810 데이터 구조를 인식할 수 없음:', sensorData);
+                return;
+            }
             
             // 센서 개수 업데이트
             this.updateSDP810SensorCount();
             
             // 차압 데이터 처리
-            if (data.differential_pressure !== undefined) {
+            if (pressureValue !== null && pressureValue !== undefined) {
+                console.log('🔄 SDP810 차압 데이터 처리 시작:', pressureValue);
                 this.updateSDP810PressureData({
                     sensorId: sensorData.sensor_id,
-                    value: data.differential_pressure,
+                    value: pressureValue,
                     timestamp: timestamp
                 });
             }
@@ -1767,7 +1782,9 @@ class EGIconDashboard {
             // 상태 업데이트
             this.updateSDP810Status(sensorData.sensor_id, 'connected');
             
-            console.log(`📊 SDP810 데이터 업데이트 완료: ${sensorData.sensor_id} P=${data.differential_pressure}Pa`);
+            console.log(`📊 SDP810 데이터 업데이트 완료: ${sensorData.sensor_id} P=${pressureValue}Pa`);
+        } else {
+            console.warn('⚠️ SDP810이 아닌 센서 데이터:', sensorData);
         }
     }
 
