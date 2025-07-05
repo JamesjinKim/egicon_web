@@ -356,7 +356,7 @@ class HardwareScanner:
         sht40_devices = []
         
         if not self.is_raspberry_pi or not SHT40_AVAILABLE:
-            # Mock 데이터 반환 (개발 환경)
+            # Mock 데이터 반환 (개발 환경 또는 SHT40 모듈 없음)
             mock_sht40_devices = [
                 {
                     "sensor_type": "SHT40",
@@ -391,8 +391,13 @@ class HardwareScanner:
         
         print("🔗 라즈베리파이 환경: 실제 SHT40 센서 검색")
         
+        # SHT40 모듈이 사용 불가능하면 빈 리스트 반환
+        if not SHT40_AVAILABLE:
+            print("⚠️ SHT40 모듈 사용 불가능, 빈 결과 반환")
+            return sht40_devices
+        
         # 멀티플렉서를 통한 SHT40 스캔
-        for bus_num in self.bus_numbers:
+        for bus_num in [0, 1]:
             if bus_num in self.tca_info:
                 # 멀티플렉서 채널별 스캔
                 mux_address = self.tca_info[bus_num]["address"]
@@ -684,14 +689,26 @@ class HardwareScanner:
                 scan_result["buses"][bus_num] = bus_info
             
             # SHT40 전용 센서 스캔 추가
-            print("🔍 SHT40 전용 센서 스캔 시작...")
-            sht40_devices = self.scan_sht40_sensors()
-            scan_result["sht40_devices"] = sht40_devices
+            sht40_devices = []
+            try:
+                print("🔍 SHT40 전용 센서 스캔 시작...")
+                sht40_devices = self.scan_sht40_sensors()
+                scan_result["sht40_devices"] = sht40_devices
+                print(f"✅ SHT40 스캔 완료: {len(sht40_devices)}개 발견")
+            except Exception as e:
+                print(f"⚠️ SHT40 스캔 실패, 건너뛰기: {e}")
+                scan_result["sht40_devices"] = []
             
             # UART 센서 스캔 (전체 시스템에서 한 번만)
-            print("🔍 UART 센서 스캔 시작...")
-            uart_devices = self.scan_uart_sensors()
-            scan_result["uart_devices"] = uart_devices
+            uart_devices = []
+            try:
+                print("🔍 UART 센서 스캔 시작...")
+                uart_devices = self.scan_uart_sensors()
+                scan_result["uart_devices"] = uart_devices
+                print(f"✅ UART 스캔 완료: {len(uart_devices)}개 발견")
+            except Exception as e:
+                print(f"⚠️ UART 스캔 실패, 건너뛰기: {e}")
+                scan_result["uart_devices"] = []
             
             # SHT40 센서도 전체 센서 목록에 추가
             for sht40_device in sht40_devices:

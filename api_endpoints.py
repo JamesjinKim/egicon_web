@@ -37,21 +37,42 @@ def setup_api_routes(app: FastAPI):
             return result
         except Exception as e:
             print(f"❌ 이중 멀티플렉서 스캔 실패: {e}")
-            raise HTTPException(status_code=500, detail=f"스캔 실패: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"스캔 실패: {str(e)}",
+                "timestamp": datetime.now().isoformat(),
+                "sensors": [],
+                "buses": {},
+                "i2c_devices": [],
+                "uart_devices": []
+            }
 
     @app.post("/api/sensors/scan-bus/{bus_number}")
     async def scan_single_bus(bus_number: int):
         """단일 버스 스캔"""
         try:
             if bus_number not in [0, 1]:
-                raise HTTPException(status_code=400, detail="버스 번호는 0 또는 1이어야 합니다")
+                return {
+                    "success": False,
+                    "error": "Invalid bus number",
+                    "message": "버스 번호는 0 또는 1이어야 합니다",
+                    "timestamp": datetime.now().isoformat()
+                }
             
             scanner = get_scanner()
             result = scanner.scan_single_bus(bus_number)
             return result
         except Exception as e:
             print(f"❌ 버스 {bus_number} 스캔 실패: {e}")
-            raise HTTPException(status_code=500, detail=f"버스 스캔 실패: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"버스 스캔 실패: {str(e)}",
+                "timestamp": datetime.now().isoformat(),
+                "bus": bus_number,
+                "sensors": []
+            }
 
     # 센서 테스트 엔드포인트
     @app.post("/api/sensors/test")
