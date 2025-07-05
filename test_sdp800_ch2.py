@@ -221,7 +221,7 @@ def main():
     # 테스트 설정
     bus_num = 1
     mux_address = 0x70
-    mux_channel = 2  # Channel 2
+    mux_channel = 0  # Channel 0 (스캔 결과에서 확인됨)
     sensor_address = 0x25  # SDP800 기본 주소
     
     print("📋 테스트 설정:")

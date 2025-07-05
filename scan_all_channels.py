@@ -35,7 +35,9 @@ def scan_channel(bus_num, channel, mux_address=0x70):
         for addr in range(0x08, 0x78):
             try:
                 bus.read_byte(addr)
-                found_devices.append(addr)
+                # TCA9548A 주소는 제외 (중복 방지)
+                if addr != mux_address:
+                    found_devices.append(addr)
             except:
                 pass
         
