@@ -788,9 +788,13 @@ class HardwareScanner:
                     bus_info["channels"] = channel_results
                     bus_info["tca9548a_address"] = f"0x{self.tca_info[bus_num]['address']:02X}"
                     
-                    # 센서 목록 구성
+                    # 센서 목록 구성 (SHT40, SDP810 제외 - 전용 스캔에서 추가)
                     for channel, devices in channel_results.items():
                         for device in devices:
+                            # SHT40, SDP810은 전용 스캔에서 처리하므로 여기서 제외
+                            if device["sensor_type"] in ["SHT40", "SDP810"]:
+                                continue
+                                
                             sensor_data = {
                                 "bus": bus_num,
                                 "mux_channel": channel,
@@ -807,6 +811,10 @@ class HardwareScanner:
                     bus_info["direct_devices"] = direct_devices
                     
                     for device in direct_devices:
+                        # SHT40, SDP810은 전용 스캔에서 처리하므로 여기서 제외
+                        if device["sensor_type"] in ["SHT40", "SDP810"]:
+                            continue
+                            
                         sensor_data = {
                             "bus": bus_num,
                             "mux_channel": None,
