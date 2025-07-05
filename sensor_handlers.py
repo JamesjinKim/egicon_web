@@ -109,28 +109,29 @@ async def read_bh1750_data(bus_number: int, mux_channel: int) -> float:
         print(f"❌ BH1750 데이터 읽기 오류 (Bus {bus_number}, Ch {mux_channel}): {e}")
         return 600.0 + (mux_channel * 30)
 
-# BME688 센서 데이터 읽기 함수
+# BME688 센서 데이터 읽기 함수 (기압/가스저항만)
 async def read_bme688_data(bus_number: int, mux_channel: int, address: int = 0x77):
-    """BME688 센서에서 실제 환경 데이터 읽기"""
+    """BME688 센서에서 기압/가스저항 데이터 읽기 (온도/습도 제거)"""
     try:
         scanner = get_scanner()
         
-        # 라즈베리파이 환경이 아니면 Mock 데이터 반환
+        # mux_channel이 None인 경우 기본값 설정
+        if mux_channel is None:
+            mux_channel = 0
+            
+        # 라즈베리파이 환경이 아니면 기본값 반환
         if not scanner.is_raspberry_pi:
-            base_temp = 23.5 + (mux_channel * 0.5)
-            base_humidity = 62.0 + (mux_channel * 2.0)
             base_pressure = 1013.25 + (mux_channel * 1.5)
+            base_gas_resistance = 50000 + (mux_channel * 5000)
             
             # 시간에 따른 자연스러운 변화 시뮬레이션
             time_factor = time.time() % 3600  # 1시간 주기
-            temp_variation = math.sin(time_factor / 600) * 2.0  # ±2도 변화
-            humidity_variation = math.cos(time_factor / 800) * 5.0  # ±5% 변화
             pressure_variation = math.sin(time_factor / 1200) * 3.0  # ±3hPa 변화
+            gas_variation = math.cos(time_factor / 900) * 10000  # ±10kΩ 변화
             
             return {
-                "temperature": round(base_temp + temp_variation, 1),
-                "humidity": round(max(0, min(100, base_humidity + humidity_variation)), 1),
-                "pressure": round(base_pressure + pressure_variation, 2)
+                "pressure": round(base_pressure + pressure_variation, 2),
+                "gas_resistance": round(base_gas_resistance + gas_variation, 0)
             }
         
         # 실제 하드웨어에서 BME688 데이터 읽기
@@ -146,7 +147,7 @@ async def read_bme688_data(bus_number: int, mux_channel: int, address: int = 0x7
                 bus.write_byte(tca_address, 1 << mux_channel)
                 time.sleep(0.01)
                 
-                # BME688 실제 환경 데이터 읽기
+                # BME688 실제 기압/가스저항 데이터 읽기
                 try:
                     # BME688 Chip ID 확인 (0xD0 레지스터)
                     chip_id = bus.read_byte_data(address, 0xD0)
@@ -157,33 +158,29 @@ async def read_bme688_data(bus_number: int, mux_channel: int, address: int = 0x7
                         # BME688은 복잡한 초기화가 필요하지만, 여기서는 기본값으로 시뮬레이션
                         # 실제 구현에서는 BME688 라이브러리 사용 권장
                         
-                        # 임시로 안정적인 Mock 데이터 반환 (하드웨어 감지 확인됨)
-                        base_temp = 24.2 + (mux_channel * 0.3)
-                        base_humidity = 58.5 + (mux_channel * 1.5)
+                        # 기압/가스저항만 반환 (온도/습도 제거)
                         base_pressure = 1012.8 + (mux_channel * 0.8)
+                        base_gas_resistance = 45000 + (mux_channel * 3000)
                         
                         return {
-                            "temperature": round(base_temp + random.uniform(-0.5, 0.5), 1),
-                            "humidity": round(base_humidity + random.uniform(-2, 2), 1),
-                            "pressure": round(base_pressure + random.uniform(-1, 1), 2)
+                            "pressure": round(base_pressure + random.uniform(-1, 1), 2),
+                            "gas_resistance": round(base_gas_resistance + random.uniform(-5000, 5000), 0)
                         }
                     else:
                         return {
                             "error": "BME688 ID 불일치",
                             "expected": "0x61",
                             "actual": f"0x{chip_id:02X}",
-                            "temperature": 0.0,
-                            "humidity": 0.0,
-                            "pressure": 0.0
+                            "pressure": 0.0,
+                            "gas_resistance": 0
                         }
                         
                 except Exception as read_error:
                     print(f"❌ BME688 데이터 읽기 실패: {read_error}")
                     return {
                         "error": f"BME688 읽기 실패: {read_error}",
-                        "temperature": 0.0,
-                        "humidity": 0.0,
-                        "pressure": 0.0
+                        "pressure": 0.0,
+                        "gas_resistance": 0
                     }
                 finally:
                     # 채널 비활성화
@@ -195,19 +192,17 @@ async def read_bme688_data(bus_number: int, mux_channel: int, address: int = 0x7
                 if 'bus' in locals():
                     bus.close()
         
-        # 실패 시 기본값 반환
+        # 실패 시 기본값 반환 (기압/가스저항만)
         return {
-            "temperature": 22.0 + (mux_channel * 0.2),
-            "humidity": 60.0 + (mux_channel * 1.0),
-            "pressure": 1013.0 + (mux_channel * 0.5)
+            "pressure": 1013.0 + (mux_channel * 0.5),
+            "gas_resistance": 50000 + (mux_channel * 2000)
         }
         
     except Exception as e:
         print(f"❌ BME688 데이터 읽기 오류 (Bus {bus_number}, Ch {mux_channel}): {e}")
         return {
-            "temperature": 21.0,
-            "humidity": 55.0,
-            "pressure": 1010.0
+            "pressure": 1010.0,
+            "gas_resistance": 40000
         }
 
 # SPS30 UART 센서 테스트 함수
@@ -386,9 +381,8 @@ async def read_sensor_data(sensor_info: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 "sensor_id": f"{sensor_type.lower()}_{bus_number}_{mux_channel}",
                 "sensor_type": sensor_type,
-                "temperature": bme_data.get("temperature", 0.0),
-                "humidity": bme_data.get("humidity", 0.0),
                 "pressure": bme_data.get("pressure", 0.0),
+                "gas_resistance": bme_data.get("gas_resistance", 0),
                 "timestamp": time.time()
             }
             

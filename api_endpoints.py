@@ -473,6 +473,101 @@ def setup_api_routes(app: FastAPI):
             print(f"❌ SDP810 센서 테스트 실패: {e}")
             return {"success": False, "error": str(e), "data": None}
 
+    # BME688 전용 엔드포인트 (기압/가스저항만)
+    @app.get("/api/sensors/bme688")
+    async def get_bme688_sensors():
+        """BME688 센서 목록 조회"""
+        try:
+            scanner = get_scanner()
+            scan_result = scanner.scan_dual_mux_system()
+            
+            # BME688 센서만 필터링
+            bme688_sensors = [
+                sensor for sensor in scan_result.get("sensors", [])
+                if sensor.get("sensor_type") == "BME688"
+            ]
+            
+            return {
+                "success": True,
+                "timestamp": datetime.now().isoformat(),
+                "bme688_sensors": bme688_sensors,
+                "count": len(bme688_sensors)
+            }
+            
+        except Exception as e:
+            print(f"❌ BME688 센서 목록 조회 실패: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"BME688 센서 조회 실패: {str(e)}",
+                "timestamp": datetime.now().isoformat(),
+                "bme688_sensors": [],
+                "count": 0
+            }
+    
+    @app.get("/api/sensors/bme688/{bus}/{channel}")
+    async def get_bme688_sensor_data(bus: int, channel: int):
+        """특정 BME688 센서 데이터 읽기 (기압/가스저항만)"""
+        try:
+            # 실제 BME688 센서 데이터 읽기
+            from sensor_handlers import read_bme688_data
+            
+            # BME688 센서 데이터 읽기 (기압/가스저항만)
+            bme_data = await read_bme688_data(bus, channel, 0x77)
+            
+            if "error" not in bme_data:
+                sensor_data = {
+                    "sensor_id": f"bme688_{bus}_{channel}_77",
+                    "bus": bus,
+                    "channel": channel,
+                    "address": "0x77",
+                    "sensor_type": "BME688",
+                    "timestamp": datetime.now().isoformat(),
+                    "data": {
+                        "pressure": bme_data.get("pressure", 0.0),
+                        "gas_resistance": bme_data.get("gas_resistance", 0)
+                    },
+                    "units": {
+                        "pressure": "hPa",
+                        "gas_resistance": "Ω"
+                    },
+                    "status": "connected"
+                }
+                return {"success": True, "data": sensor_data}
+            else:
+                return {"success": False, "error": bme_data.get("error", "BME688 읽기 실패"), "data": None}
+            
+        except Exception as e:
+            print(f"❌ BME688 센서 데이터 읽기 실패: {e}")
+            return {"success": False, "error": str(e), "data": None}
+    
+    @app.post("/api/sensors/bme688/test")
+    async def test_bme688_sensor():
+        """BME688 센서 테스트"""
+        try:
+            scanner = get_scanner()
+            
+            # BME688 센서 스캔 실행
+            if hasattr(scanner, 'scan_bme688_sensors'):
+                bme688_devices = scanner.scan_bme688_sensors()
+                
+                return {
+                    "success": True,
+                    "timestamp": datetime.now().isoformat(),
+                    "bme688_devices": bme688_devices,
+                    "count": len(bme688_devices)
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "BME688 스캔 기능이 지원되지 않습니다",
+                    "data": None
+                }
+                
+        except Exception as e:
+            print(f"❌ BME688 센서 테스트 실패: {e}")
+            return {"success": False, "error": str(e), "data": None}
+
     # 시스템 유틸리티 엔드포인트
     @app.post("/api/system/reset-scanner")
     async def reset_hardware_scanner():
