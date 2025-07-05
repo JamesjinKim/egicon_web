@@ -877,6 +877,7 @@ class HardwareScanner:
                     "test_result": sht40_device.get("test_result", "")
                 }
                 scan_result["sensors"].append(sht40_sensor_data)
+                scan_result["i2c_devices"].append(sht40_sensor_data)
             
             # SDP810 센서도 전체 센서 목록에 추가
             for sdp810_device in sdp810_devices:
@@ -894,6 +895,7 @@ class HardwareScanner:
                     "test_result": sdp810_device.get("test_result", "")
                 }
                 scan_result["sensors"].append(sdp810_sensor_data)
+                scan_result["i2c_devices"].append(sdp810_sensor_data)
             
             # UART 센서도 전체 센서 목록에 추가
             for uart_device in uart_devices:
