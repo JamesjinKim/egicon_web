@@ -451,10 +451,14 @@ body {
 .fas.fa-home::before { content: "🏠"; }
 .fas.fa-thermometer-half::before { content: "🌡️"; }
 .fas.fa-tint::before { content: "💧"; }
+.fas.fa-droplet::before { content: "💧"; }
 .fas.fa-sun::before { content: "☀️"; }
+.fas.fa-lightbulb::before { content: "💡"; }
 .fas.fa-compress-alt::before { content: "📏"; }
 .fas.fa-wave-square::before { content: "〜"; }
 .fas.fa-leaf::before { content: "🍃"; }
+.fas.fa-lungs::before { content: "🫁"; }
+.fas.fa-smog::before { content: "🌫️"; }
 .fas.fa-cog::before { content: "⚙️"; }
 .fas.fa-sync-alt::before { content: "🔄"; }
 .fas.fa-clock::before { content: "🕒"; }
@@ -1119,6 +1123,9 @@ body {
     color: #666;
     margin-left: auto;
     margin-right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
 .sensor-group-status.online {
@@ -1131,7 +1138,7 @@ body {
 }
 
 .sensor-group-status.offline {
-    background: #dc3545;
+    background: var(--warning-color);
     color: white;
     padding: 5px 12px;
     border-radius: 20px;

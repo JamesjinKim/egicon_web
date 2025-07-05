@@ -178,12 +178,64 @@ class EGIconDashboard {
             // HTML 구조 동적 업데이트
             this.buildDynamicSensorGroups(dynamicGroups);
             
+            // SPS30 센서 특별 처리
+            this.processSPS30SensorData(dynamicGroups);
+            
             console.log('✅ 동적 센서 그룹 로딩 완료');
             
         } catch (error) {
             console.warn('⚠️ 동적 센서 그룹 로딩 실패, 하드코딩 모드 사용:', error);
             // 실패 시 기존 하드코딩된 그룹 사용
             this.generateMockSensors();
+        }
+    }
+
+    // SPS30 센서 데이터 특별 처리
+    processSPS30SensorData(apiResponse) {
+        try {
+            console.log('🌪️ SPS30 센서 데이터 처리 시작:', apiResponse);
+            
+            const groups = apiResponse.groups || apiResponse;
+            const airQualityGroup = groups['air-quality'];
+            
+            if (airQualityGroup && airQualityGroup.sensors && airQualityGroup.sensors.length > 0) {
+                // SPS30 센서 찾기
+                const sps30Sensors = airQualityGroup.sensors.filter(sensor => 
+                    sensor.sensor_type === 'SPS30' && sensor.interface === 'UART'
+                );
+                
+                if (sps30Sensors.length > 0) {
+                    const sps30Sensor = sps30Sensors[0];
+                    console.log('📊 SPS30 센서 발견:', sps30Sensor);
+                    this.updateSPS30Status(sps30Sensor);
+                } else {
+                    console.log('⚠️ SPS30 센서가 air-quality 그룹에서 발견되지 않음');
+                    this.setSPS30StatusDisconnected();
+                }
+            } else {
+                console.log('⚠️ air-quality 그룹이 비어있거나 존재하지 않음');
+                this.setSPS30StatusDisconnected();
+            }
+            
+        } catch (error) {
+            console.error('❌ SPS30 센서 데이터 처리 실패:', error);
+            this.setSPS30StatusDisconnected();
+        }
+    }
+
+    // SPS30 연결 해제 상태 설정
+    setSPS30StatusDisconnected() {
+        const statusElement = document.getElementById('sps30-status');
+        if (statusElement) {
+            statusElement.textContent = '연결 확인 중...';
+            statusElement.className = 'sensor-group-status offline';
+            console.log('⚠️ SPS30 상태를 연결 확인 중으로 설정');
+        }
+        
+        const modelElement = document.getElementById('sps30-model');
+        if (modelElement) {
+            modelElement.textContent = 'SPS30 UART';
+            console.log('📊 SPS30 모델 정보를 기본값으로 설정');
         }
     }
 
@@ -1032,15 +1084,31 @@ class EGIconDashboard {
 
     // SPS30 센서 상태 업데이트
     updateSPS30Status(sensor) {
+        console.log('📊 SPS30 센서 상태 업데이트:', sensor);
+        
         const statusElement = document.getElementById('sps30-status');
         if (statusElement) {
-            statusElement.textContent = '1개 연결됨';
-            statusElement.className = 'sensor-group-status online';
+            if (sensor.status === 'connected' || sensor.interface === 'UART') {
+                statusElement.textContent = '연결 활성중';
+                statusElement.className = 'sensor-group-status online';
+                console.log('✅ SPS30 상태 업데이트: 연결 활성중');
+            } else {
+                statusElement.textContent = '연결 확인 중...';
+                statusElement.className = 'sensor-group-status offline';
+                console.log('⚠️ SPS30 상태 업데이트: 연결 확인 중');
+            }
+        } else {
+            console.warn('⚠️ sps30-status 엘리먼트를 찾을 수 없음');
         }
 
         const modelElement = document.getElementById('sps30-model');
         if (modelElement) {
-            modelElement.textContent = `SPS30 (${sensor.serial_number?.substring(0, 8) || 'UART'})`;
+            const serialDisplay = sensor.serial_number ? 
+                sensor.serial_number.substring(0, 8) : 'UART';
+            modelElement.textContent = `SPS30 ${serialDisplay}`;
+            console.log(`✅ SPS30 모델 정보 업데이트: SPS30 ${serialDisplay}`);
+        } else {
+            console.warn('⚠️ sps30-model 엘리먼트를 찾을 수 없음');
         }
     }
 
