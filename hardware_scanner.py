@@ -20,14 +20,30 @@ try:
 except ImportError:
     I2C_AVAILABLE = False
 
-# SPS30 UART 센서 라이브러리
+# SPS30 UART 센서 라이브러리 (ref/gui_sps30.py와 동일한 방식)
 try:
     from shdlc_sps30 import Sps30ShdlcDevice
     from sensirion_shdlc_driver import ShdlcSerialPort, ShdlcConnection
     from sensirion_shdlc_driver.errors import ShdlcError
     SPS30_AVAILABLE = True
-except ImportError:
+    print("✅ SPS30 라이브러리 로드 성공 (ref/gui_sps30.py와 동일한 방식)")
+except ImportError as e:
     SPS30_AVAILABLE = False
+    print(f"⚠️ SPS30 라이브러리 로드 실패: {e}")
+    print(f"   ref/gui_sps30.py는 작동하나요? 다음 명령으로 확인:")
+    print(f"   cd /home/shinho/egicon_web && python3 -c 'from shdlc_sps30 import Sps30ShdlcDevice; print(\"SPS30 라이브러리 정상\")'")
+    
+    # 대안: ref/sps30_sensor.py 모듈 사용 시도
+    print("   대안: ref/sps30_sensor.py 모듈 import 시도...")
+    try:
+        import sys
+        import os
+        sys.path.append(os.path.join(os.path.dirname(__file__), 'ref'))
+        from sps30_sensor import SPS30Sensor
+        SPS30_AVAILABLE = True
+        print("✅ ref/sps30_sensor.py 모듈 사용 가능")
+    except ImportError as ref_e:
+        print(f"❌ ref/sps30_sensor.py도 사용 불가: {ref_e}")
 
 class HardwareScanner:
     """하드웨어 스캔 및 센서 감지 클래스"""
@@ -223,9 +239,32 @@ class HardwareScanner:
         print("🔍 SPS30 UART 센서 검색 시작...")
         
         if not SPS30_AVAILABLE:
-            print("❌ SPS30 라이브러리가 설치되지 않음")
-            print("  설치 명령: pip install sensirion-shdlc-sps30")
-            return None, None
+            print("❌ SPS30 라이브러리를 직접 import할 수 없음")
+            print("   ref/sps30_sensor.py 모듈 사용 시도...")
+            
+            # ref/sps30_sensor.py의 find_sps30 정적 메서드 사용 시도
+            try:
+                import sys
+                import os
+                ref_path = os.path.join(os.path.dirname(__file__), 'ref')
+                if ref_path not in sys.path:
+                    sys.path.append(ref_path)
+                
+                from sps30_sensor import SPS30Sensor
+                print("✅ ref/sps30_sensor.py 모듈 로드 성공")
+                
+                port_path, count = SPS30Sensor.find_sps30()
+                if port_path:
+                    # 시리얼 번호 가져오기
+                    sensor = SPS30Sensor(port=port_path)
+                    serial_number = sensor.serial_number if sensor.connected else "Unknown"
+                    return port_path, serial_number
+                else:
+                    return None, None
+                    
+            except Exception as e:
+                print(f"❌ ref/sps30_sensor.py 사용 실패: {e}")
+                return None, None
         
         print("✅ SPS30 라이브러리 확인됨")
         
