@@ -579,13 +579,15 @@ class HardwareScanner:
         bus = self.buses[bus_num]
         print(f"🔍 Bus {bus_num} 직접 스캔 시작")
         
-        # 주요 센서 주소 스캔
+        # 주요 센서 주소 스캔 (TCA9548A 주소 제외)
         all_addresses = []
         for addresses in self.SENSOR_ADDRESSES.values():
             all_addresses.extend(addresses)
         
+        # TCA9548A 주소 제외 (0x70-0x77)
         scan_addresses = sorted(set(all_addresses))
-        print(f"  📋 스캔 대상 주소: {[f'0x{addr:02X}' for addr in scan_addresses]}")
+        scan_addresses = [addr for addr in scan_addresses if addr not in self.TCA9548A_ADDRESSES]
+        print(f"  📋 스캔 대상 주소: {[f'0x{addr:02X}' for addr in scan_addresses]} (TCA9548A 제외)")
         
         for addr in scan_addresses:
             try:
