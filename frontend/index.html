@@ -85,35 +85,35 @@
             </div>
         </div>
 
-        <!-- 온습도 센서 그룹 (통합) -->
-        <div class="sensor-group" data-group="temp-humidity">
+        <!-- 기압/가스저항 센서 그룹 (통합) -->
+        <div class="sensor-group" data-group="pressure-gas">
             <div class="sensor-group-header">
-                <i class="fas fa-thermometer-half"></i>
-                <i class="fas fa-tint"></i>
-                <span class="sensor-group-title">온습도 센서</span>
-                <span class="sensor-group-status online">7개 연결됨</span>
+                <i class="fas fa-tachometer-alt"></i>
+                <i class="fas fa-flask"></i>
+                <span class="sensor-group-title">기압/가스저항 센서</span>
+                <span class="sensor-group-status online" id="pressure-gas-status">센서 검색 중...</span>
                 <div class="sensor-group-summary">
-                    <span class="summary-item">BME688×6 + SHT40×1</span>
+                    <span class="summary-item" id="pressure-gas-summary">BME688 기압+가스저항</span>
                 </div>
             </div>
             
             <!-- 요약 위젯들 -->
             <div class="summary-widgets-container">
-                <div class="summary-widget temperature">
-                    <div class="summary-icon">🌡️</div>
+                <div class="summary-widget pressure">
+                    <div class="summary-icon">📏</div>
                     <div class="summary-content">
-                        <div class="summary-label">평균 온도</div>
-                        <div class="summary-value" id="temperature-average">--°C</div>
-                        <div class="summary-range" id="temperature-range">-- ~ --°C</div>
+                        <div class="summary-label">평균 기압</div>
+                        <div class="summary-value" id="pressure-average">-- hPa</div>
+                        <div class="summary-range" id="pressure-range">-- ~ -- hPa</div>
                     </div>
                 </div>
                 
-                <div class="summary-widget humidity">
-                    <div class="summary-icon">💧</div>
+                <div class="summary-widget gas-resistance">
+                    <div class="summary-icon">🔬</div>
                     <div class="summary-content">
-                        <div class="summary-label">평균 습도</div>
-                        <div class="summary-value" id="humidity-average">--%</div>
-                        <div class="summary-range" id="humidity-range">-- ~ --%</div>
+                        <div class="summary-label">평균 가스저항</div>
+                        <div class="summary-value" id="gas-resistance-average">-- Ω</div>
+                        <div class="summary-range" id="gas-resistance-range">-- ~ -- Ω</div>
                     </div>
                 </div>
                 
@@ -121,8 +121,8 @@
                     <div class="summary-icon">📊</div>
                     <div class="summary-content">
                         <div class="summary-label">센서 상태</div>
-                        <div class="summary-value" id="temp-humidity-status">7/7 활성</div>
-                        <div class="summary-range">모든 센서 정상</div>
+                        <div class="summary-value" id="pressure-gas-status-widget">센서 검색 중</div>
+                        <div class="summary-range" id="pressure-gas-range">연결 대기 중</div>
                     </div>
                 </div>
             </div>
@@ -130,15 +130,15 @@
             <!-- 통합 차트 -->
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3 class="chart-title">온도 센서 통합 차트 (7개)</h3>
+                    <h3 class="chart-title" id="pressure-chart-title">기압 센서 통합 차트</h3>
                     <div class="chart-container">
-                        <canvas id="temperature-multi-chart"></canvas>
+                        <canvas id="pressure-multi-chart"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3 class="chart-title">습도 센서 통합 차트 (7개)</h3>
+                    <h3 class="chart-title" id="gas-resistance-chart-title">가스저항 센서 통합 차트</h3>
                     <div class="chart-container">
-                        <canvas id="humidity-multi-chart"></canvas>
+                        <canvas id="gas-resistance-multi-chart"></canvas>
                     </div>
                 </div>
             </div>

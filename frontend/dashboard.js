@@ -17,6 +17,17 @@ class EGIconDashboard {
 
         // 센서 그룹 정의 (통합보기 기준)
         this.sensorGroups = {
+            "pressure-gas": {
+                title: "기압/가스저항 센서",
+                icon: "📏🔬", 
+                metrics: ["pressure", "gas_resistance"],
+                sensors: {
+                    // BME688 센서 기압/가스저항 전용
+                    bme688: []  // 동적으로 발견됨
+                },
+                totalSensors: 0,  // 동적으로 업데이트됨
+                containerId: "pressure-gas-widgets"
+            },
             "temp-humidity": {
                 title: "온습도 센서",
                 icon: "🌡️💧", 

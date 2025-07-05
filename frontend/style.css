@@ -1207,6 +1207,10 @@ body {
     border-left-color: var(--vibration-color);
 }
 
+.summary-widget.gas-resistance {
+    border-left-color: #9966ff;
+}
+
 /* 요약 위젯 아이콘 */
 .summary-icon {
     font-size: 2rem;
