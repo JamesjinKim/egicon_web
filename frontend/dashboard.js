@@ -1048,8 +1048,8 @@ class EGIconDashboard {
 
     // SDP810 전용 차트 생성
     createSDP810Charts() {
-        // SDP810 차압 차트 생성
-        this.createSDP810Chart('sdp810-pressure-chart', 'pressure', 'SDP810 차압', 'Pa', '#4bc0c0', -50, 50);
+        // SDP810 차압 차트 생성 (±100 Pa 범위 - 실용적 차압 범위)
+        this.createSDP810Chart('sdp810-pressure-chart', 'pressure', 'SDP810 차압', 'Pa', '#4bc0c0', -100, 100);
         
         console.log('📊 SDP810 전용 차트 생성 완료');
     }
