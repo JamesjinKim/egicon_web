@@ -220,48 +220,81 @@ class HardwareScanner:
             Tuple[port_path, serial_number]: (시리얼 포트 경로, 시리얼 번호)
             실패 시 (None, None) 반환
         """
+        print("🔍 SPS30 UART 센서 검색 시작...")
+        
         if not SPS30_AVAILABLE:
-            print("⚠️ SPS30 라이브러리가 설치되지 않음 - UART 스캔 건너뜀")
+            print("❌ SPS30 라이브러리가 설치되지 않음")
+            print("  설치 명령: pip install sensirion-shdlc-sps30")
             return None, None
         
-        print("🔍 SPS30 UART 센서 검색 중...")
+        print("✅ SPS30 라이브러리 확인됨")
         
         # USB 시리얼 포트 후보들 검색
         port_candidates = []
-        port_candidates.extend(glob.glob('/dev/ttyUSB*'))  # USB-Serial 어댑터
-        port_candidates.extend(glob.glob('/dev/ttyACM*'))  # Arduino/Micro 타입
-        port_candidates.extend(glob.glob('/dev/ttyAMA*'))  # 라즈베리파이 UART
+        usb_ports = glob.glob('/dev/ttyUSB*')
+        acm_ports = glob.glob('/dev/ttyACM*') 
+        ama_ports = glob.glob('/dev/ttyAMA*')
+        
+        port_candidates.extend(usb_ports)
+        port_candidates.extend(acm_ports)
+        port_candidates.extend(ama_ports)
+        
+        print(f"📋 발견된 시리얼 포트:")
+        print(f"  - USB 포트: {usb_ports}")
+        print(f"  - ACM 포트: {acm_ports}")
+        print(f"  - AMA 포트: {ama_ports}")
+        print(f"  - 총 후보: {port_candidates}")
         
         if not port_candidates:
-            print("❌ UART 시리얼 포트를 찾을 수 없음")
+            print("❌ 사용 가능한 UART 시리얼 포트가 없습니다")
+            print("  확인사항:")
+            print("  1. SPS30이 USB로 연결되었는지 확인")
+            print("  2. 'ls -la /dev/tty*' 명령으로 포트 확인")
+            print("  3. 사용자가 dialout 그룹에 속해있는지 확인")
             return None, None
-        
-        print(f"📋 UART 포트 후보: {port_candidates}")
         
         # 각 포트에서 SPS30 센서 검색
         for port_path in port_candidates:
             try:
-                print(f"🔌 UART 포트 테스트 중: {port_path}")
+                print(f"🔌 UART 포트 테스트: {port_path}")
+                
+                # 포트 권한 확인
+                import os
+                if not os.access(port_path, os.R_OK | os.W_OK):
+                    print(f"⚠️ 포트 {port_path} 권한 없음 - dialout 그룹 확인 필요")
+                    continue
                 
                 with ShdlcSerialPort(port=port_path, baudrate=115200) as port:
                     device = Sps30ShdlcDevice(ShdlcConnection(port))
                     
-                    # 센서 정보 읽기 시도
+                    print(f"  📡 SPS30 통신 시도 중...")
+                    # 센서 정보 읽기 시도 (타임아웃 적용)
                     serial_number = device.device_information_serial_number()
                     
                     if serial_number:
-                        print(f"✅ SPS30 센서 발견: {port_path} (S/N: {serial_number})")
+                        print(f"✅ SPS30 센서 발견!")
+                        print(f"  📍 포트: {port_path}")
+                        print(f"  🏷️ 시리얼 번호: {serial_number}")
                         return port_path, serial_number
+                    else:
+                        print(f"  ❌ 시리얼 번호 읽기 실패")
                         
             except Exception as e:
-                print(f"⚠️ UART 포트 {port_path} 테스트 실패: {e}")
+                print(f"  ❌ 포트 {port_path} 테스트 실패:")
+                print(f"     오류: {type(e).__name__}: {e}")
                 continue
         
-        print("❌ SPS30 UART 센서를 찾을 수 없음")
+        print("❌ 모든 포트에서 SPS30 센서를 찾지 못했습니다")
+        print("  문제 해결 방법:")
+        print("  1. SPS30 센서가 올바르게 연결되었는지 확인")
+        print("  2. USB 케이블과 어댑터 상태 확인")
+        print("  3. 라즈베리파이 재부팅 후 재시도")
+        print("  4. 'sudo usermod -a -G dialout $USER' 실행 후 재로그인")
         return None, None
     
     def scan_uart_sensors(self) -> List[Dict]:
         """UART 센서 스캔 (SPS30)"""
+        print("🔍 UART 센서 스캔 시작...")
         uart_devices = []
         
         if not self.is_raspberry_pi:
@@ -269,7 +302,7 @@ class HardwareScanner:
             mock_uart = {
                 "port": "/dev/ttyUSB0",
                 "sensor_type": "SPS30",
-                "sensor_name": "SPS30",
+                "sensor_name": "SPS30", 
                 "serial_number": "MOCK_SPS30_12345",
                 "status": "connected",
                 "interface": "UART",
@@ -279,6 +312,8 @@ class HardwareScanner:
             uart_devices.append(mock_uart)
             print("🔧 Mock 모드: SPS30 UART 센서 시뮬레이션")
             return uart_devices
+        
+        print("🔗 라즈베리파이 환경: 실제 UART 센서 검색")
         
         # SPS30 UART 센서 검색
         port_path, serial_number = self._find_sps30_uart()
@@ -296,7 +331,10 @@ class HardwareScanner:
             }
             uart_devices.append(uart_device)
             print(f"✅ SPS30 UART 센서 스캔 완료: {port_path}")
+        else:
+            print("❌ SPS30 UART 센서를 찾지 못했습니다")
         
+        print(f"📊 UART 스캔 결과: {len(uart_devices)}개 센서 발견")
         return uart_devices
     
     def scan_bus_direct(self, bus_num: int) -> List[Dict]:
