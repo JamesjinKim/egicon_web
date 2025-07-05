@@ -532,7 +532,7 @@ class EGIconSettings {
             }
             
             const result = await response.json();
-            this.showSensorTestModal(result);
+            this.showSensorTestModal(result, sensorType);
             
         } catch (error) {
             console.error('UART 센서 테스트 실패:', error);
@@ -589,8 +589,44 @@ class EGIconSettings {
         let testDetails = '';
         
         if (result.success) {
+            // UART 센서 (SPS30) 처리
+            if (result.data && result.data.port && sensorType === 'Unknown') {
+                // UART 센서 자동 감지 (포트 정보가 있으면 SPS30으로 간주)
+                if (result.data.serial_number) {
+                    sensorType = 'SPS30';
+                }
+            }
+            
             // 센서 타입별 상세 정보 표시
             switch (sensorType) {
+                case 'SPS30':
+                    if (result.data) {
+                        testDetails = `
+                            <div class="sensor-details">
+                                <h5>🌫️ SPS30 미세먼지 센서</h5>
+                                <div class="device-info">
+                                    <ul>
+                                        <li>센서 타입: SPS30 (UART)</li>
+                                        <li>시리얼 번호: ${result.data.serial_number || 'Unknown'}</li>
+                                        <li>포트: ${result.data.port || 'Unknown'}</li>
+                                        <li>연결 방식: UART/Serial</li>
+                                        <li>상태: 연결됨</li>
+                                    </ul>
+                                    <div class="measurement-data" style="margin-top: 15px;">
+                                        <h6>📊 측정 데이터:</h6>
+                                        <ul>
+                                            <li>PM1.0: ${result.data.pm1 || 0} μg/m³</li>
+                                            <li>PM2.5: ${result.data.pm25 || 0} μg/m³</li>
+                                            <li>PM10: ${result.data.pm10 || 0} μg/m³</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        testDetails = '<p>SPS30 센서 테스트가 완료되었습니다.</p>';
+                    }
+                    break;
                 case 'SHT40':
                     const sht40Devices = result.sht40_devices || [];
                     if (sht40Devices.length > 0) {
