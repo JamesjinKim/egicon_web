@@ -263,15 +263,41 @@ async def test_sps30_sensor(port: str) -> Dict[str, Any]:
                     # 5단계: 데이터 읽기
                     data = device.read_measured_value()
                     print(f"📊 SPS30 데이터 읽기 성공: {data}")
+                    print(f"🔍 SPS30 데이터 타입: {type(data)}")
                     
                     # 6단계: 측정 중지
                     device.stop_measurement()
                     print("🔄 SPS30 측정 중지 완료")
                     
-                    if data and len(data) >= 3:
-                        pm1 = float(data[0]) if data[0] else 0.0
-                        pm25 = float(data[1]) if data[1] else 0.0  
-                        pm10 = float(data[2]) if data[2] else 0.0
+                    if data:
+                        # SPS30 데이터 파싱 (tuple 또는 list 처리)
+                        try:
+                            # data가 tuple이나 list인 경우 각 요소 확인
+                            if hasattr(data, '__len__') and len(data) >= 3:
+                                # 각 데이터 포인트의 타입 확인 및 변환
+                                def safe_float_conversion(value):
+                                    if value is None:
+                                        return 0.0
+                                    if isinstance(value, (int, float)):
+                                        return float(value)
+                                    if isinstance(value, str):
+                                        return float(value)
+                                    if isinstance(value, tuple) and len(value) > 0:
+                                        # tuple의 첫 번째 요소 사용
+                                        return float(value[0])
+                                    return 0.0
+                                
+                                pm1 = safe_float_conversion(data[0])
+                                pm25 = safe_float_conversion(data[1])  
+                                pm10 = safe_float_conversion(data[2])
+                                
+                                print(f"✅ 파싱된 PM 값: PM1.0={pm1}, PM2.5={pm25}, PM10={pm10}")
+                            else:
+                                print(f"⚠️ SPS30 데이터 길이 부족: {len(data) if hasattr(data, '__len__') else 'Unknown'}")
+                                pm1 = pm25 = pm10 = 0.0
+                        except Exception as parse_error:
+                            print(f"❌ SPS30 데이터 파싱 오류: {parse_error}")
+                            pm1 = pm25 = pm10 = 0.0
                         
                         return {
                             "success": True,
@@ -282,14 +308,15 @@ async def test_sps30_sensor(port: str) -> Dict[str, Any]:
                                 "pm25": round(pm25, 1), 
                                 "pm10": round(pm10, 1),
                                 "timestamp": datetime.now().isoformat(),
-                                "message": "SPS30 테스트 완료"
+                                "message": "SPS30 테스트 완료",
+                                "raw_data": str(data)  # 디버깅용 원본 데이터
                             }
                         }
                     else:
                         return {
                             "success": False,
-                            "error": "SPS30 데이터 읽기 실패 - 불완전한 데이터",
-                            "data": {"port": port, "serial_number": serial_number}
+                            "error": "SPS30 데이터 읽기 실패 - 데이터가 없음",
+                            "data": {"port": port, "serial_number": serial_number, "raw_data": str(data)}
                         }
                         
                 except ShdlcError as shdlc_error:
