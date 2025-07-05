@@ -184,7 +184,7 @@ class EGIconDashboard {
         try {
             console.log('🔍 동적 센서 그룹 로딩 중...');
             
-            const response = await fetch('http://192.168.0.39:8001/api/sensors/groups');
+            const response = await fetch('/api/sensors/groups');
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -1407,8 +1407,8 @@ class EGIconDashboard {
 
     // SDP810 센서 데이터 가져오기 (라즈베리파이 실제 데이터)
     async fetchSDP810Data(sensor) {
-        const apiUrl = `http://192.168.0.39:8001/api/sensors/sdp810/${sensor.bus}/${sensor.mux_channel}`;
-        console.log(`📡 SDP810 실제 라즈베리파이 API 호출: ${apiUrl}`);
+        const apiUrl = `/api/sensors/sdp810/${sensor.bus}/${sensor.mux_channel}`;
+        console.log(`📡 SDP810 API 호출: ${apiUrl}`);
         
         try {
             const response = await fetch(apiUrl);
