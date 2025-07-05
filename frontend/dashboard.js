@@ -1009,6 +1009,7 @@ class EGIconDashboard {
         });
         
         console.log(`✅ 다중 센서 차트 생성 완료: ${canvasId} (${datasets.length}개 데이터셋)`);
+        console.log(`🔗 차트 저장 키: ${canvasId}, 실제 캔버스 ID: ${canvasId}`);
     }
 
     // SHT40 전용 차트 생성
@@ -1749,7 +1750,7 @@ class EGIconDashboard {
             `BME688-${sensor.bus}.${sensor.mux_channel} 가스저항`
         );
         
-        // 기존 차트 파괴 후 다중 센서 차트 생성
+        // 기존 차트 파괴 후 다중 센서 차트 생성 (HTML ID 사용)
         this.createMultiSensorChart('pressure-multi-chart', 'pressure', pressureLabels);
         this.createMultiSensorChart('gas-resistance-multi-chart', 'gas_resistance', gasLabels);
         
@@ -2719,7 +2720,9 @@ class EGIconDashboard {
 
     // 실시간 Multi-line 차트 업데이트
     updateMultiSensorChartRealtime(metric, sensorDataArray, timestamp) {
-        const chartId = `${metric}-multi-chart`;
+        // 메트릭 이름을 HTML ID에 맞게 변환 (언더스코어를 하이픈으로)
+        const normalizedMetric = metric.replace(/_/g, '-');
+        const chartId = `${normalizedMetric}-multi-chart`;
         const chart = this.charts[chartId];
         
         if (!chart) {
@@ -2838,8 +2841,9 @@ class EGIconDashboard {
                 return `BME688 센서 ${index + 1} ${metric === 'pressure' ? '기압' : '가스저항'}`;
             });
             
-            // 차트 생성
-            const chartId = `${metric}-multi-chart`;
+            // 차트 생성 (메트릭 이름을 HTML ID에 맞게 변환)
+            const normalizedMetric = metric.replace(/_/g, '-');
+            const chartId = `${normalizedMetric}-multi-chart`;
             this.createMultiSensorChart(chartId, metric, labels);
             
             console.log(`✅ 누락된 BME688 ${metric} 차트 생성 완료: ${labels.length}개 센서`);
