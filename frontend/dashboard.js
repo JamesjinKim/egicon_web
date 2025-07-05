@@ -1388,26 +1388,39 @@ class EGIconDashboard {
 
     // SDP810 데이터 폴링 시작
     startSDP810DataPolling(sensorId, sensor) {
-        console.log(`🔄 SDP810 데이터 폴링 시작: ${sensorId}`);
+        console.log(`🔄 SDP810 데이터 폴링 시작: ${sensorId}`, sensor);
+        console.log(`⏰ 폴링 간격: ${this.config.updateInterval}ms`);
         
         // 즉시 한 번 실행
         this.fetchSDP810Data(sensor);
         
         // 주기적 업데이트 설정
-        setInterval(() => {
+        const intervalId = setInterval(() => {
+            console.log(`⏰ SDP810 정기 폴링 실행: ${new Date().toLocaleTimeString()}`);
             this.fetchSDP810Data(sensor);
         }, this.config.updateInterval);
+        
+        // 인터벌 ID 저장 (필요시 정리용)
+        this.sdp810PollingInterval = intervalId;
+        console.log(`✅ SDP810 폴링 설정 완료: interval ID ${intervalId}`);
     }
 
     // SDP810 센서 데이터 가져오기
     async fetchSDP810Data(sensor) {
+        const apiUrl = `/api/sensors/sdp810/${sensor.bus}/${sensor.mux_channel}`;
+        console.log(`📡 SDP810 API 호출: ${apiUrl}`);
+        
         try {
-            const response = await fetch(`/api/sensors/sdp810/${sensor.bus}/${sensor.mux_channel}`);
+            const response = await fetch(apiUrl);
+            console.log(`📡 SDP810 API 응답: ${response.status} ${response.statusText}`);
+            
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const result = await response.json();
+            console.log(`📊 SDP810 API 결과:`, result);
+            
             if (result.success && result.data) {
                 // 데이터를 표준 형식으로 변환
                 const sensorData = {
@@ -1419,8 +1432,12 @@ class EGIconDashboard {
                     timestamp: result.data.timestamp
                 };
                 
+                console.log(`🔄 SDP810 변환된 데이터:`, sensorData);
+                
                 // SDP810 데이터 업데이트
                 this.updateSDP810Data(sensorData);
+            } else {
+                console.warn(`⚠️ SDP810 API 응답 이상:`, result);
             }
         } catch (error) {
             console.error(`❌ SDP810 데이터 가져오기 실패 (Bus${sensor.bus}:Ch${sensor.mux_channel}):`, error);
