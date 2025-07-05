@@ -10,7 +10,7 @@ class EGIconDashboard {
         // 성능 최적화 설정
         this.config = {
             maxDataPoints: 100,       // 메모리 최적화: 차트 데이터 포인트 제한 확대 (450Pa 급변 감지용)
-            updateInterval: 500,      // 실시간성: 0.5초 간격 업데이트 (빠른 변화 감지)
+            updateInterval: 2000,     // 안정성 우선: 2초 간격 업데이트 (CRC 오류 최소화, 75% 성공률)
             batchSize: 4,            // 응답속도: 배치 처리 크기
             enableAnimations: true,   // 모던 차트 애니메이션
         };
@@ -184,7 +184,7 @@ class EGIconDashboard {
         try {
             console.log('🔍 동적 센서 그룹 로딩 중...');
             
-            const response = await fetch('/api/sensors/groups');
+            const response = await fetch('http://192.168.0.39:8001/api/sensors/groups');
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -1405,10 +1405,10 @@ class EGIconDashboard {
         console.log(`✅ SDP810 폴링 설정 완료: interval ID ${intervalId}`);
     }
 
-    // SDP810 센서 데이터 가져오기
+    // SDP810 센서 데이터 가져오기 (라즈베리파이 실제 데이터)
     async fetchSDP810Data(sensor) {
-        const apiUrl = `/api/sensors/sdp810/${sensor.bus}/${sensor.mux_channel}`;
-        console.log(`📡 SDP810 API 호출: ${apiUrl}`);
+        const apiUrl = `http://192.168.0.39:8001/api/sensors/sdp810/${sensor.bus}/${sensor.mux_channel}`;
+        console.log(`📡 SDP810 실제 라즈베리파이 API 호출: ${apiUrl}`);
         
         try {
             const response = await fetch(apiUrl);

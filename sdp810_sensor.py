@@ -181,6 +181,36 @@ class SDP810Sensor:
         
         return self._read_pressure_data()
     
+    def read_pressure_with_retry(self, max_retries: int = 3) -> Optional[float]:
+        """CRC 오류 시 재시도하는 압력 읽기 (API용 최적화)"""
+        if not self.is_connected:
+            print("❌ 센서가 연결되지 않음")
+            return None
+        
+        # 멀티플렉서 채널 재선택 (필요시)
+        if self.mux_channel is not None:
+            if not self._select_mux_channel():
+                return None
+        
+        for attempt in range(max_retries):
+            pressure, crc_ok, message = self._read_pressure_data()
+            
+            if pressure is not None and crc_ok:
+                # 성공 시 즉시 반환
+                if attempt > 0:
+                    print(f"✅ 재시도 {attempt + 1}회만에 성공: {pressure:.4f} Pa")
+                return pressure
+            else:
+                # CRC 오류 시 재시도
+                if "CRC" in message and attempt < max_retries - 1:
+                    print(f"⚠️ CRC 오류 재시도 {attempt + 1}/{max_retries}: {message}")
+                    time.sleep(0.05)  # 50ms 대기 후 재시도
+                    continue
+                elif attempt == max_retries - 1:
+                    print(f"❌ {max_retries}회 재시도 후 실패: {message}")
+        
+        return None
+    
     def continuous_measurement(self, duration: int = 10, interval: float = 1.0) -> List[Dict]:
         """연속 측정"""
         measurements = []
