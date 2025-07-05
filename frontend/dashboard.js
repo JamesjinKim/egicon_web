@@ -1860,19 +1860,43 @@ class EGIconDashboard {
         
         console.log(`📊 SDP810 차트 데이터 추가: ${sensorId} = ${value} Pa @ ${timestamp}`);
         
-        // 데이터셋 찾기 또는 생성
-        let dataset = chart.data.datasets.find(ds => ds.label.includes(sensorId));
+        // 센서 ID에 따른 명칭 결정
+        const getSensorDisplayName = (sensorId) => {
+            // 센서 ID나 채널에 따라 흡기/배기 구분
+            if (sensorId.includes('unknown') || sensorId.includes('_0_') || sensorId.includes('_ch0_')) {
+                return '흡기';
+            } else if (sensorId.includes('_1_') || sensorId.includes('_ch1_')) {
+                return '배기';
+            } else {
+                // 기본적으로 첫 번째는 흡기, 두 번째는 배기로 처리
+                const datasetCount = chart.data.datasets.length;
+                return datasetCount === 0 ? '흡기' : '배기';
+            }
+        };
+        
+        const displayName = getSensorDisplayName(sensorId);
+        console.log(`📊 SDP810 센서 명칭 결정: ${sensorId} → ${displayName}`);
+        
+        // 데이터셋 찾기 또는 생성 (센서 ID 또는 표시명으로 검색)
+        let dataset = chart.data.datasets.find(ds => 
+            ds.label.includes(sensorId) || ds.label.includes(displayName)
+        );
         
         if (!dataset) {
-            console.log(`📊 SDP810 새 데이터셋 생성: ${sensorId}`);
+            console.log(`📊 SDP810 새 데이터셋 생성: ${displayName} (${sensorId})`);
+            
+            // 흡기/배기에 따른 색상 구분
+            const datasetColor = displayName === '흡기' ? '#4bc0c0' : '#ff6384'; // 흡기: 청록색, 배기: 빨간색
+            
             dataset = {
-                label: `SDP810 차압 (${sensorId})`,
+                label: `${displayName} 차압`,
                 data: [],
-                borderColor: color,
-                backgroundColor: color + '20',
+                borderColor: datasetColor,
+                backgroundColor: datasetColor + '20',
                 tension: 0.4,
                 pointRadius: 3,
-                pointHoverRadius: 5
+                pointHoverRadius: 5,
+                sensorId: sensorId // 센서 ID 저장
             };
             chart.data.datasets.push(dataset);
         }
