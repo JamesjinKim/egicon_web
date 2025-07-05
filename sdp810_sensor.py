@@ -49,7 +49,7 @@ class SDP810Sensor:
             "accuracy": "±1.5% of reading",
             "interface": "I2C",
             "address": f"0x{self.SDP810_ADDRESS:02X}",
-            "scaling_factor": 60.0
+            "scaling_factor": 240.0
         }
     
     def _calculate_crc8(self, data: List[int]) -> int:
