@@ -6,9 +6,10 @@ EG-ICON Dashboard - 메인 서버
 성능 최적화: 메모리 > 실시간성 > 응답속도
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
+from contextlib import asynccontextmanager
 import uvicorn
 from datetime import datetime
 
@@ -17,16 +18,65 @@ from api_endpoints import setup_api_routes
 from websocket_manager import setup_websocket_routes
 from hardware_scanner import cleanup_scanner
 
-# FastAPI 앱 생성
+# 라이프사이클 이벤트 핸들러 (FastAPI 최신 방식)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 서버 시작 시 초기화
+    print("🚀 EG-ICON Dashboard 서버 시작")
+    print("📡 모듈 분리 완료:")
+    print("   - sensor_handlers.py: 센서 데이터 읽기")
+    print("   - api_endpoints.py: REST API 엔드포인트")  
+    print("   - websocket_manager.py: 실시간 WebSocket 통신")
+    print("   - hardware_scanner.py: 하드웨어 스캔")
+    
+    yield
+    
+    # 서버 종료 시 정리
+    print("🛑 EG-ICON Dashboard 서버 종료")
+    cleanup_scanner()
+
+# FastAPI 앱 생성 (lifespan 이벤트 포함)
 app = FastAPI(
     title="EG-ICON Dashboard",
     description="TCA9548A 이중 멀티플렉서 센서 모니터링 시스템",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # 정적 파일 서빙 (프론트엔드)
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
+
+# JS/CSS 파일 직접 서빙을 위한 추가 라우트
+@app.get("/dashboard.js")
+async def get_dashboard_js():
+    """dashboard.js 파일 서빙"""
+    try:
+        with open("frontend/dashboard.js", "r", encoding="utf-8") as f:
+            content = f.read()
+        return Response(content=content, media_type="application/javascript")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="dashboard.js not found")
+
+@app.get("/settings.js")
+async def get_settings_js():
+    """settings.js 파일 서빙"""
+    try:
+        with open("frontend/settings.js", "r", encoding="utf-8") as f:
+            content = f.read()
+        return Response(content=content, media_type="application/javascript")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="settings.js not found")
+
+@app.get("/style.css")
+async def get_style_css():
+    """style.css 파일 서빙"""
+    try:
+        with open("frontend/style.css", "r", encoding="utf-8") as f:
+            content = f.read()
+        return Response(content=content, media_type="text/css")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="style.css not found")
 
 # 라우트 설정
 setup_api_routes(app)
@@ -80,22 +130,7 @@ async def health_check():
         "timestamp": datetime.now().isoformat()
     }
 
-# 애플리케이션 이벤트 핸들러
-@app.on_event("startup")
-async def startup_event():
-    """서버 시작 시 초기화"""
-    print("🚀 EG-ICON Dashboard 서버 시작")
-    print("📡 모듈 분리 완료:")
-    print("   - sensor_handlers.py: 센서 데이터 읽기")
-    print("   - api_endpoints.py: REST API 엔드포인트")  
-    print("   - websocket_manager.py: 실시간 WebSocket 통신")
-    print("   - hardware_scanner.py: 하드웨어 스캔")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """서버 종료 시 정리"""
-    print("🛑 EG-ICON Dashboard 서버 종료")
-    cleanup_scanner()
+# 구 방식의 이벤트 핸들러 제거됨 (lifespan으로 대체)
 
 # 개발 서버 실행
 if __name__ == "__main__":
