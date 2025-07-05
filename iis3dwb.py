@@ -191,8 +191,8 @@ def main():
     """메인 테스트 함수"""
     print("=== IIS3DWB 센서 테스트 프로그램 ===\n")
     
-    # 센서 객체 생성
-    sensor = IIS3DWB(bus=0, device=0, max_speed_hz=1000000)
+    # 센서 객체 생성 (CS1 핀 사용: GPIO 7)
+    sensor = IIS3DWB(bus=0, device=1, max_speed_hz=1000000)
     
     try:
         # 1. 센서 스캔
