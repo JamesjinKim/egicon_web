@@ -1816,12 +1816,16 @@ class EGIconDashboard {
     
     // 단일 차트 업데이트 헬퍼 함수
     updateSingleChart(chart, value, timestamp, label) {
-        if (!chart) return;
+        if (!chart) {
+            console.warn(`⚠️ updateSingleChart: 차트가 null입니다 (${label})`);
+            return;
+        }
         
         const data = chart.data;
         
         // 데이터셋이 없으면 생성
         if (data.datasets.length === 0) {
+            console.log(`📊 새 데이터셋 생성: ${label}`);
             data.datasets.push({
                 label: label,
                 data: [],
@@ -1834,10 +1838,13 @@ class EGIconDashboard {
         }
         
         // 새 데이터 포인트 추가
-        data.datasets[0].data.push({
+        const dataPoint = {
             x: timestamp,
             y: value
-        });
+        };
+        
+        data.datasets[0].data.push(dataPoint);
+        console.log(`📈 차트 데이터 추가: ${label} = ${value} at ${timestamp.toLocaleTimeString()}`);
         
         // 데이터 포인트 수 제한
         if (data.datasets[0].data.length > this.config.maxDataPoints) {
@@ -1845,6 +1852,7 @@ class EGIconDashboard {
         }
         
         chart.update('none');
+        console.log(`✅ 차트 업데이트 완료: ${label} (총 ${data.datasets[0].data.length}개 포인트)`);
     }
 
     // SPS30 센서 상태 업데이트
@@ -2561,6 +2569,12 @@ class EGIconDashboard {
             } else {
                 console.warn(`⚠️ 차트를 찾을 수 없음: ${chartId}`);
             }
+            return;
+        }
+
+        // pressure와 gas_resistance는 BME688 전용 업데이트 시스템을 사용하므로 스킵
+        if (metric === 'pressure' || metric === 'gas_resistance') {
+            console.log(`📊 ${metric} 차트는 BME688 전용 업데이트 시스템 사용으로 스킵됨`);
             return;
         }
 
