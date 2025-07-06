@@ -88,7 +88,7 @@ class EGIconDashboard {
             "air-quality": {
                 title: "공기질 센서",
                 icon: "🍃",
-                metrics: ["gas_resistance", "airquality"],
+                metrics: ["gas_resistance"],
                 sensors: {
                     // BME688 가스저항 + SPS30 미세먼지
                     bme688: [],  // 동적으로 발견됨 (가스저항)
@@ -1496,7 +1496,7 @@ class EGIconDashboard {
         this.startBME688PollingForDiscoveredSensors();
         
         // SHT40 센서 스캔 및 초기화
-        this.initializeSHT40Sensors();
+        await this.initializeSHT40Sensors();
     }
 
     // 감지된 BME688 센서에 대해 폴링 시작
@@ -3592,7 +3592,7 @@ class EGIconDashboard {
                         time: {
                             displayFormats: {
                                 minute: 'HH:mm',
-                                hour: 'MM/DD HH:mm'
+                                hour: 'MM/dd HH:mm'
                             }
                         },
                         title: {
