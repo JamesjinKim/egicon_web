@@ -152,6 +152,11 @@ class BME688Sensor {
         }, 100);
 
         this.isInitialized = true;
+        
+        // 대기 중인 데이터 처리
+        setTimeout(() => {
+            this.processPendingData();
+        }, 200); // 차트 완전 초기화 후 처리
     }
 
     // 단일 센서 차트 생성 (기본 1개 데이터셋)
