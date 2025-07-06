@@ -172,14 +172,10 @@ class BME688ChartHandler {
     updateChartsWithRealtimeData(sensorId, data, timestamp) {
         console.log(`🔄 BME688 차트 데이터 업데이트: ${sensorId}`, data);
         
-        // 센서 인덱스 찾기
-        const sensorIndex = this.dashboard.extractSensorIndex(sensorId);
-        if (sensorIndex === -1) {
-            console.warn(`⚠️ BME688 센서 인덱스 찾을 수 없음: ${sensorId}`);
-            return;
-        }
+        // 단일 센서 모드: 항상 인덱스 0 사용
+        const sensorIndex = 0; // Bus 1, Channel 3 센서는 무조건 차트 인덱스 0
         
-        console.log(`📊 BME688 데이터 차트 전달: ${sensorId} → 인덱스 ${sensorIndex}`, data);
+        console.log(`📊 BME688 단일 센서 데이터 차트 전달: ${sensorId} → 고정 인덱스 ${sensorIndex}`, data);
         
         // 차트 직접 업데이트
         this.updateChartDataDirectly(sensorId, data, timestamp, sensorIndex);
@@ -194,40 +190,48 @@ class BME688ChartHandler {
         // 기압 차트 업데이트
         if (data.pressure !== undefined) {
             const pressureChart = this.dashboard.charts['pressure-multi-chart'];
-            if (pressureChart && pressureChart.data.datasets[sensorIndex]) {
-                pressureChart.data.labels.push(time);
-                pressureChart.data.datasets[sensorIndex].data.push(data.pressure);
-                
-                // 최대 데이터 포인트 제한
-                if (pressureChart.data.labels.length > this.dashboard.config.maxDataPoints) {
-                    pressureChart.data.labels.shift();
-                    pressureChart.data.datasets[sensorIndex].data.shift();
+            if (pressureChart) {
+                if (pressureChart.data.datasets[sensorIndex]) {
+                    pressureChart.data.labels.push(time);
+                    pressureChart.data.datasets[sensorIndex].data.push(data.pressure);
+                    
+                    // 최대 데이터 포인트 제한
+                    if (pressureChart.data.labels.length > this.dashboard.config.maxDataPoints) {
+                        pressureChart.data.labels.shift();
+                        pressureChart.data.datasets[sensorIndex].data.shift();
+                    }
+                    
+                    pressureChart.update('none');
+                    console.log(`✅ 기압 차트 업데이트 [${sensorIndex}]: ${data.pressure}hPa`);
+                } else {
+                    console.warn(`⚠️ 기압 차트 데이터셋[${sensorIndex}] 없음 (총 ${pressureChart.data.datasets.length}개 데이터셋)`);
                 }
-                
-                pressureChart.update('none');
-                console.log(`✅ 기압 차트 업데이트 [${sensorIndex}]: ${data.pressure}hPa`);
             } else {
-                console.warn(`⚠️ 기압 차트 또는 데이터셋[${sensorIndex}] 없음`);
+                console.warn(`⚠️ 기압 차트 'pressure-multi-chart' 없음`);
             }
         }
         
         // 가스저항 차트 업데이트
         if (data.gas_resistance !== undefined) {
             const gasChart = this.dashboard.charts['gas-resistance-multi-chart'];
-            if (gasChart && gasChart.data.datasets[sensorIndex]) {
-                gasChart.data.labels.push(time);
-                gasChart.data.datasets[sensorIndex].data.push(data.gas_resistance);
-                
-                // 최대 데이터 포인트 제한
-                if (gasChart.data.labels.length > this.dashboard.config.maxDataPoints) {
-                    gasChart.data.labels.shift();
-                    gasChart.data.datasets[sensorIndex].data.shift();
+            if (gasChart) {
+                if (gasChart.data.datasets[sensorIndex]) {
+                    gasChart.data.labels.push(time);
+                    gasChart.data.datasets[sensorIndex].data.push(data.gas_resistance);
+                    
+                    // 최대 데이터 포인트 제한
+                    if (gasChart.data.labels.length > this.dashboard.config.maxDataPoints) {
+                        gasChart.data.labels.shift();
+                        gasChart.data.datasets[sensorIndex].data.shift();
+                    }
+                    
+                    gasChart.update('none');
+                    console.log(`✅ 가스저항 차트 업데이트 [${sensorIndex}]: ${data.gas_resistance}Ω`);
+                } else {
+                    console.warn(`⚠️ 가스저항 차트 데이터셋[${sensorIndex}] 없음 (총 ${gasChart.data.datasets.length}개 데이터셋)`);
                 }
-                
-                gasChart.update('none');
-                console.log(`✅ 가스저항 차트 업데이트 [${sensorIndex}]: ${data.gas_resistance}Ω`);
             } else {
-                console.warn(`⚠️ 가스저항 차트 또는 데이터셋[${sensorIndex}] 없음`);
+                console.warn(`⚠️ 가스저항 차트 'gas-resistance-multi-chart' 없음`);
             }
         }
     }
