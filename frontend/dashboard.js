@@ -1958,31 +1958,56 @@ class EGIconDashboard {
                 );
                 console.log(`✅ BME688 센서 ${bme688Sensors.length}개 발견`, bme688Sensors);
                 
-                // 모든 BME688 센서에 대해 폴링 시작
-                bme688Sensors.forEach((sensor, index) => {
+                // 1단계: Bus 1, Channel 3 BME688 센서만 먼저 처리
+                const primarySensor = bme688Sensors.find(sensor => 
+                    sensor.bus === 1 && sensor.mux_channel === 3
+                );
+                
+                if (primarySensor) {
+                    console.log(`🎆 1단계: Bus 1, Channel 3 BME688 센서 먼저 처리`, primarySensor);
+                    
                     const sensorInfo = {
-                        bus: sensor.bus,
-                        mux_channel: sensor.mux_channel
+                        bus: primarySensor.bus,
+                        mux_channel: primarySensor.mux_channel
                     };
                     
-                    const sensorId = `bme688_${sensor.bus}_${sensor.mux_channel}_77`;
-                    console.log(`🚀 BME688 폴링 시작 [${index + 1}/${bme688Sensors.length}]: ${sensorId}`, sensorInfo);
+                    const sensorId = `bme688_${primarySensor.bus}_${primarySensor.mux_channel}_77`;
+                    console.log(`🚀 기본 BME688 센서 폴링 시작: ${sensorId}`, sensorInfo);
                     
-                    // 각 센서마다 약간의 딜레이를 두어 동시 요청 방지
-                    // index (0-4)를 차트 데이터셋 인덱스로 사용
-                    setTimeout(() => {
-                        this.startBME688DataPolling(sensorId, sensorInfo, index);
-                    }, index * 500); // 0.5초씩 간격
-                });
+                    // 기본 센서 폴링 시작 (index 0)
+                    this.startBME688DataPolling(sensorId, sensorInfo, 0);
+                    
+                    // TODO: 나머지 센서들은 나중에 추가 처리
+                    const remainingSensors = bme688Sensors.filter(sensor => 
+                        !(sensor.bus === 1 && sensor.mux_channel === 3)
+                    );
+                    if (remainingSensors.length > 0) {
+                        console.log(`⏳ 나머지 ${remainingSensors.length}개 센서는 추후 처리 예정:`, 
+                            remainingSensors.map(s => `Bus${s.bus}:Ch${s.mux_channel}`));
+                    }
+                } else {
+                    console.warn(`⚠️ Bus 1, Channel 3 BME688 센서를 찾을 수 없음. 첫 번째 센서로 대체`);
+                    // 폴백: 첫 번째 센서 사용
+                    if (bme688Sensors.length > 0) {
+                        const fallbackSensor = bme688Sensors[0];
+                        const sensorInfo = {
+                            bus: fallbackSensor.bus,
+                            mux_channel: fallbackSensor.mux_channel
+                        };
+                        const sensorId = `bme688_${fallbackSensor.bus}_${fallbackSensor.mux_channel}_77`;
+                        this.startBME688DataPolling(sensorId, sensorInfo, 0);
+                    }
+                }
                 
-                // BME688 상태 위젯 초기 설정 (깜박임 방지를 위해 한 번만 설정)
-                this.initializeBME688StatusWidgets(bme688Sensors.length);
+                // BME688 상태 위젯 초기 설정 (1개 센서만 표시)
+                this.initializeBME688StatusWidgets(1); // 첫 번째 센서만 표시
                 
-                // 다중 센서 차트 초기화 (6개 센서) - 딜레이로 안전하게
-                console.log(`⏰ BME688 차트 초기화 2초 후 예약됨...`);
+                // 단일 센서 차트 초기화 (Bus 1, Channel 3)
+                console.log(`⏰ BME688 단일 센서 차트 초기화 2초 후 예약됨...`);
                 setTimeout(() => {
-                    console.log(`🚀 BME688 차트 초기화 시작 (2초 딜레이 후)`);
-                    this.initializeBME688MultiSensorCharts(bme688Sensors);
+                    console.log(`🚀 BME688 단일 센서 차트 초기화 시작 (Bus 1, Channel 3)`);
+                    const singleSensorArray = primarySensor ? [primarySensor] : (bme688Sensors.length > 0 ? [bme688Sensors[0]] : []);
+                    this.initializeBME688MultiSensorCharts(singleSensorArray);
                 }, 2000); // 2초 후 차트 초기화
                 
             } else {
