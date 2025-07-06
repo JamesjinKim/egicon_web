@@ -1027,6 +1027,7 @@ class EGIconDashboard {
         
         console.log(`✅ 다중 센서 차트 생성 완료: ${canvasId} (${datasets.length}개 데이터셋)`);
         console.log(`🔗 차트 저장 키: ${canvasId}, 실제 캔버스 ID: ${canvasId}`);
+        console.log(`📊 실제 생성된 데이터셋:`, this.charts[canvasId].data.datasets.map((d, i) => `${i}: ${d.label}`));
     }
 
     // SHT40 전용 차트 생성
@@ -1880,11 +1881,28 @@ class EGIconDashboard {
         
         // 차트가 실제로 생성되었는지 확인
         setTimeout(() => {
+            const pressureChart = this.charts['pressure-multi-chart'];
+            const gasChart = this.charts['gas-resistance-multi-chart'];
+            
             console.log(`🔍 생성된 차트 확인:`, {
-                'pressure-multi-chart': !!this.charts['pressure-multi-chart'],
-                'gas-resistance-multi-chart': !!this.charts['gas-resistance-multi-chart'],
+                'pressure-multi-chart': !!pressureChart,
+                'gas-resistance-multi-chart': !!gasChart,
                 chartsKeys: Object.keys(this.charts)
             });
+            
+            if (pressureChart) {
+                console.log(`📊 pressure 차트 데이터셋:`, {
+                    count: pressureChart.data.datasets.length,
+                    labels: pressureChart.data.datasets.map(d => d.label)
+                });
+            }
+            
+            if (gasChart) {
+                console.log(`📊 gas_resistance 차트 데이터셋:`, {
+                    count: gasChart.data.datasets.length,
+                    labels: gasChart.data.datasets.map(d => d.label)
+                });
+            }
         }, 100);
     }
 
