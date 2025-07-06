@@ -537,8 +537,8 @@ class HardwareScanner:
             return False
 
     def scan_sht40_sensors(self) -> List[Dict]:
-        """SHT40 전용 센서 스캔"""
-        print("🔍 SHT40 전용 센서 스캔 시작...")
+        """SHT40 동적 센서 스캔 (모든 채널 검색)"""
+        print("🔍 SHT40 동적 센서 스캔 시작...")
         sht40_devices = []
         
         if not self.is_raspberry_pi or not SHT40_AVAILABLE:
@@ -546,74 +546,93 @@ class HardwareScanner:
             mock_sht40_devices = [
                 {
                     "sensor_type": "SHT40",
-                    "sensor_id": "sht40_0_1_44",
-                    "bus": 0,
+                    "sensor_id": "sht40_1_1_44",
+                    "bus": 1,
                     "address": "0x44",
                     "mux_channel": 1,
                     "mux_address": "0x70",
+                    "display_channel": 9,
+                    "location": "Bus 1, CH 9",
                     "interface": "I2C",
                     "status": "connected",
                     "measurements": ["temperature", "humidity"],
                     "units": {"temperature": "°C", "humidity": "%RH"},
-                    "test_result": "온도: 23.5°C, 습도: 45.2%RH"
-                },
-                {
-                    "sensor_type": "SHT40", 
-                    "sensor_id": "sht40_1_2_44",
-                    "bus": 1,
-                    "address": "0x44",
-                    "mux_channel": 2,
-                    "mux_address": "0x70", 
-                    "interface": "I2C",
-                    "status": "connected",
-                    "measurements": ["temperature", "humidity"],
-                    "units": {"temperature": "°C", "humidity": "%RH"},
-                    "test_result": "온도: 24.1°C, 습도: 48.7%RH"
+                    "test_result": "온도: 23.5°C, 습도: 45.2%RH",
+                    "discovered_at": time.time()
                 }
             ]
             sht40_devices.extend(mock_sht40_devices)
             print("🔧 Mock 모드: SHT40 센서 시뮬레이션")
             return sht40_devices
         
-        print("🔗 라즈베리파이 환경: 실제 SHT40 센서 검색")
+        print("🔗 라즈베리파이 환경: 실제 SHT40 센서 동적 검색")
         
         # SHT40 모듈이 사용 불가능하면 빈 리스트 반환
         if not SHT40_AVAILABLE:
             print("⚠️ SHT40 모듈 사용 불가능, 빈 결과 반환")
             return sht40_devices
         
-        # 멀티플렉서를 통한 SHT40 스캔
+        # 전체 버스와 채널에서 SHT40 센서 동적 발견
         for bus_num in [0, 1]:
-            if bus_num in self.tca_info:
-                # 멀티플렉서 채널별 스캔
-                mux_address = self.tca_info[bus_num]["address"]
-                channels = [1, 2]  # Bus 0 CH1, Bus 1 CH2에 연결 예정
-                
-                try:
-                    found_sensors = scan_sht40_sensors(
-                        bus_numbers=[bus_num],
-                        addresses=[0x44, 0x45],
-                        mux_channels=channels,
-                        mux_address=mux_address
-                    )
-                    sht40_devices.extend(found_sensors)
-                    
-                except Exception as e:
-                    print(f"❌ SHT40 스캔 실패 (버스 {bus_num}): {e}")
-            
-            # 직접 연결된 SHT40도 스캔
+            # 직접 연결 센서 먼저 스캔
+            print(f"  🔍 Bus {bus_num} 직접 연결 스캔...")
             try:
                 direct_sensors = scan_sht40_sensors(
                     bus_numbers=[bus_num],
                     addresses=[0x44, 0x45],
                     mux_channels=None
                 )
+                
+                # 추가 정보 보강
+                for sensor in direct_sensors:
+                    sensor["display_channel"] = None
+                    sensor["location"] = f"Bus {bus_num}, 직접 연결"
+                    sensor["discovered_at"] = time.time()
+                
                 sht40_devices.extend(direct_sensors)
+                if direct_sensors:
+                    print(f"    ✅ Bus {bus_num} 직접 연결: {len(direct_sensors)}개 발견")
                 
             except Exception as e:
-                print(f"❌ SHT40 직접 스캔 실패 (버스 {bus_num}): {e}")
+                print(f"    ❌ Bus {bus_num} 직접 스캔 실패: {e}")
+            
+            # 멀티플렉서 채널별 스캔 (모든 채널 0-7)
+            if bus_num in self.tca_info:
+                mux_address = self.tca_info[bus_num]["address"]
+                print(f"  🔍 Bus {bus_num} TCA9548A 채널별 스캔...")
+                
+                try:
+                    # 모든 채널 스캔 (0-7)
+                    all_channels = list(range(8))
+                    found_sensors = scan_sht40_sensors(
+                        bus_numbers=[bus_num],
+                        addresses=[0x44, 0x45],
+                        mux_channels=all_channels,
+                        mux_address=mux_address
+                    )
+                    
+                    # 추가 정보 보강 (display_channel, location 등)
+                    for sensor in found_sensors:
+                        if 'mux_channel' in sensor and sensor['mux_channel'] is not None:
+                            channel = sensor['mux_channel']
+                            display_channel = channel + (8 if bus_num == 1 else 0)
+                            sensor["display_channel"] = display_channel
+                            sensor["location"] = f"Bus {bus_num}, CH {display_channel}"
+                            sensor["discovered_at"] = time.time()
+                    
+                    sht40_devices.extend(found_sensors)
+                    if found_sensors:
+                        print(f"    ✅ Bus {bus_num} 멀티플렉서: {len(found_sensors)}개 발견")
+                    
+                except Exception as e:
+                    print(f"    ❌ Bus {bus_num} 멀티플렉서 스캔 실패: {e}")
         
-        print(f"📊 SHT40 스캔 결과: {len(sht40_devices)}개 센서 발견")
+        print(f"📊 SHT40 동적 스캔 결과: {len(sht40_devices)}개 센서 발견")
+        
+        # 발견된 센서 상세 정보 출력
+        for i, sensor in enumerate(sht40_devices, 1):
+            print(f"  {i}. {sensor['location']} - {sensor['address']} ({sensor['test_result']})")
+        
         return sht40_devices
     
     def scan_bus_direct(self, bus_num: int) -> List[Dict]:

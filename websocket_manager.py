@@ -132,6 +132,11 @@ class RealTimeDataCollector:
         self.sensors_cache = []
         self.last_scan_time = 0
         self.scan_interval = 60  # 60초마다 센서 목록 갱신
+        
+        # SHT40 전용 설정
+        self.sht40_collection_interval = 3.0  # SHT40 센서는 3초 간격 (검증된 안정적 간격)
+        self.last_sht40_scan_time = 0
+        self.sht40_scan_interval = 60  # SHT40 센서 재스캔 간격
     
     async def start_collection(self):
         """
@@ -151,17 +156,32 @@ class RealTimeDataCollector:
         print("🚀 실시간 데이터 수집 시작")
         
         try:
+            # 첫 실행 시 SHT40 센서 목록 로드
+            await self.refresh_sht40_sensor_list()
+            last_sht40_collection = 0
+            
             while self.is_running:
                 current_time = time.time()
                 
-                # 주기적으로 센서 목록 갱신
+                # 주기적으로 일반 센서 목록 갱신
                 if current_time - self.last_scan_time > self.scan_interval:
                     await self.refresh_sensor_list()
                     self.last_scan_time = current_time
                 
-                # 실시간 데이터 수집 및 브로드캐스트
+                # 주기적으로 SHT40 센서 목록 갱신
+                if current_time - self.last_sht40_scan_time > self.sht40_scan_interval:
+                    await self.refresh_sht40_sensor_list()
+                    self.last_sht40_scan_time = current_time
+                
+                # WebSocket 클라이언트가 있을 때만 데이터 수집
                 if manager.active_connections:
+                    # 일반 센서 데이터 수집 (2초 간격)
                     await self.collect_and_broadcast_data()
+                    
+                    # SHT40 센서 데이터 수집 (3초 간격)
+                    if current_time - last_sht40_collection >= self.sht40_collection_interval:
+                        await self.collect_and_broadcast_sht40_data()
+                        last_sht40_collection = current_time
                 
                 await asyncio.sleep(self.collection_interval)
                 
@@ -281,6 +301,74 @@ class RealTimeDataCollector:
             
         except Exception as e:
             print(f"❌ 데이터 수집/브로드캐스트 실패: {e}")
+    
+    async def collect_and_broadcast_sht40_data(self):
+        """
+        SHT40 센서 전용 데이터 수집 및 브로드캐스트
+        
+        운영 시 중요사항:
+        - 3초 간격으로 호출 (검증된 안정적 간격)
+        - CRC 에러 시 스킵 처리
+        - 개별 센서 에러는 전체를 중단시키지 않음
+        - 동적으로 발견된 센서들만 대상
+        """
+        try:
+            from sensor_handlers import read_all_sht40_data, get_sht40_sensor_count
+            
+            # 발견된 SHT40 센서가 없으면 스킵
+            if get_sht40_sensor_count() == 0:
+                return
+            
+            # 모든 SHT40 센서에서 데이터 수집
+            sht40_data = await read_all_sht40_data()
+            
+            if sht40_data:
+                # SHT40 전용 메시지 브로드캐스트
+                sht40_message = {
+                    "type": "sht40_data",
+                    "timestamp": time.time(),
+                    "sensors": sht40_data,
+                    "count": len(sht40_data),
+                    "statistics": {
+                        "success": sum(1 for d in sht40_data if d.get('status') == 'success'),
+                        "crc_skip": sum(1 for d in sht40_data if d.get('status') == 'crc_skip'),
+                        "error": sum(1 for d in sht40_data if d.get('status') == 'error')
+                    }
+                }
+                
+                await manager.broadcast(json.dumps(sht40_message))
+                
+                # 성공한 센서 수만 로그 출력
+                success_count = sum(1 for d in sht40_data if d.get('status') == 'success')
+                if success_count > 0:
+                    print(f"🌡️ SHT40 데이터 브로드캐스트: {success_count}/{len(sht40_data)}개 성공")
+                
+        except Exception as e:
+            print(f"❌ SHT40 데이터 수집 실패: {e}")
+    
+    async def refresh_sht40_sensor_list(self):
+        """SHT40 센서 목록 주기적 재스캔"""
+        try:
+            from sensor_handlers import update_sht40_sensor_list
+            
+            previous_count = get_sht40_sensor_count() if 'get_sht40_sensor_count' in globals() else 0
+            new_sensors = update_sht40_sensor_list()
+            
+            if len(new_sensors) != previous_count:
+                print(f"🔄 SHT40 센서 목록 업데이트: {len(new_sensors)}개 (이전: {previous_count}개)")
+                
+                # 센서 목록 변경 알림
+                if manager.active_connections:
+                    sensor_update_message = {
+                        "type": "sht40_sensors_updated",
+                        "timestamp": time.time(),
+                        "sensors": new_sensors,
+                        "count": len(new_sensors)
+                    }
+                    await manager.broadcast(json.dumps(sensor_update_message))
+            
+        except Exception as e:
+            print(f"❌ SHT40 센서 목록 갱신 실패: {e}")
 
 # 전역 데이터 수집기 인스턴스
 data_collector = RealTimeDataCollector()

@@ -451,14 +451,8 @@ async def read_sensor_data(sensor_info: Dict[str, Any]) -> Dict[str, Any]:
             }
             
         elif sensor_type == "SHT40":
-            # SHT40 Mock 데이터 (실제 구현 필요)
-            return {
-                "sensor_id": f"{sensor_type.lower()}_{bus_number}_{mux_channel}",
-                "sensor_type": sensor_type,
-                "temperature": 23.5 + random.uniform(-1, 1),
-                "humidity": 65.0 + random.uniform(-5, 5),
-                "timestamp": time.time()
-            }
+            sht40_data = await read_sht40_data(sensor_info)
+            return sht40_data
             
         else:
             # 기본 Mock 데이터
@@ -477,3 +471,145 @@ async def read_sensor_data(sensor_info: Dict[str, Any]) -> Dict[str, Any]:
             "error": str(e),
             "timestamp": time.time()
         }
+
+# SHT40 센서 관리 변수
+discovered_sht40_sensors = []
+
+# SHT40 센서 데이터 읽기 함수
+async def read_sht40_data(sensor_info: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    SHT40 센서에서 온습도 데이터 읽기 (개선된 호출 사이클 기반)
+    
+    운영 시 중요사항:
+    - 개선된 SHT40 센서 모듈 사용 (CRC 에러 스킵 기능)
+    - 3초 간격 호출 사이클에 최적화
+    - CRC 에러 시 None 반환하여 다음 사이클까지 대기
+    - 비정상값 필터링으로 데이터 품질 보장
+    - Mock 모드와 실제 하드웨어 모드 자동 구분
+    
+    Args:
+        sensor_info (Dict[str, Any]): 센서 정보 (bus, address, mux_channel 등)
+    
+    Returns:
+        Dict[str, Any]: 표준화된 SHT40 센서 데이터
+    """
+    try:
+        scanner = get_scanner()
+        
+        # 라즈베리파이 환경이 아니면 Mock 데이터 반환
+        if not scanner.is_raspberry_pi:
+            return {
+                "sensor_id": sensor_info.get("sensor_id", "sht40_mock"),
+                "sensor_type": "SHT40",
+                "location": sensor_info.get("location", "Mock 환경"),
+                "temperature": 23.5 + random.uniform(-1, 1),
+                "humidity": 65.0 + random.uniform(-5, 5),
+                "status": "success",
+                "timestamp": time.time()
+            }
+        
+        # 실제 SHT40 센서에서 데이터 읽기
+        from sht40_sensor import SHT40Sensor
+        
+        sensor = SHT40Sensor(
+            bus=sensor_info['bus'],
+            address=int(sensor_info['address'], 16) if isinstance(sensor_info['address'], str) else sensor_info['address'],
+            mux_channel=sensor_info.get('mux_channel'),
+            mux_address=int(sensor_info.get('mux_address', '0x70'), 16) if isinstance(sensor_info.get('mux_address'), str) else sensor_info.get('mux_address')
+        )
+        
+        sensor.connect()
+        
+        # 개선된 재시도 로직 사용 (호출 사이클 기반)
+        result = sensor.read_with_retry(precision="medium", max_retries=3, base_delay=0.2)
+        
+        sensor.close()
+        
+        data = {
+            "sensor_id": sensor_info.get("sensor_id", f"sht40_{sensor_info['bus']}_{sensor_info.get('mux_channel', 'direct')}"),
+            "sensor_type": "SHT40",
+            "location": sensor_info.get("location", f"Bus {sensor_info['bus']}"),
+            "bus": sensor_info['bus'],
+            "channel": sensor_info.get('display_channel', sensor_info.get('mux_channel')),
+            "address": sensor_info.get('address', '0x44'),
+            "timestamp": time.time()
+        }
+        
+        if result:
+            temp, humidity = result
+            data.update({
+                "temperature": temp,
+                "humidity": humidity,
+                "status": "success"
+            })
+        else:
+            data.update({
+                "temperature": None,
+                "humidity": None,
+                "status": "crc_skip"
+            })
+        
+        return data
+        
+    except Exception as e:
+        # 센서 통신 에러
+        return {
+            "sensor_id": sensor_info.get("sensor_id", "sht40_error"),
+            "sensor_type": "SHT40",
+            "location": sensor_info.get("location", "알 수 없음"),
+            "temperature": None,
+            "humidity": None,
+            "status": "error",
+            "error": str(e),
+            "timestamp": time.time()
+        }
+
+def update_sht40_sensor_list():
+    """SHT40 센서 목록 업데이트 (주기적 호출)"""
+    global discovered_sht40_sensors
+    try:
+        scanner = get_scanner()
+        discovered_sht40_sensors = scanner.scan_sht40_sensors()
+        return discovered_sht40_sensors
+    except Exception as e:
+        print(f"❌ SHT40 센서 목록 업데이트 실패: {e}")
+        return []
+
+async def read_all_sht40_data():
+    """
+    발견된 모든 SHT40 센서에서 데이터 읽기
+    - 동적으로 발견된 센서들만 대상
+    - 센서별 개별 에러 처리
+    - 전체 시스템 안정성 보장
+    """
+    results = []
+    
+    for sensor_config in discovered_sht40_sensors:
+        try:
+            data = await read_sht40_data(sensor_config)
+            results.append(data)
+            
+        except Exception as e:
+            # 개별 센서 에러는 전체를 중단시키지 않음
+            error_data = {
+                "sensor_id": sensor_config.get('sensor_id', 'unknown'),
+                "sensor_type": "SHT40",
+                "location": sensor_config.get('location', '알 수 없음'),
+                "temperature": None,
+                "humidity": None,
+                "status": "error",
+                "error": str(e),
+                "timestamp": time.time()
+            }
+            results.append(error_data)
+            print(f"❌ SHT40 센서 읽기 실패 {sensor_config.get('location', '알 수 없음')}: {e}")
+    
+    return results
+
+def get_sht40_sensor_count():
+    """현재 발견된 SHT40 센서 개수 반환"""
+    return len(discovered_sht40_sensors)
+
+def get_sht40_sensor_list():
+    """현재 발견된 SHT40 센서 목록 반환"""
+    return discovered_sht40_sensors.copy()

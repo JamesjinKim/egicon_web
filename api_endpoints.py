@@ -811,6 +811,161 @@ def setup_api_routes(app: FastAPI):
             print(f"❌ BME688 센서 테스트 실패: {e}")
             return {"success": False, "error": str(e), "data": None}
 
+    # SHT40 센서 전용 엔드포인트
+    @app.post("/api/sensors/scan-sht40")
+    async def scan_sht40_sensors_api():
+        """
+        SHT40 센서 동적 스캔 (모든 채널 검색)
+        
+        운영 시 중요사항:
+        - 전체 TCA9548A 채널에서 SHT40 센서 동적 발견
+        - CRC 에러가 있어도 센서 존재 확인 시 발견으로 처리
+        - 발견된 센서 위치 정보 (Bus, Channel) 동적 저장
+        - 위치에 관계없이 모든 SHT40 센서 자동 감지
+        
+        Returns:
+            dict: 발견된 SHT40 센서 목록 및 개수
+        """
+        try:
+            from sensor_handlers import update_sht40_sensor_list
+            
+            found_sensors = update_sht40_sensor_list()
+            
+            return {
+                "success": True,
+                "sensors": found_sensors,
+                "count": len(found_sensors),
+                "message": f"{len(found_sensors)}개 SHT40 센서 발견",
+                "scan_time": time.time()
+            }
+        except Exception as e:
+            print(f"❌ SHT40 센서 스캔 실패: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "sensors": [],
+                "count": 0
+            }
+
+    @app.get("/api/sensors/sht40")
+    async def get_sht40_sensors():
+        """현재 발견된 SHT40 센서 목록 반환"""
+        try:
+            from sensor_handlers import get_sht40_sensor_list, get_sht40_sensor_count
+            
+            sensors = get_sht40_sensor_list()
+            
+            return {
+                "success": True,
+                "sensors": sensors,
+                "count": get_sht40_sensor_count(),
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "sensors": [],
+                "count": 0
+            }
+
+    @app.get("/api/sensors/sht40/status")
+    async def get_sht40_status():
+        """
+        SHT40 센서 상태 조회 (연결 테스트)
+        
+        운영 시 중요사항:
+        - 빠른 연결 상태 확인만 수행 (전체 데이터 읽기 제외)
+        - 각 센서별 개별 상태 확인
+        - CRC 에러가 있어도 통신 가능하면 연결됨으로 표시
+        """
+        try:
+            from sensor_handlers import get_sht40_sensor_list
+            from sht40_sensor import SHT40Sensor
+            
+            sensors = get_sht40_sensor_list()
+            status_data = []
+            
+            for sensor_config in sensors:
+                try:
+                    # 빠른 상태 체크 (연결 테스트만)
+                    sensor = SHT40Sensor(
+                        bus=sensor_config['bus'],
+                        address=int(sensor_config['address'], 16) if isinstance(sensor_config['address'], str) else sensor_config['address'],
+                        mux_channel=sensor_config.get('mux_channel'),
+                        mux_address=int(sensor_config.get('mux_address', '0x70'), 16) if isinstance(sensor_config.get('mux_address'), str) else sensor_config.get('mux_address')
+                    )
+                    sensor.connect()
+                    success, message = sensor.test_connection()
+                    sensor.close()
+                    
+                    status_data.append({
+                        "sensor_id": sensor_config.get('sensor_id'),
+                        "location": sensor_config.get('location'),
+                        "bus": sensor_config['bus'],
+                        "channel": sensor_config.get('display_channel', 'direct'),
+                        "address": sensor_config.get('address'),
+                        "status": "connected" if success else "error",
+                        "message": message
+                    })
+                    
+                except Exception as e:
+                    status_data.append({
+                        "sensor_id": sensor_config.get('sensor_id'),
+                        "location": sensor_config.get('location'),
+                        "status": "error",
+                        "message": str(e)
+                    })
+            
+            return {
+                "success": True,
+                "sensors": status_data,
+                "timestamp": time.time()
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    @app.get("/api/sensors/sht40/data")
+    async def get_sht40_data():
+        """
+        현재 발견된 모든 SHT40 센서에서 실시간 데이터 읽기
+        
+        운영 시 중요사항:
+        - 3초 간격 호출 사이클에 최적화
+        - CRC 에러 시 스킵 처리
+        - 개별 센서 에러는 전체를 중단시키지 않음
+        """
+        try:
+            from sensor_handlers import read_all_sht40_data
+            
+            data = await read_all_sht40_data()
+            
+            # 성공/실패 통계
+            success_count = sum(1 for d in data if d.get('status') == 'success')
+            skip_count = sum(1 for d in data if d.get('status') == 'crc_skip')
+            error_count = sum(1 for d in data if d.get('status') == 'error')
+            
+            return {
+                "success": True,
+                "sensors": data,
+                "count": len(data),
+                "statistics": {
+                    "success": success_count,
+                    "crc_skip": skip_count,
+                    "error": error_count
+                },
+                "timestamp": time.time()
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "sensors": [],
+                "count": 0
+            }
+
     # 시스템 유틸리티 엔드포인트
     @app.post("/api/system/reset-scanner")
     async def reset_hardware_scanner():
