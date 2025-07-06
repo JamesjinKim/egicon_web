@@ -17,10 +17,10 @@ class BME688ChartHandler {
         console.log('📊 BME688ChartHandler 초기화 완료');
     }
     
-    // BME688 단계별 차트 초기화 (단일 센서 우선)
+    // BME688 전체 센서 차트 초기화
     initializeCharts(sensors) {
-        console.log(`🚨 BME688 단계별 차트 초기화 시작!`);
-        console.log(`📊 BME688 센서 ${sensors.length}개 단계별 처리`);
+        console.log(`🚨 BME688 전체 센서 차트 초기화 시작!`);
+        console.log(`📊 BME688 센서 ${sensors.length}개 전체 처리`);
         
         if (sensors.length === 0) {
             console.warn(`⚠️ BME688 센서가 없어 차트 생성 중단`);
@@ -39,23 +39,23 @@ class BME688ChartHandler {
             return;
         }
         
-        // 1단계: 첫 번째 센서로 기본 차트 생성
-        const firstSensor = sensors[0];
-        console.log(`🔨 1단계: 첫 번째 센서로 기본 차트 생성`, firstSensor);
+        // 모든 센서에 대한 라벨 생성
+        const pressureLabels = sensors.map(sensor => 
+            `BME688-${sensor.bus}.${sensor.mux_channel} 기압`
+        );
+        const gasLabels = sensors.map(sensor => 
+            `BME688-${sensor.bus}.${sensor.mux_channel} 가스저항`
+        );
         
-        const firstPressureLabel = `BME688-${firstSensor.bus}.${firstSensor.mux_channel} 기압`;
-        const firstGasLabel = `BME688-${firstSensor.bus}.${firstSensor.mux_channel} 가스저항`;
+        console.log(`🔨 ${sensors.length}개 센서 멀티 차트 생성`);
+        console.log(`📊 기압 라벨:`, pressureLabels);
+        console.log(`📊 가스저항 라벨:`, gasLabels);
         
-        // 기본 차트 생성 (1개 데이터셋)
-        this.createSingleSensorChart('pressure-multi-chart', 'pressure', firstPressureLabel);
-        this.createSingleSensorChart('gas-resistance-multi-chart', 'gas_resistance', firstGasLabel);
+        // 멀티 센서 차트 생성
+        this.createMultiSensorChart('pressure-multi-chart', 'pressure', pressureLabels);
+        this.createMultiSensorChart('gas-resistance-multi-chart', 'gas_resistance', gasLabels);
         
-        console.log(`✅ 1단계 완료: 기본 차트 생성됨`);
-        
-        // TODO: 2단계는 나중에 추가 (나머지 센서들)
-        if (sensors.length > 1) {
-            console.log(`⏳ 2단계 대기: 나머지 ${sensors.length - 1}개 센서는 추후 추가 예정`);
-        }
+        console.log(`✅ ${sensors.length}개 센서 차트 생성 완료`);
         
         // 최종 확인
         setTimeout(() => {
@@ -63,6 +63,7 @@ class BME688ChartHandler {
         }, 100);
 
         this.isInitialized = true;
+        this.sensors = sensors; // 센서 정보 저장
         
         // 대기 중인 데이터 처리
         setTimeout(() => {
@@ -146,6 +147,91 @@ class BME688ChartHandler {
         console.log(`✅ 단일 센서 차트 생성 완료: ${canvasId}`);
     }
 
+    // 멀티 센서 차트 생성 (여러 데이터셋)
+    createMultiSensorChart(canvasId, sensorType, labels) {
+        console.log(`🔨 멀티 센서 차트 생성: ${canvasId}, 라벨 수: ${labels.length}`);
+        console.log(`📊 라벨 상세:`, labels);
+        
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) {
+            console.error(`❌ 캔버스 요소 없음: ${canvasId}`);
+            return;
+        }
+        
+        // 기존 차트 파괴
+        const existingChart = Chart.getChart(canvasId);
+        if (existingChart) {
+            console.log(`🗑️ 기존 차트 파괴: ${canvasId}`);
+            existingChart.destroy();
+        }
+        
+        if (this.dashboard.charts[canvasId]) {
+            delete this.dashboard.charts[canvasId];
+        }
+        
+        const sensorConfig = this.dashboard.sensorTypes[sensorType];
+        if (!sensorConfig) {
+            console.error(`❌ 센서 설정 없음: ${sensorType}`);
+            return;
+        }
+        
+        // 컬러 팔레트
+        const colorPalette = [
+            '#ff6384', '#36a2eb', '#4bc0c0', '#ff9f40', '#9966ff',
+            '#ffcd56', '#c9cbcf', '#ff6384', '#36a2eb', '#4bc0c0'
+        ];
+        
+        // 각 센서별 데이터셋 생성
+        const datasets = labels.map((label, index) => ({
+            label: label,
+            data: [],
+            borderColor: colorPalette[index % colorPalette.length],
+            backgroundColor: colorPalette[index % colorPalette.length] + '20',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.4,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: colorPalette[index % colorPalette.length],
+            pointBorderWidth: 2
+        }));
+        
+        console.log(`📊 실제 생성된 데이터셋:`, datasets.map((d, i) => `${i}: ${d.label}`));
+        
+        this.dashboard.charts[canvasId] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                    },
+                    y: {
+                        display: true,
+                        min: sensorConfig.min,
+                        max: sensorConfig.max,
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                    }
+                }
+            }
+        });
+        
+        console.log(`✅ 멀티 센서 차트 생성 완료: ${canvasId} (${datasets.length}개 데이터셋)`)
+    }
+
     // BME688 차트 최종 확인
     verifyCharts() {
         console.log(`🔍 BME688 차트 최종 확인`);
@@ -175,13 +261,39 @@ class BME688ChartHandler {
     updateChartsWithRealtimeData(sensorId, data, timestamp) {
         console.log(`🔄 BME688 차트 데이터 업데이트: ${sensorId}`, data);
         
-        // 단일 센서 모드: 항상 인덱스 0 사용
-        const sensorIndex = 0; // Bus 1, Channel 3 센서는 무조건 차트 인덱스 0
+        // sensorId에서 bus와 channel 추출하여 인덱스 찾기
+        const sensorIndex = this.findSensorIndex(sensorId);
         
-        console.log(`📊 BME688 단일 센서 데이터 차트 전달: ${sensorId} → 고정 인덱스 ${sensorIndex}`, data);
+        if (sensorIndex === -1) {
+            console.warn(`⚠️ 센서 ID ${sensorId}에 해당하는 인덱스를 찾을 수 없음`);
+            return;
+        }
+        
+        console.log(`📊 BME688 멀티 센서 데이터 차트 전달: ${sensorId} → 인덱스 ${sensorIndex}`, data);
         
         // 차트 직접 업데이트
         this.updateChartDataDirectly(sensorId, data, timestamp, sensorIndex);
+    }
+    
+    // 센서 ID로부터 차트 인덱스 찾기
+    findSensorIndex(sensorId) {
+        // sensorId 형식: "bme688_1_3_77" (bus_channel_address)
+        const parts = sensorId.split('_');
+        if (parts.length < 3) {
+            console.warn(`⚠️ 잘못된 센서 ID 형식: ${sensorId}`);
+            return -1;
+        }
+        
+        const bus = parseInt(parts[1]);
+        const channel = parseInt(parts[2]);
+        
+        // 초기화된 센서 목록에서 해당 센서의 인덱스 찾기
+        const index = this.sensors.findIndex(sensor => 
+            sensor.bus === bus && sensor.mux_channel === channel
+        );
+        
+        console.log(`🔍 센서 인덱스 검색: ${sensorId} (Bus${bus}, Ch${channel}) → 인덱스 ${index}`);
+        return index;
     }
     
     // 차트에 직접 데이터 업데이트 (BME688 전용)

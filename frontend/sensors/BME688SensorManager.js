@@ -10,6 +10,7 @@ class BME688SensorManager {
         this.sensors = [];
         this.pollingIntervals = [];
         this.chartHandler = null; // BME688ChartHandler 인스턴스
+        this.latestData = []; // 각 센서의 최신 데이터 저장
         
         console.log('🔧 BME688SensorManager 초기화 완료');
     }
@@ -90,59 +91,64 @@ class BME688SensorManager {
                 );
                 console.log(`✅ BME688 센서 ${bme688Sensors.length}개 발견`, bme688Sensors);
                 
-                // 1단계: Bus 1, Channel 3 BME688 센서만 먼저 처리
-                const primarySensor = bme688Sensors.find(sensor => 
-                    sensor.bus === 1 && sensor.mux_channel === 3
+                // BME688 센서 5개 전체 처리 (Bus 1의 채널 2,3,5,6,7)
+                const targetChannels = [2, 3, 5, 6, 7]; // Bus 1의 목표 채널들
+                const validSensors = bme688Sensors.filter(sensor => 
+                    sensor.bus === 1 && targetChannels.includes(sensor.mux_channel)
                 );
                 
-                if (primarySensor) {
-                    console.log(`🎆 1단계: Bus 1, Channel 3 BME688 센서 먼저 처리`, primarySensor);
-                    
-                    const sensorInfo = {
-                        bus: primarySensor.bus,
-                        mux_channel: primarySensor.mux_channel
-                    };
-                    
-                    const sensorId = `bme688_${primarySensor.bus}_${primarySensor.mux_channel}_77`;
-                    console.log(`🚀 기본 BME688 센서 폴링 시작: ${sensorId}`, sensorInfo);
-                    
-                    // 기본 센서 폴링 시작 (index 0)
-                    this.startDataPolling(sensorId, sensorInfo, 0);
-                    
-                    // TODO: 나머지 센서들은 나중에 추가 처리
-                    const remainingSensors = bme688Sensors.filter(sensor => 
-                        !(sensor.bus === 1 && sensor.mux_channel === 3)
-                    );
-                    if (remainingSensors.length > 0) {
-                        console.log(`⏳ 나머지 ${remainingSensors.length}개 센서는 추후 처리 예정:`, 
-                            remainingSensors.map(s => `Bus${s.bus}:Ch${s.mux_channel}`));
-                    }
-                } else {
-                    console.warn(`⚠️ Bus 1, Channel 3 BME688 센서를 찾을 수 없음. 첫 번째 센서로 대체`);
-                    // 폴백: 첫 번째 센서 사용
-                    if (bme688Sensors.length > 0) {
-                        const fallbackSensor = bme688Sensors[0];
+                console.log(`🎆 BME688 센서 ${validSensors.length}개 전체 처리 시작:`, 
+                    validSensors.map(s => `Bus${s.bus}:Ch${s.mux_channel}`));
+                
+                if (validSensors.length > 0) {
+                    // 모든 유효한 센서에 대해 폴링 시작
+                    validSensors.forEach((sensor, index) => {
                         const sensorInfo = {
-                            bus: fallbackSensor.bus,
-                            mux_channel: fallbackSensor.mux_channel
+                            bus: sensor.bus,
+                            mux_channel: sensor.mux_channel
                         };
-                        const sensorId = `bme688_${fallbackSensor.bus}_${fallbackSensor.mux_channel}_77`;
-                        this.startDataPolling(sensorId, sensorInfo, 0);
+                        
+                        const sensorId = `bme688_${sensor.bus}_${sensor.mux_channel}_77`;
+                        console.log(`🚀 BME688 센서 폴링 시작 [${index}]: ${sensorId}`, sensorInfo);
+                        
+                        // 각 센서마다 고유 인덱스로 폴링 시작
+                        this.startDataPolling(sensorId, sensorInfo, index);
+                    });
+                    
+                    // BME688 상태 위젯 설정 (전체 센서 개수)
+                    this.initializeStatusWidgets(validSensors.length);
+                    
+                    // 5개 센서 차트 초기화
+                    console.log(`⏰ BME688 전체 센서 차트 초기화 2초 후 예약됨...`);
+                    setTimeout(() => {
+                        console.log(`🚀 BME688 전체 센서 차트 초기화 시작 (${validSensors.length}개)`);
+                        if (this.chartHandler) {
+                            this.chartHandler.initializeCharts(validSensors);
+                        }
+                    }, 2000); // 2초 후 차트 초기화
+                } else {
+                    console.warn(`⚠️ Bus 1의 BME688 센서를 찾을 수 없음`);
+                    // 폴백: 모든 BME688 센서 사용
+                    if (bme688Sensors.length > 0) {
+                        console.log(`🔄 폴백: 모든 BME688 센서 사용 (${bme688Sensors.length}개)`);
+                        bme688Sensors.forEach((sensor, index) => {
+                            const sensorInfo = {
+                                bus: sensor.bus,
+                                mux_channel: sensor.mux_channel
+                            };
+                            const sensorId = `bme688_${sensor.bus}_${sensor.mux_channel}_77`;
+                            this.startDataPolling(sensorId, sensorInfo, index);
+                        });
+                        
+                        this.initializeStatusWidgets(bme688Sensors.length);
+                        
+                        setTimeout(() => {
+                            if (this.chartHandler) {
+                                this.chartHandler.initializeCharts(bme688Sensors);
+                            }
+                        }, 2000);
                     }
                 }
-                
-                // BME688 상태 위젯 초기 설정 (1개 센서만 표시)
-                this.initializeStatusWidgets(1); // 첫 번째 센서만 표시
-                
-                // 단일 센서 차트 초기화 (Bus 1, Channel 3)
-                console.log(`⏰ BME688 단일 센서 차트 초기화 2초 후 예약됨...`);
-                setTimeout(() => {
-                    console.log(`🚀 BME688 단일 센서 차트 초기화 시작 (Bus 1, Channel 3)`);
-                    const singleSensorArray = primarySensor ? [primarySensor] : (bme688Sensors.length > 0 ? [bme688Sensors[0]] : []);
-                    if (this.chartHandler) {
-                        this.chartHandler.initializeCharts(singleSensorArray);
-                    }
-                }, 2000); // 2초 후 차트 초기화
                 
             } else {
                 console.warn('⚠️ pressure-gas 그룹에서 BME688 센서를 찾을 수 없음');
@@ -226,10 +232,8 @@ class BME688SensorManager {
                     }
                 }
                 
-                // 위젯 업데이트 (첫 번째 센서 기준)
-                if (sensorIndex === 0) {
-                    this.updateWidgets(pressure, gasResistance);
-                }
+                // 위젯 업데이트 (모든 센서 데이터 수집 후 평균 계산)
+                this.updateWidgets(pressure, gasResistance, sensorIndex);
                 
             } else {
                 console.warn(`⚠️ BME688 API 오류 [${sensorIndex}]:`, result.message || result.error);
@@ -239,21 +243,35 @@ class BME688SensorManager {
         }
     }
     
-    // 위젯 업데이트
-    updateWidgets(pressure, gasResistance) {
+    // 위젯 업데이트 (평균값 계산)
+    updateWidgets(pressure, gasResistance, sensorIndex) {
+        // 최신 데이터 배열 업데이트
+        this.latestData[sensorIndex] = { pressure, gasResistance };
+        
+        // 유효한 데이터만 필터링
+        const validData = this.latestData.filter(data => data !== undefined);
+        
+        if (validData.length === 0) {
+            return;
+        }
+        
+        // 평균값 계산
+        const avgPressure = validData.reduce((sum, data) => sum + data.pressure, 0) / validData.length;
+        const avgGasResistance = validData.reduce((sum, data) => sum + data.gasResistance, 0) / validData.length;
+        
         // 기압 위젯 업데이트
         const pressureValueElement = document.getElementById('pressure-average');
         if (pressureValueElement) {
-            pressureValueElement.textContent = `${pressure} hPa`;
+            pressureValueElement.textContent = `${avgPressure.toFixed(2)} hPa`;
         }
         
         // 가스저항 위젯 업데이트
         const gasValueElement = document.getElementById('gas-resistance-average');
         if (gasValueElement) {
-            gasValueElement.textContent = `${Math.round(gasResistance)} Ω`;
+            gasValueElement.textContent = `${Math.round(avgGasResistance)} Ω`;
         }
         
-        console.log(`✅ BME688 위젯 업데이트 완료 - 평균 기압: ${pressure}hPa, 평균 가스저항: ${Math.round(gasResistance)}Ω`);
+        console.log(`✅ BME688 위젯 업데이트 완료 [${validData.length}개 센서] - 평균 기압: ${avgPressure.toFixed(2)}hPa, 평균 가스저항: ${Math.round(avgGasResistance)}Ω`);
     }
 
     // 폴링 중지
