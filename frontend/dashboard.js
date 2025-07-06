@@ -1442,22 +1442,7 @@ class EGIconDashboard {
                     // 실시간 업데이트에서는 상태 업데이트 건너뛰기 (skipStatusUpdate = true)
                     this.updateSummaryWidgets(groupName, metric, sensorDataArray, true);
                     
-                    // pressure-gas 그룹 헤더 상태 업데이트 (BME688 센서만 카운트, pressure 메트릭에서만 1회 실행)
-                    if (groupName === 'pressure-gas' && metric === 'pressure') {
-                        // BME688 센서만 필터링하여 카운트 (중복 제거를 위해 Set 사용)
-                        const uniqueBME688Sensors = new Set();
-                        sensorDataArray.forEach(sensor => {
-                            if (sensor.sensorId && sensor.sensorId.includes('bme688')) {
-                                uniqueBME688Sensors.add(sensor.sensorId);
-                            }
-                        });
-                        const bme688SensorCount = uniqueBME688Sensors.size;
-                        
-                        // BME688 센서가 있을 때만 업데이트
-                        if (bme688SensorCount > 0) {
-                            this.updatePressureGasGroupHeader(bme688SensorCount);
-                        }
-                    }
+                    // pressure-gas 그룹 헤더 상태는 initializeBME688StatusWidgets에서 이미 설정됨 (중복 방지)
                 } else {
                     console.warn(`⚠️ 그룹 매핑 실패: ${metric}`);
                 }
@@ -2134,23 +2119,7 @@ class EGIconDashboard {
         console.log(`✅ BME688 위젯 업데이트 완료 - 평균 기압: ${avgPressure.toFixed(1)}hPa, 평균 가스저항: ${avgGasResistance.toFixed(0)}Ω`);
     }
 
-    // pressure-gas 그룹 헤더 상태 업데이트
-    updatePressureGasGroupHeader(sensorCount) {
-        // 그룹 헤더 상태 업데이트
-        const groupStatusElement = document.getElementById('pressure-gas-status');
-        if (groupStatusElement) {
-            groupStatusElement.textContent = `${sensorCount}개 연결됨`;
-            groupStatusElement.className = 'sensor-group-status online';
-        }
-        
-        // 그룹 요약 업데이트
-        const groupSummaryElement = document.getElementById('pressure-gas-summary');
-        if (groupSummaryElement) {
-            groupSummaryElement.textContent = `BME688×${sensorCount}`;
-        }
-        
-        console.log(`✅ pressure-gas 그룹 헤더 업데이트: ${sensorCount}개 센서`);
-    }
+    // updatePressureGasGroupHeader 함수 제거됨 - initializeBME688StatusWidgets 사용
 
     // SPS30 센서 상태 업데이트
     updateSPS30Status(sensor) {
