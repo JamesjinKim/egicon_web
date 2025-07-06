@@ -296,12 +296,17 @@ class SHT40TCA9548ATest:
             temp_values = []
             humidity_values = []
             
+            measurement_interval = 3  # 3초 간격으로 증가 (안정성 향상)
+            
             for i in range(duration):
+                current_time = datetime.now().strftime('%H:%M:%S')
+                
                 try:
-                    temp, humidity = sensor.read_with_retry(precision="high", max_retries=2)
+                    # 정규 호출 사이클에 따른 측정 (CRC 에러 시 스킵하고 다음 사이클 대기)
+                    result = sensor.read_with_retry(precision="medium", max_retries=3, base_delay=0.2)
                     
-                    if temp is not None and humidity is not None:
-                        current_time = datetime.now().strftime('%H:%M:%S')
+                    if result is not None:
+                        temp, humidity = result
                         status = "✅ 성공"
                         success_count += 1
                         temp_values.append(temp)
@@ -309,20 +314,24 @@ class SHT40TCA9548ATest:
                         
                         print(f"   {current_time} | {temp:6.1f}   | {humidity:7.1f}   | {status}")
                     else:
-                        current_time = datetime.now().strftime('%H:%M:%S')
-                        status = "❌ 실패"
+                        # CRC 에러나 비정상값으로 스킵된 경우 - 정상적인 동작
+                        status = "⚠️ 스킵 (다음 사이클 대기)"
                         print(f"   {current_time} |    --    |    --     | {status}")
                     
                     total_measurements += 1
-                    time.sleep(1)  # 1초 간격
                     
                 except KeyboardInterrupt:
                     print("\n⏹️  사용자에 의해 측정 중단됨")
                     break
                 except Exception as e:
-                    current_time = datetime.now().strftime('%H:%M:%S')
-                    print(f"   {current_time} |    --    |    --     | ❌ 오류: {e}")
+                    error_msg = str(e)
+                    status = f"❌ 통신 오류: {error_msg[:20]}..."
+                    print(f"   {current_time} |    --    |    --     | {status}")
                     total_measurements += 1
+                
+                # 모든 경우에 동일한 측정 간격 유지 (정규 호출 사이클)
+                if i < duration - 1:
+                    time.sleep(measurement_interval)
             
             sensor.close()
             
