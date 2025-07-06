@@ -1444,12 +1444,16 @@ class EGIconDashboard {
                     // 실시간 업데이트에서는 상태 업데이트 건너뛰기 (skipStatusUpdate = true)
                     this.updateSummaryWidgets(groupName, metric, sensorDataArray, true);
                     
-                    // pressure-gas 그룹 헤더 상태 업데이트 (BME688 센서만 카운트)
-                    if (groupName === 'pressure-gas' && (metric === 'pressure' || metric === 'gas_resistance')) {
-                        // BME688 센서만 필터링하여 카운트
-                        const bme688SensorCount = sensorDataArray.filter(sensor => 
-                            sensor.sensorId && sensor.sensorId.includes('bme688')
-                        ).length;
+                    // pressure-gas 그룹 헤더 상태 업데이트 (BME688 센서만 카운트, pressure 메트릭에서만 1회 실행)
+                    if (groupName === 'pressure-gas' && metric === 'pressure') {
+                        // BME688 센서만 필터링하여 카운트 (중복 제거를 위해 Set 사용)
+                        const uniqueBME688Sensors = new Set();
+                        sensorDataArray.forEach(sensor => {
+                            if (sensor.sensorId && sensor.sensorId.includes('bme688')) {
+                                uniqueBME688Sensors.add(sensor.sensorId);
+                            }
+                        });
+                        const bme688SensorCount = uniqueBME688Sensors.size;
                         
                         // BME688 센서가 있을 때만 업데이트
                         if (bme688SensorCount > 0) {
@@ -3218,6 +3222,19 @@ class EGIconDashboard {
             if (rangeElement) {
                 rangeElement.textContent = `${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`;
                 console.log(`✅ pressure 범위 업데이트 성공: ${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`);
+            }
+            
+            // BME688 센서 상태 위젯 업데이트 (pressure 메트릭에서만 1회 실행)
+            const statusWidget = document.getElementById('pressure-gas-status-widget');
+            if (statusWidget) {
+                const sensorCount = sensorData.length;
+                statusWidget.textContent = `${sensorCount}/6 활성`;
+                console.log(`✅ BME688 상태 위젯 업데이트: ${sensorCount}/6 활성`);
+            }
+            
+            const statusRangeElement = document.getElementById('pressure-gas-range');
+            if (statusRangeElement) {
+                statusRangeElement.textContent = sensorData.length > 0 ? '정상 동작 중' : '센서 확인 중';
             }
             return;
         }
