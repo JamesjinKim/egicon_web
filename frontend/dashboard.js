@@ -2818,13 +2818,28 @@ class EGIconDashboard {
         // 동적 센서 구성에서 실제 센서 순서를 기반으로 인덱스 결정
         // 하드코딩된 채널 매핑 대신 실제 스캔된 센서 순서 사용
         
-        // 현재 그룹의 센서 목록에서 해당 센서의 위치 찾기
+        // BME688 센서의 경우 pressure-gas 그룹에서 배열 인덱스 찾기
+        if (sensorId.includes('bme688')) {
+            const pressureGasGroup = this.sensorGroups['pressure-gas'];
+            if (pressureGasGroup && pressureGasGroup.sensors && Array.isArray(pressureGasGroup.sensors)) {
+                const sensorIndex = pressureGasGroup.sensors.findIndex(sensor => 
+                    sensor.sensorId === sensorId || sensor.sensor_id === sensorId
+                );
+                if (sensorIndex !== -1) {
+                    console.log(`🎯 BME688 센서 인덱스 찾음: ${sensorId} → 인덱스 ${sensorIndex}`);
+                    return sensorIndex;
+                }
+            }
+        }
+        
+        // 다른 센서 그룹에서 찾기
         for (const [groupName, groupData] of Object.entries(this.sensorGroups)) {
             if (groupData.sensors && Array.isArray(groupData.sensors)) {
                 const sensorIndex = groupData.sensors.findIndex(sensor => 
-                    sensor === sensorId || sensor.sensor_id === sensorId
+                    sensor === sensorId || sensor.sensor_id === sensorId || sensor.sensorId === sensorId
                 );
                 if (sensorIndex !== -1) {
+                    console.log(`🎯 센서 인덱스 찾음 (${groupName}): ${sensorId} → 인덱스 ${sensorIndex}`);
                     return sensorIndex;
                 }
             } else if (groupData.sensors && typeof groupData.sensors === 'object') {
@@ -2834,6 +2849,7 @@ class EGIconDashboard {
                     if (Array.isArray(sensorList)) {
                         const typeIndex = sensorList.indexOf(sensorId);
                         if (typeIndex !== -1) {
+                            console.log(`🎯 센서 인덱스 찾음 (${groupName}/${sensorType}): ${sensorId} → 인덱스 ${globalIndex + typeIndex}`);
                             return globalIndex + typeIndex;
                         }
                         globalIndex += sensorList.length;
@@ -2842,13 +2858,9 @@ class EGIconDashboard {
             }
         }
         
-        // 폴백: 센서 ID에서 채널 번호 사용 (기존 방식)
-        const parts = sensorId.split('_');
-        if (parts.length >= 3) {
-            return parseInt(parts[2]);
-        }
-        
-        return 0; // 기본값
+        // 폴백: 경고와 함께 기본값 반환 (채널 번호 사용 안 함)
+        console.warn(`⚠️ 센서 인덱스를 찾을 수 없음: ${sensorId} - 기본값 0 사용`);
+        return 0; // 기본값 (채널 번호 대신 0 사용)
     }
 
     // 센서 타입에서 그룹명 매핑
