@@ -3238,8 +3238,9 @@ class EGIconDashboard {
             const statusWidget = document.getElementById('pressure-gas-status-widget');
             if (statusWidget) {
                 const sensorCount = sensorData.length;
-                statusWidget.textContent = `${sensorCount}/6 활성`;
-                console.log(`✅ BME688 상태 위젯 업데이트: ${sensorCount}/6 활성`);
+                // 실제 연결된 센서 수에 맞춰 동적 표시 (5개 센서 기준)
+                statusWidget.textContent = `${sensorCount}/5 활성`;
+                console.log(`✅ BME688 상태 위젯 업데이트: ${sensorCount}/5 활성`);
             }
             
             const statusRangeElement = document.getElementById('pressure-gas-range');
