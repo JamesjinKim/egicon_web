@@ -1280,6 +1280,11 @@ class EGIconDashboard {
         ];
         return colors[index % colors.length];
     }
+    
+    // 센서 색상 반환 (SHT40 차트용)
+    getSensorColor(index) {
+        return this.getColorPalette(index);
+    }
 
     // 실시간 연결 시작
     startRealtimeConnection() {
@@ -1321,6 +1326,14 @@ class EGIconDashboard {
                             }
                         }, 1000);
                     }
+                } else if (message.type === 'sht40_data') {
+                    // SHT40 전용 데이터 스트림 처리
+                    console.log('🌡️ SHT40 전용 데이터 수신:', message);
+                    this.handleSHT40RealtimeData(message);
+                } else if (message.type === 'sht40_sensors_updated') {
+                    // SHT40 센서 목록 업데이트 알림
+                    console.log('🔄 SHT40 센서 목록 업데이트:', message);
+                    this.updateSHT40SensorList(message.sensors);
                 }
             } catch (error) {
                 console.error('WebSocket 메시지 파싱 오류:', error);
@@ -1479,6 +1492,9 @@ class EGIconDashboard {
         
         // BME688 API 폴링 시작 (실제 감지된 센서 기반)
         this.startBME688PollingForDiscoveredSensors();
+        
+        // SHT40 센서 스캔 및 초기화
+        this.initializeSHT40Sensors();
     }
 
     // 감지된 BME688 센서에 대해 폴링 시작
@@ -1554,6 +1570,46 @@ class EGIconDashboard {
         }
         
         console.log(`✅ pressure-gas 그룹 상태 업데이트: ${sensorCount}개 센서`);
+    }
+    
+    // SHT40 센서 초기화
+    async initializeSHT40Sensors() {
+        try {
+            console.log('🌡️ SHT40 센서 스캔 시작...');
+            
+            // SHT40 센서 스캔 API 호출
+            const response = await fetch('/api/sensors/scan-sht40', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            console.log('📡 SHT40 스캔 결과:', result);
+            
+            if (result.success && result.sensors && result.sensors.length > 0) {
+                console.log(`✅ SHT40 센서 ${result.sensors.length}개 발견`);
+                
+                // 센서 목록 업데이트
+                this.updateSHT40SensorList(result.sensors);
+                
+                console.log(`🚀 SHT40 센서 초기화 완료: ${result.sensors.length}개 센서`);
+            } else {
+                console.log('⚠️ SHT40 센서를 찾을 수 없음');
+                // 빈 상태로 초기화
+                this.updateSHT40SensorList([]);
+            }
+            
+        } catch (error) {
+            console.error('❌ SHT40 센서 초기화 실패:', error);
+            // 에러 상태로 초기화
+            this.updateSHT40SensorList([]);
+        }
     }
 
     // 실제 센서 데이터 처리
@@ -3292,6 +3348,274 @@ class EGIconDashboard {
                 setTimeout(() => overlay.remove(), 300);
             }, 500);
         }
+    }
+
+    // SHT40 전용 실시간 데이터 처리
+    handleSHT40RealtimeData(message) {
+        console.log('🌡️ SHT40 실시간 데이터 처리:', message);
+        
+        const { sensors, statistics, count } = message;
+        
+        if (!sensors || !Array.isArray(sensors)) {
+            console.warn('⚠️ SHT40 센서 데이터가 없거나 잘못된 형식:', message);
+            return;
+        }
+        
+        // 통계 정보 로그
+        if (statistics) {
+            const { success, crc_skip, error } = statistics;
+            console.log(`📊 SHT40 통계: 성공 ${success}, CRC 스킵 ${crc_skip}, 에러 ${error}`);
+        }
+        
+        // SHT40 센서 개수 업데이트
+        this.updateSHT40SensorCount(count);
+        
+        // 성공한 센서 데이터만 처리
+        const successfulSensors = sensors.filter(sensor => sensor.status === 'success');
+        
+        if (successfulSensors.length === 0) {
+            console.log('📊 처리할 성공 데이터가 없음 (모두 CRC 스킵 또는 에러)');
+            return;
+        }
+        
+        // 온도/습도 데이터 분리 및 처리
+        const temperatureData = [];
+        const humidityData = [];
+        const now = new Date();
+        
+        successfulSensors.forEach(sensor => {
+            if (sensor.temperature !== null && sensor.temperature !== undefined) {
+                temperatureData.push({
+                    sensorId: sensor.sensor_id,
+                    value: sensor.temperature,
+                    location: sensor.location,
+                    timestamp: now
+                });
+            }
+            
+            if (sensor.humidity !== null && sensor.humidity !== undefined) {
+                humidityData.push({
+                    sensorId: sensor.sensor_id,
+                    value: sensor.humidity,
+                    location: sensor.location,
+                    timestamp: now
+                });
+            }
+        });
+        
+        // 차트 및 위젯 업데이트
+        if (temperatureData.length > 0) {
+            this.updateSHT40MultiSensorChart('temperature', temperatureData);
+            this.updateSHT40SummaryWidgets('temperature', temperatureData);
+        }
+        
+        if (humidityData.length > 0) {
+            this.updateSHT40MultiSensorChart('humidity', humidityData);
+            this.updateSHT40SummaryWidgets('humidity', humidityData);
+        }
+        
+        // 센서 상태 업데이트
+        this.updateSHT40GroupStatus(count, statistics);
+        
+        console.log(`✅ SHT40 실시간 데이터 처리 완료: ${successfulSensors.length}/${count}개 센서`);
+    }
+    
+    // SHT40 센서 목록 업데이트
+    updateSHT40SensorList(sensors) {
+        console.log('🔄 SHT40 센서 목록 업데이트:', sensors);
+        
+        if (!this.sensorGroups.sht40) {
+            this.sensorGroups.sht40 = {
+                title: "SHT40 온습도 센서",
+                sensors: { sht40: [] },
+                totalSensors: 0
+            };
+        }
+        
+        // 센서 목록 업데이트
+        this.sensorGroups.sht40.sensors.sht40 = sensors.map(sensor => sensor.sensor_id);
+        this.sensorGroups.sht40.totalSensors = sensors.length;
+        
+        // UI 업데이트
+        this.updateSHT40SensorCount(sensors.length);
+        
+        // 차트 재초기화 (센서 목록 변경 시)
+        this.initializeSHT40Charts(sensors);
+        
+        console.log(`✅ SHT40 센서 목록 업데이트 완료: ${sensors.length}개 센서`);
+    }
+    
+    // SHT40 다중 센서 차트 업데이트
+    updateSHT40MultiSensorChart(metric, sensorDataArray) {
+        const chartId = metric === 'temperature' ? 'sht40-temperature-chart' : 'sht40-humidity-chart';
+        const chart = Chart.getChart(chartId);
+        
+        if (!chart) {
+            console.warn(`⚠️ SHT40 ${metric} 차트를 찾을 수 없음: ${chartId}`);
+            return;
+        }
+        
+        sensorDataArray.forEach(sensorData => {
+            const { sensorId, value, timestamp } = sensorData;
+            
+            // 해당 센서의 데이터셋 찾기
+            let dataset = chart.data.datasets.find(ds => ds.sensorId === sensorId);
+            
+            if (!dataset) {
+                // 새 센서면 데이터셋 생성
+                const color = this.getSensorColor(chart.data.datasets.length);
+                dataset = {
+                    label: sensorData.location || sensorId,
+                    data: [],
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    fill: false,
+                    tension: 0.1,
+                    sensorId: sensorId
+                };
+                chart.data.datasets.push(dataset);
+            }
+            
+            // 데이터 추가
+            dataset.data.push({
+                x: timestamp,
+                y: value
+            });
+            
+            // 최대 데이터 포인트 수 제한
+            if (dataset.data.length > this.config.maxDataPoints) {
+                dataset.data.shift();
+            }
+        });
+        
+        chart.update('none');
+    }
+    
+    // SHT40 요약 위젯 업데이트
+    updateSHT40SummaryWidgets(metric, sensorDataArray) {
+        if (sensorDataArray.length === 0) return;
+        
+        const values = sensorDataArray.map(sensor => sensor.value);
+        const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        
+        const unit = metric === 'temperature' ? '°C' : '%';
+        const prefix = metric === 'temperature' ? 'sht40-temperature' : 'sht40-humidity';
+        
+        // 평균값 업데이트
+        const avgElement = document.getElementById(`${prefix}-average`);
+        if (avgElement) {
+            avgElement.textContent = `${average.toFixed(1)}${unit}`;
+        }
+        
+        // 범위 업데이트
+        const rangeElement = document.getElementById(`${prefix}-range`);
+        if (rangeElement) {
+            rangeElement.textContent = `${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`;
+        }
+    }
+    
+    // SHT40 그룹 상태 업데이트
+    updateSHT40GroupStatus(sensorCount, statistics) {
+        // 센서 상태 위젯 업데이트
+        const statusElement = document.getElementById('sht40-sensor-status');
+        if (statusElement) {
+            if (statistics) {
+                const { success, crc_skip, error } = statistics;
+                statusElement.textContent = `${success}/${sensorCount} 활성`;
+            } else {
+                statusElement.textContent = `${sensorCount}/0 활성`;
+            }
+        }
+        
+        // 그룹 헤더 상태 업데이트
+        const groupStatusElement = document.getElementById('sht40-group-status');
+        if (groupStatusElement) {
+            groupStatusElement.textContent = sensorCount > 0 ? `${sensorCount}개 연결됨` : '연결 확인 중...';
+            groupStatusElement.className = sensorCount > 0 ? 'sensor-group-status online' : 'sensor-group-status offline';
+        }
+    }
+    
+    // SHT40 차트 초기화
+    initializeSHT40Charts(sensors) {
+        // 온도 차트 초기화
+        this.createSHT40Chart('sht40-temperature-chart', 'temperature', '온도 (°C)', sensors);
+        
+        // 습도 차트 초기화
+        this.createSHT40Chart('sht40-humidity-chart', 'humidity', '습도 (%)', sensors);
+    }
+    
+    // SHT40 개별 차트 생성
+    createSHT40Chart(canvasId, metric, label, sensors) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            console.warn(`⚠️ SHT40 차트 캔버스를 찾을 수 없음: ${canvasId}`);
+            return;
+        }
+        
+        // 기존 차트 제거
+        const existingChart = Chart.getChart(canvasId);
+        if (existingChart) {
+            existingChart.destroy();
+        }
+        
+        // 새 차트 생성
+        const ctx = canvas.getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                datasets: sensors.map((sensor, index) => ({
+                    label: sensor.location || sensor.sensor_id,
+                    data: [],
+                    borderColor: this.getSensorColor(index),
+                    backgroundColor: this.getSensorColor(index) + '20',
+                    fill: false,
+                    tension: 0.1,
+                    sensorId: sensor.sensor_id
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            displayFormats: {
+                                minute: 'HH:mm',
+                                hour: 'MM/DD HH:mm'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '시간'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: label
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    title: {
+                        display: true,
+                        text: `SHT40 ${label} (${sensors.length}개 센서)`
+                    }
+                },
+                animation: {
+                    duration: 0
+                }
+            }
+        });
+        
+        console.log(`✅ SHT40 ${metric} 차트 생성 완료: ${sensors.length}개 센서`);
     }
 }
 
