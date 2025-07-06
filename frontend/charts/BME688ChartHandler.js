@@ -222,12 +222,14 @@ class BME688ChartHandler {
                             display: true,
                             text: '데이터 포인트'
                         },
+                        min: 0,
+                        max: 30,
                         grid: { 
                             color: 'rgba(0, 0, 0, 0.05)' 
                         },
                         ticks: {
-                            maxTicksLimit: 8,
-                            stepSize: 1
+                            maxTicksLimit: 10,
+                            stepSize: 5
                         }
                     },
                     y: {
@@ -336,25 +338,38 @@ class BME688ChartHandler {
             const pressureChart = this.dashboard.charts['pressure-multi-chart'];
             if (pressureChart && pressureChart.data && pressureChart.data.datasets) {
                 if (pressureChart.data.datasets[sensorIndex]) {
-                    // 첫 번째 센서만 X축 레이블 추가 (다른 센서들은 같은 시간축 공유)
-                    if (sensorIndex === 0) {
-                        const dataPointIndex = pressureChart.data.datasets[0].data.length;
-                        pressureChart.data.labels.push(dataPointIndex);
+                    // 현재 데이터 길이 확인
+                    const currentDataLength = pressureChart.data.datasets[sensorIndex].data.length;
+                    
+                    // X축 위치 계산 (30개 범위 내에서 슬라이딩)
+                    let xPosition = currentDataLength;
+                    if (currentDataLength >= 30) {
+                        // 30개 이후부터는 슬라이딩 윈도우 적용
+                        xPosition = 29; // 마지막 위치에 고정
+                        // 기존 데이터를 왼쪽으로 이동
+                        pressureChart.data.datasets[sensorIndex].data.forEach((point, index) => {
+                            if (point && typeof point === 'object') {
+                                point.x = index;
+                            }
+                        });
                     }
                     
-                    // Y축 데이터만 추가
+                    // 첫 번째 센서만 X축 레이블 관리
+                    if (sensorIndex === 0) {
+                        if (currentDataLength < 30) {
+                            pressureChart.data.labels.push(currentDataLength);
+                        }
+                    }
+                    
+                    // 새 데이터 추가
                     pressureChart.data.datasets[sensorIndex].data.push({
-                        x: pressureChart.data.datasets[sensorIndex].data.length,
+                        x: xPosition,
                         y: data.pressure
                     });
                     
-                    // 최대 데이터 포인트 제한
-                    if (pressureChart.data.datasets[sensorIndex].data.length > this.dashboard.config.maxDataPoints) {
+                    // 30개 이상이면 첫 번째 데이터 제거
+                    if (pressureChart.data.datasets[sensorIndex].data.length > 30) {
                         pressureChart.data.datasets[sensorIndex].data.shift();
-                        // 첫 번째 센서일 때만 레이블도 제거
-                        if (sensorIndex === 0 && pressureChart.data.labels.length > this.dashboard.config.maxDataPoints) {
-                            pressureChart.data.labels.shift();
-                        }
                     }
                     
                     try {
@@ -384,25 +399,38 @@ class BME688ChartHandler {
             const gasChart = this.dashboard.charts['gas-resistance-multi-chart'];
             if (gasChart && gasChart.data && gasChart.data.datasets) {
                 if (gasChart.data.datasets[sensorIndex]) {
-                    // 첫 번째 센서만 X축 레이블 추가 (다른 센서들은 같은 시간축 공유)
-                    if (sensorIndex === 0) {
-                        const dataPointIndex = gasChart.data.datasets[0].data.length;
-                        gasChart.data.labels.push(dataPointIndex);
+                    // 현재 데이터 길이 확인
+                    const currentDataLength = gasChart.data.datasets[sensorIndex].data.length;
+                    
+                    // X축 위치 계산 (30개 범위 내에서 슬라이딩)
+                    let xPosition = currentDataLength;
+                    if (currentDataLength >= 30) {
+                        // 30개 이후부터는 슬라이딩 윈도우 적용
+                        xPosition = 29; // 마지막 위치에 고정
+                        // 기존 데이터를 왼쪽으로 이동
+                        gasChart.data.datasets[sensorIndex].data.forEach((point, index) => {
+                            if (point && typeof point === 'object') {
+                                point.x = index;
+                            }
+                        });
                     }
                     
-                    // Y축 데이터만 추가
+                    // 첫 번째 센서만 X축 레이블 관리
+                    if (sensorIndex === 0) {
+                        if (currentDataLength < 30) {
+                            gasChart.data.labels.push(currentDataLength);
+                        }
+                    }
+                    
+                    // 새 데이터 추가
                     gasChart.data.datasets[sensorIndex].data.push({
-                        x: gasChart.data.datasets[sensorIndex].data.length,
+                        x: xPosition,
                         y: data.gas_resistance
                     });
                     
-                    // 최대 데이터 포인트 제한
-                    if (gasChart.data.datasets[sensorIndex].data.length > this.dashboard.config.maxDataPoints) {
+                    // 30개 이상이면 첫 번째 데이터 제거
+                    if (gasChart.data.datasets[sensorIndex].data.length > 30) {
                         gasChart.data.datasets[sensorIndex].data.shift();
-                        // 첫 번째 센서일 때만 레이블도 제거
-                        if (sensorIndex === 0 && gasChart.data.labels.length > this.dashboard.config.maxDataPoints) {
-                            gasChart.data.labels.shift();
-                        }
                     }
                     
                     try {

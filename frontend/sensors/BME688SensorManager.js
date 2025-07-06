@@ -163,12 +163,20 @@ class BME688SensorManager {
     initializeStatusWidgets(sensorCount) {
         console.log(`🔧 BME688 상태 위젯 초기화: ${sensorCount}/${sensorCount} 센서`);
         
+        // 헤더 상태 업데이트 (pressure-gas-status)
+        const headerStatusElement = document.getElementById('pressure-gas-status');
+        if (headerStatusElement) {
+            headerStatusElement.textContent = `${sensorCount}개 연결됨`;
+            headerStatusElement.className = 'sensor-group-status online';
+        }
+        
+        // 위젯 영역 상태 업데이트 (pressure-gas-status-widget)
         const statusElement = document.getElementById('pressure-gas-status-widget');
         if (statusElement) {
             statusElement.textContent = `${sensorCount}/${sensorCount} 센서`;
         }
         
-        console.log(`✅ BME688 상태 위젯 설정 완료: ${sensorCount}/${sensorCount} 활성`);
+        console.log(`✅ BME688 상태 위젯 설정 완료: ${sensorCount}개 연결됨`);
     }
 
     // 데이터 폴링 시작
