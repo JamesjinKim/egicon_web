@@ -1624,8 +1624,8 @@ class EGIconDashboard {
             if (sensor.sensor_type === 'BH1750') {
                 const sensorId = `${sensor.sensor_type.toLowerCase()}_${sensor.bus}_${sensor.mux_channel || 0}`;
                 
-                // 실제 센서로 대체
-                this.replaceWithRealSensor('light_1', sensorId, sensor);
+                // 실제 센서로 대체 (현재는 스킵)
+                // this.replaceWithRealSensor('light_1', sensorId, sensor);
                 
                 // 위젯 제목 업데이트
                 const widget = document.querySelector('[data-sensor="light_1"]');
@@ -2272,34 +2272,38 @@ class EGIconDashboard {
     }
 
     // SHT40 센서 개수 업데이트
-    updateSHT40SensorCount() {
+    updateSHT40SensorCount(sensorCount = null) {
         const sht40Group = this.sensorGroups['sht40'];
-        if (sht40Group) {
-            const count = sht40Group.sensors.sht40.length;
-            
-            // 상태 텍스트 업데이트
-            const statusElement = document.getElementById('sht40-group-status');
-            if (statusElement) {
-                statusElement.textContent = count > 0 ? `${count}개 연결됨` : '센서 검색 중...';
-                statusElement.className = count > 0 ? 'sensor-group-status online' : 'sensor-group-status offline';
-            }
-            
-            // 요약 텍스트 업데이트
-            const summaryElement = document.getElementById('sht40-group-summary');
-            if (summaryElement) {
-                summaryElement.textContent = count > 0 ? `SHT40×${count}` : '센서 검색 중';
-            }
-            
-            // 차트 제목 업데이트
-            const tempChartTitle = document.getElementById('sht40-temp-chart-title');
-            if (tempChartTitle) {
-                tempChartTitle.textContent = `SHT40 온도 센서 차트 (${count}개)`;
-            }
-            
-            const humidityChartTitle = document.getElementById('sht40-humidity-chart-title');
-            if (humidityChartTitle) {
-                humidityChartTitle.textContent = `SHT40 습도 센서 차트 (${count}개)`;
-            }
+        let count = 0;
+        
+        if (sensorCount !== null) {
+            count = sensorCount;
+        } else if (sht40Group) {
+            count = sht40Group.sensors.sht40.length;
+        }
+        
+        // 상태 텍스트 업데이트
+        const statusElement = document.getElementById('sht40-group-status');
+        if (statusElement) {
+            statusElement.textContent = count > 0 ? `${count}개 연결됨` : '센서 검색 중...';
+            statusElement.className = count > 0 ? 'sensor-group-status online' : 'sensor-group-status offline';
+        }
+        
+        // 요약 텍스트 업데이트
+        const summaryElement = document.getElementById('sht40-group-summary');
+        if (summaryElement) {
+            summaryElement.textContent = count > 0 ? `SHT40×${count}` : '센서 검색 중';
+        }
+        
+        // 차트 제목 업데이트
+        const tempChartTitle = document.getElementById('sht40-temp-chart-title');
+        if (tempChartTitle) {
+            tempChartTitle.textContent = `SHT40 온도 센서 차트 (${count}개)`;
+        }
+        
+        const humidityChartTitle = document.getElementById('sht40-humidity-chart-title');
+        if (humidityChartTitle) {
+            humidityChartTitle.textContent = `SHT40 습도 센서 차트 (${count}개)`;
         }
     }
 
