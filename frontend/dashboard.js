@@ -179,6 +179,9 @@ class EGIconDashboard {
         // SHT40 차트 연속성을 위한 센서 개수 추적
         this.lastSHT40SensorCount = 0;
         
+        // 센서 클래스 인스턴스
+        this.bme688Sensor = new BME688Sensor(this);
+        
         // 실제 센서 데이터만 사용
 
         this.init();
