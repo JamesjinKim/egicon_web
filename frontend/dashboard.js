@@ -530,7 +530,8 @@ class EGIconDashboard {
         const group = this.sensorGroups[groupName];
         if (group && group.metrics) {
             group.metrics.forEach(metric => {
-                const chartId = `${metric}-multi-chart`;
+                const normalizedMetric = metric.replace(/_/g, '-');
+                const chartId = `${normalizedMetric}-multi-chart`;
                 if (this.charts[chartId]) {
                     this.updateChartLabels(chartId, sensorLabels);
                 }
@@ -674,7 +675,8 @@ class EGIconDashboard {
             if (group.totalSensors > 0) {
                 // 각 메트릭별로 차트 생성
                 group.metrics.forEach(metric => {
-                    const chartId = `${metric}-multi-chart`;
+                    const normalizedMetric = metric.replace(/_/g, '-');
+                    const chartId = `${normalizedMetric}-multi-chart`;
                     const sensorLabels = this.generateSensorLabels(group, metric);
                     
                     if (sensorLabels.length > 1) {
@@ -3571,7 +3573,7 @@ class EGIconDashboard {
         const chart = new Chart(ctx, {
             type: 'line',
             data: {
-                datasets: sensors.map((sensor, index) => ({
+                datasets: Array.isArray(sensors) ? sensors.map((sensor, index) => ({
                     label: sensor.location || sensor.sensor_id,
                     data: [],
                     borderColor: this.getSensorColor(index),
@@ -3579,7 +3581,7 @@ class EGIconDashboard {
                     fill: false,
                     tension: 0.1,
                     sensorId: sensor.sensor_id
-                }))
+                })) : []
             },
             options: {
                 responsive: true,
