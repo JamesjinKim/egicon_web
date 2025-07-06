@@ -876,7 +876,9 @@ class EGIconDashboard {
 
     // Multi-line 차트 생성 (복수 센서 통합)
     createMultiSensorChart(canvasId, sensorType, sensorLabels) {
+        console.log(`🚨 createMultiSensorChart 호출됨!`);
         console.log(`📊 다중 센서 차트 생성 시작: ${canvasId}, 타입: ${sensorType}, 라벨: ${sensorLabels.length}개`);
+        console.log(`📊 라벨 상세:`, sensorLabels);
         
         // DOM 로드 확인
         if (document.readyState !== 'complete') {
@@ -888,6 +890,7 @@ class EGIconDashboard {
         }
         
         const ctx = document.getElementById(canvasId);
+        console.log(`🔍 캔버스 검색 결과: ${canvasId} → ${!!ctx}`);
         if (!ctx) {
             console.error(`❌ 차트 캔버스를 찾을 수 없음: ${canvasId}`);
             console.log(`🔍 DOM 상태: readyState=${document.readyState}, 모든 캔버스:`, 
@@ -909,10 +912,13 @@ class EGIconDashboard {
         }
 
         const sensorConfig = this.sensorTypes[sensorType];
+        console.log(`🔍 센서 설정 검색: ${sensorType} → ${!!sensorConfig}`);
+        console.log(`📊 사용 가능한 센서 타입들:`, Object.keys(this.sensorTypes));
         if (!sensorConfig) {
             console.error(`❌ 센서 타입 설정을 찾을 수 없음: ${sensorType}`);
             return;
         }
+        console.log(`✅ 센서 설정 찾음:`, sensorConfig);
         
         // 색상 팔레트 정의 (센서별 구분)
         const colorPalette = [
@@ -940,6 +946,8 @@ class EGIconDashboard {
         });
 
         console.log(`💾 차트 저장: 키="${canvasId}", 센서타입="${sensorType}"`);
+        console.log(`📊 데이터셋 개수: ${datasets.length}개`);
+        console.log(`📊 Chart.js 생성 시도 중...`);
         this.charts[canvasId] = new Chart(ctx, {
             type: 'line',
             data: {
