@@ -199,12 +199,22 @@ class BME688SensorManager {
                 
                 console.log(`📊 BME688 데이터 [${sensorIndex}]: 기압=${pressure}hPa, 가스저항=${gasResistance}Ω`);
                 
-                // 차트 핸들러를 통한 직접 차트 업데이트
+                // 차트 핸들러를 통한 직접 차트 업데이트 (에러 처리 추가)
                 if (this.chartHandler && this.chartHandler.isReady()) {
-                    this.chartHandler.updateChartsWithRealtimeData(sensorId, {
-                        pressure: pressure,
-                        gas_resistance: gasResistance
-                    }, timestamp);
+                    try {
+                        this.chartHandler.updateChartsWithRealtimeData(sensorId, {
+                            pressure: pressure,
+                            gas_resistance: gasResistance
+                        }, timestamp);
+                    } catch (chartError) {
+                        console.warn(`⚠️ BME688 차트 업데이트 에러: ${chartError.message}`);
+                        console.log(`📦 에러 발생으로 데이터 버퍼링으로 전환`);
+                        // 에러 발생 시 버퍼링으로 전환
+                        this.chartHandler.bufferData(sensorId, {
+                            pressure: pressure,
+                            gas_resistance: gasResistance
+                        }, timestamp);
+                    }
                 } else {
                     console.log(`📦 BME688ChartHandler 준비되지 않음, 데이터 버퍼링`);
                     // 차트 핸들러가 준비되지 않은 경우 데이터를 버퍼에 저장
