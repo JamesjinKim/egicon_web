@@ -189,9 +189,12 @@ class EGIconDashboard {
         this.chartManager = new ChartManager(this);
         this.bme688ChartHandler = new BME688ChartHandler(this);
         this.bme688SensorManager = new BME688SensorManager(this);
+        this.sps30ChartHandler = new SPS30ChartHandler(this);
+        this.sps30SensorManager = new SPS30SensorManager(this);
         
         // 차트 핸들러와 센서 매니저 연결
         this.bme688SensorManager.setChartHandler(this.bme688ChartHandler);
+        this.sps30SensorManager.setChartHandler(this.sps30ChartHandler);
         
         // 실제 센서 데이터만 사용
 
@@ -244,7 +247,7 @@ class EGIconDashboard {
             this.buildDynamicSensorGroups(dynamicGroups);
             
             // SPS30 센서 특별 처리
-            this.processSPS30SensorData(dynamicGroups);
+            this.sps30SensorManager.processSensorData(dynamicGroups);
             
             console.log('✅ 동적 센서 그룹 로딩 완료');
             
@@ -254,62 +257,7 @@ class EGIconDashboard {
         }
     }
 
-    // SPS30 센서 데이터 특별 처리
-    processSPS30SensorData(apiResponse) {
-        try {
-            console.log('🌪️ SPS30 센서 데이터 처리 시작:', apiResponse);
-            
-            const groups = apiResponse.groups || apiResponse;
-            console.log('📊 사용 가능한 센서 그룹들:', Object.keys(groups));
-            
-            // 모든 그룹에서 SPS30 센서 찾기
-            let sps30Sensor = null;
-            for (const [groupName, group] of Object.entries(groups)) {
-                if (group && group.sensors && Array.isArray(group.sensors)) {
-                    console.log(`🔍 ${groupName} 그룹에서 센서 검색:`, group.sensors.length, '개');
-                    
-                    const foundSPS30 = group.sensors.find(sensor => {
-                        console.log(`   센서 확인: ${sensor.sensor_type}, 인터페이스: ${sensor.interface}`);
-                        return sensor.sensor_type === 'SPS30' || 
-                               (sensor.interface && sensor.interface.includes('UART'));
-                    });
-                    
-                    if (foundSPS30) {
-                        sps30Sensor = foundSPS30;
-                        console.log(`✅ SPS30 센서 발견 (${groupName} 그룹):`, foundSPS30);
-                        break;
-                    }
-                }
-            }
-            
-            if (sps30Sensor) {
-                this.updateSPS30Status(sps30Sensor);
-            } else {
-                console.log('⚠️ 모든 그룹에서 SPS30 센서를 찾을 수 없음');
-                this.setSPS30StatusDisconnected();
-            }
-            
-        } catch (error) {
-            console.error('❌ SPS30 센서 데이터 처리 실패:', error);
-            this.setSPS30StatusDisconnected();
-        }
-    }
-
-    // SPS30 연결 해제 상태 설정
-    setSPS30StatusDisconnected() {
-        const statusElement = document.getElementById('sps30-status');
-        if (statusElement) {
-            statusElement.textContent = '연결 확인 중...';
-            statusElement.className = 'sensor-group-status offline';
-            console.log('⚠️ SPS30 상태를 연결 확인 중으로 설정');
-        }
-        
-        const modelElement = document.getElementById('sps30-model');
-        if (modelElement) {
-            modelElement.textContent = 'SPS30 UART';
-            console.log('📊 SPS30 모델 정보를 기본값으로 설정');
-        }
-    }
+    // SPS30 관련 함수들은 SPS30SensorManager로 이동됨
 
     // API에서 받은 그룹 데이터로 sensorGroups 업데이트
     updateSensorGroupsFromAPI(apiResponse) {
@@ -1425,7 +1373,7 @@ class EGIconDashboard {
         dataArray.forEach((data) => {
             // SPS30 센서 데이터 처리
             if (data.sensor_type === 'SPS30' && data.interface === 'UART') {
-                this.updateSPS30Data(data);
+                this.sps30SensorManager.updateData(data);
                 return;
             }
             
@@ -1733,11 +1681,7 @@ class EGIconDashboard {
                 this.bme688SensorManager.addSensorToGroup(sensor, sensorId);
             }
             
-            // SPS30 공기질 센서 처리
-            if (sensor.sensor_type === 'SPS30' && sensor.interface === 'UART') {
-                console.log('📊 SPS30 공기질 센서 발견:', sensor);
-                this.updateSPS30Status(sensor);
-            }
+            // SPS30 공기질 센서 처리는 SPS30SensorManager로 이동됨
         });
     }
 
@@ -2365,116 +2309,11 @@ class EGIconDashboard {
 
     // updatePressureGasGroupHeader 함수 제거됨 - initializeBME688StatusWidgets 사용
 
-    // SPS30 센서 상태 업데이트
-    updateSPS30Status(sensor) {
-        console.log('📊 SPS30 센서 상태 업데이트:', sensor);
-        
-        const statusElement = document.getElementById('sps30-status');
-        if (statusElement) {
-            // 더 유연한 연결 상태 판단
-            const isConnected = sensor.status === 'connected' || 
-                              sensor.interface === 'UART' || 
-                              sensor.sensor_type === 'SPS30' ||
-                              (sensor.interface && sensor.interface.includes('UART'));
-            
-            if (isConnected) {
-                statusElement.textContent = '연결 활성중';
-                statusElement.className = 'sensor-group-status online';
-                console.log('✅ SPS30 상태 업데이트: 연결 활성중', sensor);
-            } else {
-                statusElement.textContent = '연결 확인 중...';
-                statusElement.className = 'sensor-group-status offline';
-                console.log('⚠️ SPS30 상태 업데이트: 연결 확인 중', sensor);
-            }
-        } else {
-            console.warn('⚠️ sps30-status 엘리먼트를 찾을 수 없음');
-        }
+    // SPS30 센서 상태 업데이트는 SPS30SensorManager로 이동됨
 
-        const modelElement = document.getElementById('sps30-model');
-        if (modelElement) {
-            const serialDisplay = sensor.serial_number ? 
-                sensor.serial_number.substring(0, 8) : 'UART';
-            modelElement.textContent = `SPS30 ${serialDisplay}`;
-            console.log(`✅ SPS30 모델 정보 업데이트: SPS30 ${serialDisplay}`);
-        } else {
-            console.warn('⚠️ sps30-model 엘리먼트를 찾을 수 없음');
-        }
-    }
+    // SPS30 실시간 데이터 처리는 SPS30SensorManager로 이동됨
 
-    // SPS30 실시간 데이터 처리
-    updateSPS30Data(sensorData) {
-        if (sensorData.sensor_type === 'SPS30' && sensorData.values) {
-            const values = sensorData.values;
-            
-            // PM2.5 위젯 업데이트
-            const pm25Element = document.getElementById('pm25-value');
-            if (pm25Element) {
-                pm25Element.textContent = `${values.pm25?.toFixed(1) || '--'} μg/m³`;
-            }
-            
-            const pm25LevelElement = document.getElementById('pm25-level');
-            if (pm25LevelElement) {
-                pm25LevelElement.textContent = this.getAirQualityLevel(values.pm25);
-            }
-
-            // PM10 위젯 업데이트
-            const pm10Element = document.getElementById('pm10-value');
-            if (pm10Element) {
-                pm10Element.textContent = `${values.pm10?.toFixed(1) || '--'} μg/m³`;
-            }
-            
-            const pm10LevelElement = document.getElementById('pm10-level');
-            if (pm10LevelElement) {
-                pm10LevelElement.textContent = this.getAirQualityLevel(values.pm10);
-            }
-
-            // 공기질 등급 업데이트
-            const qualityElement = document.getElementById('air-quality-grade');
-            const descElement = document.getElementById('air-quality-desc');
-            
-            if (qualityElement && descElement) {
-                const { grade, description } = this.getAirQualityInfo(values.pm25);
-                qualityElement.textContent = grade;
-                descElement.textContent = description;
-            }
-
-            // 메인 차트 업데이트 (있다면)
-            this.updateSPS30MainChart(values);
-            
-            console.log('📊 SPS30 메인 위젯 업데이트:', values);
-        }
-    }
-
-    // 공기질 등급 계산
-    getAirQualityLevel(pmValue) {
-        if (pmValue <= 15) return '좋음';
-        else if (pmValue <= 35) return '보통';
-        else if (pmValue <= 75) return '나쁨';
-        else return '매우나쁨';
-    }
-
-    // 공기질 정보 반환
-    getAirQualityInfo(pm25Value) {
-        if (pm25Value <= 15) {
-            return { grade: '좋음', description: '공기질이 좋습니다' };
-        } else if (pm25Value <= 35) {
-            return { grade: '보통', description: '민감한 사람은 주의하세요' };
-        } else if (pm25Value <= 75) {
-            return { grade: '나쁨', description: '외출 시 마스크 착용' };
-        } else {
-            return { grade: '매우나쁨', description: '외출을 자제하세요' };
-        }
-    }
-
-    // SPS30 메인 차트 업데이트
-    updateSPS30MainChart(values) {
-        // 간단한 메인 차트가 있다면 업데이트
-        const chart = Chart.getChart('sps30-main-chart');
-        if (chart) {
-            // 차트 데이터 업데이트 로직 구현
-            console.log('📊 SPS30 메인 차트 업데이트');
-        }
-    }
+    // 공기질 등급 계산 및 SPS30 차트 업데이트는 SPS30SensorManager로 이동됨
 
     // SHT40 센서 데이터 업데이트
     updateSHT40Data(sensorData) {
