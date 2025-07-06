@@ -14,7 +14,23 @@ from hardware_scanner import get_scanner
 
 # BH1750 센서 데이터 읽기 함수 (ref/gui_bh1750.py 기반)
 async def read_bh1750_data(bus_number: int, mux_channel: int) -> float:
-    """BH1750 센서에서 실제 조도 데이터 읽기 - 안정적인 구현"""
+    """
+    BH1750 조도 센서에서 실제 빛 세기 데이터 읽기
+    
+    운영 시 중요사항:
+    - ref/gui_bh1750.py 기반으로 안정적인 측정 구현
+    - 여러 종류의 측정 모드 시도 (H/L-Resolution, One-time/Continuous)
+    - Mock 모드와 실제 하드웨어 모드 자동 구분
+    - 측정 실패 시 Mock 데이터로 시스템 안정성 보장
+    - 음수 조도 값 방지 (0.0 이상만 반환)
+    
+    Args:
+        bus_number (int): I2C 버스 번호 (0 또는 1)
+        mux_channel (int): TCA9548A 멀티플렉서 채널 번호
+    
+    Returns:
+        float: 측정된 조도 값 (lux 단위)
+    """
     try:
         scanner = get_scanner()
         
@@ -111,7 +127,24 @@ async def read_bh1750_data(bus_number: int, mux_channel: int) -> float:
 
 # BME688 센서 데이터 읽기 함수 (기압/가스저항만)
 async def read_bme688_data(bus_number: int, mux_channel: int, address: int = 0x77):
-    """BME688 센서에서 기압/가스저항 데이터 읽기 (온도/습도 제거)"""
+    """
+    BME688 환경센서에서 기압/가스저항 데이터 읽기 (온도/습도 제거)
+    
+    운영 시 중요사항:
+    - BME688에서 기압(hPa)과 가스저항(Ω)만 측정
+    - 온도/습도는 SHT40 전용으로 분리하여 중복 제거
+    - Chip ID 0x61 확인을 통한 BME688 센서 인증
+    - 라즈베리파이 환경에서맀 실제 통신 수행
+    - 시간에 따른 자연스러운 변화 시뮤레이션 (Mock 모드)
+    
+    Args:
+        bus_number (int): I2C 버스 번호
+        mux_channel (int): 멀티플렉서 채널 번호 (None 가능)
+        address (int): BME688 I2C 주소 (기본값: 0x77)
+    
+    Returns:
+        dict: 기압/가스저항 데이터 또는 오류 정보
+    """
     try:
         scanner = get_scanner()
         
@@ -207,7 +240,23 @@ async def read_bme688_data(bus_number: int, mux_channel: int, address: int = 0x7
 
 # SPS30 UART 센서 테스트 함수
 async def test_sps30_sensor(port: str) -> Dict[str, Any]:
-    """SPS30 UART 센서 테스트 - SHDLC 오류 코드 67 수정"""
+    """
+    SPS30 UART 미세먼지 센서 통신 테스트 및 데이터 읽기
+    
+    운영 시 중요사항:
+    - SHDLC (Sensirion High Level Data Link Control) 프로토콜 사용
+    - 센서 리셋 → 측정 시작 → 데이터 읽기 → 측정 중지 순서
+    - SHDLC 오류 코드 67 (이미 측정 중) 등 특정 오류 처리
+    - 안전한 측정 중지 및 자원 정리 보장
+    - 충분한 안정화 시간 확보 (5-6초)
+    - 튜플/리스트 데이터 타입 안전한 파싱
+    
+    Args:
+        port (str): SPS30이 연결된 시리얼 포트 경로
+    
+    Returns:
+        Dict[str, Any]: 테스트 결과 및 PM 데이터 (PM1.0, PM2.5, PM10)
+    """
     try:
         # SPS30 라이브러리 동적 import
         try:
@@ -360,7 +409,22 @@ async def test_sps30_sensor(port: str) -> Dict[str, Any]:
 
 # 통합 센서 데이터 읽기 함수
 async def read_sensor_data(sensor_info: Dict[str, Any]) -> Dict[str, Any]:
-    """센서 정보에 따라 적절한 데이터 읽기 함수 호출"""
+    """
+    센서 정보에 따라 적절한 데이터 읽기 함수 호출
+    
+    운영 시 중요사항:
+    - 센서 타입 기반 라우팅: BH1750 → 조도, BME688 → 기압/가스, SHT40 → 온습도
+    - 각 센서에 맞는 전용 읽기 함수 호출
+    - 통일된 데이터 형식으로 반환 (sensor_id, timestamp 포함)
+    - 센서 통신 실패 시 오류 정보를 포함한 안전한 응답
+    - 알 수 없는 센서 타입에 대한 Mock 데이터 제공
+    
+    Args:
+        sensor_info (Dict[str, Any]): 센서 정보 (타입, 버스, 채널, 주소)
+    
+    Returns:
+        Dict[str, Any]: 표준화된 센서 데이터 구조체
+    """
     try:
         sensor_type = sensor_info.get("sensor_type", "").upper()
         bus_number = sensor_info.get("bus")

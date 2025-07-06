@@ -16,27 +16,66 @@ from hardware_scanner import get_scanner
 from sensor_handlers import read_sensor_data
 
 class ConnectionManager:
-    """WebSocket 연결 관리자"""
+    """
+    WebSocket 연결 관리 및 메시지 브로드캐스트 관리자
+    
+    운영 시 중요사항:
+    - 다중 클라이언트 동시 접속 지원
+    - 끊어진 연결 자동 감지 및 정리
+    - 메시지 전송 실패 시 연결 목록에서 자동 제거
+    - Thread-safe 연결 관리로 동시성 문제 방지
+    """
     
     def __init__(self):
         self.active_connections: List[WebSocket] = []
         self.connection_count = 0
     
     async def connect(self, websocket: WebSocket):
-        """새 WebSocket 연결"""
+        """
+        새로운 WebSocket 클라이언트 연결 수락
+        
+        운영 시 중요사항:
+        - WebSocket 핸드셰이크 수행 후 연결 목록에 추가
+        - 연결 개수 카운터 증가
+        - 트래픽 모니터링을 위한 로그 출력
+        
+        Args:
+            websocket (WebSocket): 연결할 WebSocket 인스턴스
+        """
         await websocket.accept()
         self.active_connections.append(websocket)
         self.connection_count += 1
         print(f"📡 새 WebSocket 연결 (총 {len(self.active_connections)}개)")
     
     def disconnect(self, websocket: WebSocket):
-        """WebSocket 연결 해제"""
+        """
+        WebSocket 클라이언트 연결 해제 및 정리
+        
+        운영 시 중요사항:
+        - 연결 목록에서 해당 WebSocket 제거
+        - 중복 제거 요청 시 예외 발생 방지
+        - 연결 수 변화 로그 출력
+        
+        Args:
+            websocket (WebSocket): 해제할 WebSocket 인스턴스
+        """
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
         print(f"📡 WebSocket 연결 해제 (총 {len(self.active_connections)}개)")
     
     async def send_personal_message(self, message: str, websocket: WebSocket):
-        """개별 클라이언트에게 메시지 전송"""
+        """
+        특정 클라이언트에게 개별 메시지 전송
+        
+        운영 시 중요사항:
+        - 메시지 전송 실패 시 연결 자동 해제
+        - 끊어진 연결에 대한 예외 처리
+        - 개별 클라이언트 대상 메시지 (상태 응답 등)
+        
+        Args:
+            message (str): 전송할 메시지 (JSON 문자열)
+            websocket (WebSocket): 대상 WebSocket 연결
+        """
         try:
             await websocket.send_text(message)
         except Exception as e:
@@ -44,7 +83,18 @@ class ConnectionManager:
             self.disconnect(websocket)
     
     async def broadcast(self, message: str):
-        """모든 연결된 클라이언트에게 브로드캐스트"""
+        """
+        모든 연결된 클라이언트에게 동시 메시지 브로드캐스트
+        
+        운영 시 중요사항:
+        - 실시간 센서 데이터 브로드캐스트용 메인 함수
+        - 끊어진 연결 자동 감지 및 정리
+        - 메시지 전송 실패 시 올바른 오류 처리
+        - 빈 연결 목록에 대한 조기 종료 처리
+        
+        Args:
+            message (str): 브로드캐스트할 메시지 (JSON 문자열)
+        """
         if not self.active_connections:
             return
             
@@ -65,7 +115,16 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 class RealTimeDataCollector:
-    """실시간 데이터 수집기"""
+    """
+    센서 데이터 실시간 수집 및 WebSocket 브로드캐스트 관리자
+    
+    운영 시 중요사항:
+    - 비동기 백그라운드 루프로 주기적 데이터 수집
+    - I2C 센서와 UART 센서(SPS30) 동시 처리
+    - 센서 목록 주기적 갱신으로 하드웨어 변경 대응
+    - WebSocket 클라이언트 있을 때만 데이터 수집
+    - 데이터 수집 실패 시에도 시스템 계속 운영
+    """
     
     def __init__(self):
         self.is_running = False
@@ -75,7 +134,16 @@ class RealTimeDataCollector:
         self.scan_interval = 60  # 60초마다 센서 목록 갱신
     
     async def start_collection(self):
-        """실시간 데이터 수집 시작"""
+        """
+        비동기 데이터 수집 루프 시작
+        
+        운영 시 중요사항:
+        - 이미 실행 중인 경우 중복 시작 방지
+        - 센서 목록 주기적 갱신 (60초 간격)
+        - WebSocket 클라이언트 있을 때만 데이터 수집 수행
+        - 예외 발생 시에도 안전한 루프 종료 보장
+        - 2초 간격 데이터 수집 및 브로드캐스트
+        """
         if self.is_running:
             return
             
@@ -104,11 +172,26 @@ class RealTimeDataCollector:
             print("🛑 실시간 데이터 수집 중지")
     
     async def stop_collection(self):
-        """실시간 데이터 수집 중지"""
+        """
+        데이터 수집 루프 안전 중지
+        
+        운영 시 중요사항:
+        - is_running 플래그를 통한 우아한 종료
+        - 마지막 WebSocket 클라이언트 연결 해제 시 자동 호출
+        - 리소스 절약을 위한 백그라운드 작업 중지
+        """
         self.is_running = False
     
     async def refresh_sensor_list(self):
-        """센서 목록 갱신"""
+        """
+        연결된 센서 목록 주기적 갱신
+        
+        운영 시 중요사항:
+        - 전체 시스템 스캔을 수행하여 센서 목록 갱신
+        - 센서 추가/제거 등 하드웨어 변경 사항 자동 반영
+        - 스캔 실패 시 기존 센서 목록 유지로 안정성 보장
+        - 60초 간격으로 주기적 실행
+        """
         try:
             scanner = get_scanner()
             scan_result = scanner.scan_dual_mux_system()
@@ -123,7 +206,16 @@ class RealTimeDataCollector:
             print(f"❌ 센서 목록 갱신 실패: {e}")
     
     async def collect_and_broadcast_data(self):
-        """센서 데이터 수집 및 브로드캐스트"""
+        """
+        전체 센서에서 데이터 수집 후 WebSocket 브로드캐스트
+        
+        운영 시 중요사항:
+        - I2C 센서: 캐시된 센서 목록에서 순차적 데이터 수집
+        - UART 센서(SPS30): 백그라운드 스레드에서 캐시된 데이터 가져오기
+        - 센서별 데이터 수집 실패 시 다른 센서 영향 없이 계속 진행
+        - 표준화된 데이터 형식으로 변환 후 브로드캐스트
+        - 데이터 수집 성공 시에만 브로드캐스트 수행
+        """
         try:
             sensor_data_list = []
             current_time = time.time()
@@ -194,11 +286,38 @@ class RealTimeDataCollector:
 data_collector = RealTimeDataCollector()
 
 def setup_websocket_routes(app):
-    """WebSocket 라우트 설정"""
+    """
+    FastAPI 애플리케이션에 WebSocket 라우트 등록
+    
+    운영 시 중요사항:
+    - /ws 엔드포인트로 실시간 센서 데이터 WebSocket 서비스
+    - 첫 클라이언트 연결 시 데이터 수집 자동 시작
+    - 마지막 클라이언트 연결 해제 시 데이터 수집 자동 중지
+    - ping/pong 메시지로 연결 상태 관리
+    - 클라이언트 요청에 따른 상태 정보 제공
+    
+    Args:
+        app: WebSocket 라우트를 등록할 FastAPI 애플리케이션
+    
+    Returns:
+        FastAPI: 라우트가 등록된 애플리케이션
+    """
     
     @app.websocket("/ws")
     async def websocket_endpoint(websocket: WebSocket):
-        """실시간 센서 데이터 WebSocket 엔드포인트"""
+        """
+        실시간 센서 데이터 WebSocket 엔드포인트
+        
+        운영 시 중요사항:
+        - WebSocket 연결 수락 후 첫 클라이언트인 경우 데이터 수집 시작
+        - 30초 타임아웃으로 끊어진 연결 감지
+        - ping/pong 메시지로 연결 상태 유지
+        - 클라이언트 요청 메시지 처리 (ping, request_status)
+        - 연결 해제 시 자동 정리 및 마지막 클라이언트인 경우 데이터 수집 중지
+        
+        Args:
+            websocket (WebSocket): 연결된 WebSocket 인스턴스
+        """
         await manager.connect(websocket)
         
         # 첫 연결 시 데이터 수집 시작
@@ -257,7 +376,18 @@ def setup_websocket_routes(app):
 
 # WebSocket 유틸리티 함수들
 async def broadcast_system_message(message_type: str, data: Any):
-    """시스템 메시지 브로드캐스트"""
+    """
+    시스템 전체 메시지 브로드캐스트
+    
+    운영 시 중요사항:
+    - 시스템 상태 변경, 오류 알림 등 중요 이벤트 전송
+    - 표준화된 메시지 형식 (type, timestamp, data)
+    - 외부 시스템에서 호출 가능한 유틸리티 함수
+    
+    Args:
+        message_type (str): 메시지 타입 식별자
+        data (Any): 전송할 데이터
+    """
     message = {
         "type": message_type,
         "timestamp": time.time(),
@@ -266,7 +396,18 @@ async def broadcast_system_message(message_type: str, data: Any):
     await manager.broadcast(json.dumps(message))
 
 async def get_connection_stats():
-    """연결 통계 반환"""
+    """
+    WebSocket 연결 및 데이터 수집기 상태 통계 정보 반환
+    
+    운영 시 중요사항:
+    - 현재 활성 WebSocket 연결 수 추적
+    - 전체 연결 시도 횟수 카운터
+    - 데이터 수집기 및 센서 캐시 상태 정보
+    - 시스템 모니터링 및 디버깅용
+    
+    Returns:
+        dict: WebSocket 및 데이터 수집기 상태 통계
+    """
     return {
         "active_connections": len(manager.active_connections),
         "total_connections": manager.connection_count,

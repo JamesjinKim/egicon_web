@@ -43,7 +43,17 @@ except ImportError as e:
     print(f"⚠️ SHT40 센서 모듈 로드 실패: {e}")
 
 class HardwareScanner:
-    """하드웨어 스캔 및 센서 감지 클래스"""
+    """
+    TCA9548A 이중 멀티플렉서 시스템 하드웨어 스캔 및 센서 감지 클래스
+    
+    운영 시 중요사항:
+    - 라즈베리파이 환경 자동 감지 후 Mock/실제 모드 분기
+    - I2C 버스 0, 1에서 TCA9548A 멀티플렉서 자동 감지
+    - 센서별 전용 스캔 기능 (SHT40, SDP810, BME688, BH1750)
+    - UART 센서 (SPS30) 포트 자동 검색
+    - 하드웨어 변경 대응을 위한 매 스캔마다 TCA9548A 재감지
+    - 센서 주소 기반 타입 자동 분류
+    """
     
     # 센서 주소 매핑 (ref/i2c_scanner.py 기반)
     SENSOR_ADDRESSES = {
@@ -77,7 +87,18 @@ class HardwareScanner:
             self._detect_tca9548a()
         
     def _check_raspberry_pi(self) -> bool:
-        """라즈베리파이 환경 확인"""
+        """
+        현재 시스템이 라즈베리파이인지 확인
+        
+        운영 시 중요사항:
+        - /proc/cpuinfo에서 Raspberry Pi 또는 BCM 키워드 확인
+        - ARM/aarch64 아키텍처 확인
+        - 개발 환경(x86)과 운영 환경(ARM) 자동 구분
+        - False 반환 시 Mock 모드로 동작
+        
+        Returns:
+            bool: 라즈베리파이 환경 여부
+        """
         try:
             # /proc/cpuinfo에서 라즈베리파이 확인
             with open('/proc/cpuinfo', 'r') as f:
@@ -91,7 +112,16 @@ class HardwareScanner:
         return platform.machine().startswith('arm') or platform.machine().startswith('aarch')
     
     def _init_i2c_buses(self):
-        """I2C 버스 0, 1 초기화"""
+        """
+        라즈베리파이 I2C 버스 0, 1 초기화
+        
+        운영 시 중요사항:
+        - 라즈베리파이 표준 I2C 버스 0, 1 사용
+        - smbus2 라이브러리를 통한 I2C 통신 초기화
+        - 버스 초기화 실패 시에도 다른 버스는 계속 진행
+        - 초기화된 버스만 self.buses 딕셔너리에 저장
+        - I2C 권한 문제 시 sudo 권한 또는 i2c 그룹 추가 필요
+        """
         for bus_num in [0, 1]:
             try:
                 bus = smbus2.SMBus(bus_num)
@@ -103,7 +133,17 @@ class HardwareScanner:
         print(f"📋 총 {len(self.buses)}개 I2C 버스 활성화: {list(self.buses.keys())}")
     
     def _detect_tca9548a(self):
-        """TCA9548A 멀티플렉서 감지 (simpleTCA9548A.py 기반) - 이중 버스 지원"""
+        """
+        TCA9548A 8채널 I2C 멀티플렉서 감지 및 설정
+        
+        운영 시 중요사항:
+        - 각 I2C 버스(0, 1)에서 독립적으로 TCA9548A 검색
+        - 주소 0x70, 0x71 범위에서 멀티플렉서 감지
+        - write 방식과 read 방식 양쪽으로 통신 테스트
+        - 감지 실패 시에도 직접 연결된 센서 스캔 가능
+        - simpleTCA9548A.py 기반의 안정적인 감지 로직
+        - 매 스캔마다 재감지하여 하드웨어 변경 대응
+        """
         print(f"🔍 TCA9548A 감지 시작: {len(self.buses)}개 버스 확인")
         
         # 각 버스별로 순환하며 독립적으로 TCA9548A 감지
@@ -148,7 +188,23 @@ class HardwareScanner:
         print(f"🏁 TCA9548A 감지 완료: {len(self.tca_info)}개 발견 {list(self.tca_info.keys())}")
     
     def _select_channel(self, bus_num: int, channel: int) -> bool:
-        """TCA9548A 채널 선택"""
+        """
+        TCA9548A 멀티플렉서의 특정 채널 활성화
+        
+        운영 시 중요사항:
+        - 채널 마스크(1 << channel) 방식으로 단일 채널 선택
+        - 50ms 대기로 채널 전환 안정화 시간 확보
+        - Mock 모드에서는 항상 성공으로 처리
+        - 채널 선택 실패 시 해당 채널 스캔 건너뛰기
+        - 센서 스캔 전에 반드시 해당 채널 선택 필요
+        
+        Args:
+            bus_num (int): I2C 버스 번호
+            channel (int): 활성화할 채널 번호 (0-7)
+        
+        Returns:
+            bool: 채널 선택 성공 여부
+        """
         if not self.is_raspberry_pi or not I2C_AVAILABLE:
             return True  # Mock 모드에서는 항상 성공
             
@@ -757,7 +813,20 @@ class HardwareScanner:
         return scan_result
     
     def scan_dual_mux_system(self) -> Dict:
-        """이중 멀티플렉서 시스템 전체 스캔 (UART 센서 포함)"""
+        """
+        TCA9548A 이중 멀티플렉서 시스템 전체 스캔 (I2C + UART 통합)
+        
+        운영 시 중요사항:
+        - I2C 버스 0, 1 모두에서 멀티플렉서 및 센서 검색
+        - SHT40, SDP810 전용 스캔으로 특화된 센서 처리
+        - UART 센서(SPS30) 검색 및 통합
+        - 매 스캔마다 TCA9548A 재감지로 하드웨어 변경 대응
+        - 센서 타입별 그룹화 및 표준화된 데이터 형식
+        - 전체 시스템 상태 및 센서 개수 통계 제공
+        
+        Returns:
+            Dict: 전체 시스템 스캔 결과 (모든 센서, 버스 정보, 통계 포함)
+        """
         scan_result = {
             "success": True,
             "timestamp": datetime.now().isoformat(),
@@ -943,21 +1012,48 @@ class HardwareScanner:
 _scanner_instance = None
 
 def get_scanner() -> HardwareScanner:
-    """싱글톤 스캐너 인스턴스 반환"""
+    """
+    전역 하드웨어 스캐너 싱글톤 인스턴스 반환
+    
+    운영 시 중요사항:
+    - 애플리케이션 전체에서 단일 스캐너 인스턴스 공유
+    - 첫 호출 시 자동으로 스캐너 인스턴스 생성
+    - I2C 리소스 충돌 방지를 위한 싱글톤 패턴
+    - 메모리 효율성 및 상태 일관성 보장
+    
+    Returns:
+        HardwareScanner: 전역 스캐너 인스턴스
+    """
     global _scanner_instance
     if _scanner_instance is None:
         _scanner_instance = HardwareScanner()
     return _scanner_instance
 
 def cleanup_scanner():
-    """스캐너 정리"""
+    """
+    전역 스캐너 인스턴스 정리 및 해제
+    
+    운영 시 중요사항:
+    - 애플리케이션 종료 시 호출하여 리소스 정리
+    - I2C 버스 및 멀티플렉서 연결 안전하게 해제
+    - 전역 인스턴스 변수 초기화
+    - 메모리 누수 방지
+    """
     global _scanner_instance
     if _scanner_instance:
         _scanner_instance.close()
         _scanner_instance = None
 
 def reset_scanner():
-    """스캐너 리셋 (TCA9548A 재감지 강제)"""
+    """
+    하드웨어 스캐너 강제 리셋 및 TCA9548A 재감지
+    
+    운영 시 중요사항:
+    - 하드웨어 구성 변경 시 (센서 추가/제거) 사용
+    - TCA9548A 멀티플렉서 정보 캐시 초기화
+    - 다음 스캔에서 하드웨어 재감지 수행
+    - API 엔드포인트에서 수동 리셋 기능 제공
+    """
     global _scanner_instance
     if _scanner_instance and _scanner_instance.is_raspberry_pi:
         print("🔄 스캐너 TCA9548A 정보 리셋")
