@@ -179,6 +179,9 @@ class EGIconDashboard {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         
+        // SHT40 차트 연속성을 위한 센서 개수 추적
+        this.lastSHT40SensorCount = 0;
+        
         // 실제 센서 데이터만 사용
 
         this.init();
@@ -3462,8 +3465,18 @@ class EGIconDashboard {
         // UI 업데이트
         this.updateSHT40SensorCount(sensors.length);
         
-        // 차트 재초기화 (센서 목록 변경 시)
-        this.initializeSHT40Charts(sensors);
+        // 차트 초기화 (처음 생성 시에만 또는 센서 개수 변경 시에만)
+        const existingTempChart = Chart.getChart('sht40-temperature-chart');
+        const existingHumidityChart = Chart.getChart('sht40-humidity-chart');
+        
+        if (!existingTempChart || !existingHumidityChart || 
+            this.lastSHT40SensorCount !== sensors.length) {
+            console.log(`🔄 SHT40 차트 재생성: 센서 개수 변경 (${this.lastSHT40SensorCount} → ${sensors.length})`);
+            this.initializeSHT40Charts(sensors);
+            this.lastSHT40SensorCount = sensors.length;
+        } else {
+            console.log(`📊 SHT40 차트 유지: 센서 목록 동일 (${sensors.length}개)`);
+        }
         
         console.log(`✅ SHT40 센서 목록 업데이트 완료: ${sensors.length}개 센서`);
     }
@@ -3506,11 +3519,15 @@ class EGIconDashboard {
                 chart.data.datasets.push(dataset);
             }
             
-            // 데이터 추가
-            dataset.data.push({
-                x: timestamp,
-                y: value
-            });
+            // 유효한 숫자 값만 추가 (null, undefined, NaN 제외)
+            if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+                dataset.data.push({
+                    x: timestamp,
+                    y: value
+                });
+            } else {
+                console.warn(`⚠️ SHT40 ${metric} 무효한 값 스킵: ${value} (센서: ${sensorId})`);
+            }
             
             // 최대 데이터 포인트 수 제한
             if (dataset.data.length > this.config.maxDataPoints) {
