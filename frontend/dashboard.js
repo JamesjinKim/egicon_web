@@ -21,10 +21,7 @@ class EGIconDashboard {
                 title: "기압/가스저항 센서",
                 icon: "📏🔬", 
                 metrics: ["pressure", "gas_resistance"],
-                sensors: {
-                    // BME688 센서 기압/가스저항 전용
-                    bme688: []  // 동적으로 발견됨
-                },
+                sensors: [],  // API 구조에 맞게 배열로 변경
                 totalSensors: 0,  // 동적으로 업데이트됨
                 containerId: "pressure-gas-widgets"
             },
@@ -1520,10 +1517,13 @@ class EGIconDashboard {
             const groupsData = await response.json();
             console.log('📡 센서 그룹 데이터:', groupsData);
             
-            // pressure-gas 그룹에서 BME688 센서 찾기
+            // pressure-gas 그룹에서 BME688 센서 찾기 (API 구조에 맞게 수정)
             const pressureGasGroup = groupsData.groups && groupsData.groups['pressure-gas'];
-            if (pressureGasGroup && pressureGasGroup.sensors && pressureGasGroup.sensors.bme688) {
-                const bme688Sensors = pressureGasGroup.sensors.bme688;
+            if (pressureGasGroup && pressureGasGroup.sensors && pressureGasGroup.sensors.length > 0) {
+                // BME688 센서만 필터링 (API에서는 sensors 배열에 직접 저장됨)
+                const bme688Sensors = pressureGasGroup.sensors.filter(sensor => 
+                    sensor.sensor_type === 'BME688'
+                );
                 console.log(`✅ BME688 센서 ${bme688Sensors.length}개 발견`, bme688Sensors);
                 
                 // 모든 BME688 센서에 대해 폴링 시작
@@ -1773,37 +1773,47 @@ class EGIconDashboard {
     updateBME688SensorFromRealData(sensor, sensorId) {
         console.log('📊 BME688 실제 센서 연결:', sensor, sensorId);
         
-        // BME688 센서 그룹의 센서 목록 업데이트 (기압/가스저항 전용)
+        // BME688 센서 그룹의 센서 목록 업데이트 (API 구조에 맞게 단순화)
         if (this.sensorGroups['pressure-gas']) {
-            // 기존 센서 목록에 추가 (누적)
-            if (!this.sensorGroups['pressure-gas'].sensors.bme688) {
-                this.sensorGroups['pressure-gas'].sensors.bme688 = [];
+            // sensors를 배열로 관리 (API 응답과 동일)
+            if (!this.sensorGroups['pressure-gas'].sensors) {
+                this.sensorGroups['pressure-gas'].sensors = [];
             }
             
-            // 중복 방지
-            if (!this.sensorGroups['pressure-gas'].sensors.bme688.includes(sensorId)) {
-                this.sensorGroups['pressure-gas'].sensors.bme688.push(sensorId);
+            // 중복 방지 (sensorId 기준)
+            const existingSensor = this.sensorGroups['pressure-gas'].sensors.find(s => 
+                s.sensorId === sensorId || s.sensor_id === sensorId
+            );
+            
+            if (!existingSensor) {
+                this.sensorGroups['pressure-gas'].sensors.push({
+                    sensor_id: sensorId,
+                    sensorId: sensorId,
+                    sensor_type: 'BME688',
+                    bus: sensor.bus,
+                    mux_channel: sensor.mux_channel
+                });
             }
             
-            this.sensorGroups['pressure-gas'].totalSensors = this.sensorGroups['pressure-gas'].sensors.bme688.length;
+            this.sensorGroups['pressure-gas'].totalSensors = this.sensorGroups['pressure-gas'].sensors.length;
         }
         
-        // 센서 상태 업데이트
+        // 센서 상태 업데이트 (수정된 구조 사용)
         const statusElement = document.getElementById('pressure-gas-status');
         if (statusElement) {
-            const sensorCount = this.sensorGroups['pressure-gas']?.sensors.bme688?.length || 1;
+            const sensorCount = this.sensorGroups['pressure-gas']?.sensors?.length || 0;
             statusElement.textContent = `${sensorCount}개 연결됨`;
             statusElement.className = 'sensor-group-status online';
         }
         
-        // 센서 그룹 요약 업데이트
-        const summaryElement = document.querySelector('[data-group="pressure-gas"] .sensor-group-summary .summary-item');
+        // 센서 그룹 요약 업데이트 (수정된 구조 사용)
+        const summaryElement = document.getElementById('pressure-gas-summary');
         if (summaryElement) {
-            const sensorCount = this.sensorGroups['pressure-gas']?.sensors.bme688?.length || 1;
+            const sensorCount = this.sensorGroups['pressure-gas']?.sensors?.length || 0;
             summaryElement.textContent = `BME688×${sensorCount}`;
         }
         
-        console.log(`✅ BME688 센서 추가 완료: ${sensorId} (총 ${this.sensorGroups['pressure-gas']?.sensors.bme688?.length || 1}개)`);
+        console.log(`✅ BME688 센서 추가 완료: ${sensorId} (총 ${this.sensorGroups['pressure-gas']?.sensors?.length || 0}개)`);
     }
 
     // BME688 다중 센서 차트 초기화
