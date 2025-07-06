@@ -1827,6 +1827,9 @@ class EGIconDashboard {
         console.log(`📊 센서 상세:`, sensors);
         
         // DOM 요소 존재 확인
+        console.log(`🔍 DOM readyState: ${document.readyState}`);
+        console.log(`🔍 전체 캔버스 목록:`, Array.from(document.querySelectorAll('canvas')).map(c => c.id));
+        
         const pressureCanvas = document.getElementById('pressure-multi-chart');
         const gasCanvas = document.getElementById('gas-resistance-multi-chart');
         
