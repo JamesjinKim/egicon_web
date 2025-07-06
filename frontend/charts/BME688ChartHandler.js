@@ -190,7 +190,7 @@ class BME688ChartHandler {
         // 기압 차트 업데이트
         if (data.pressure !== undefined) {
             const pressureChart = this.dashboard.charts['pressure-multi-chart'];
-            if (pressureChart) {
+            if (pressureChart && pressureChart.data && pressureChart.data.datasets) {
                 if (pressureChart.data.datasets[sensorIndex]) {
                     pressureChart.data.labels.push(time);
                     pressureChart.data.datasets[sensorIndex].data.push(data.pressure);
@@ -201,8 +201,16 @@ class BME688ChartHandler {
                         pressureChart.data.datasets[sensorIndex].data.shift();
                     }
                     
-                    pressureChart.update('none');
-                    console.log(`✅ 기압 차트 업데이트 [${sensorIndex}]: ${data.pressure}hPa`);
+                    try {
+                        pressureChart.update('none');
+                        console.log(`✅ 기압 차트 업데이트 [${sensorIndex}]: ${data.pressure}hPa`);
+                    } catch (updateError) {
+                        console.warn(`⚠️ 기압 차트 업데이트 실패: ${updateError.message}`);
+                        // 차트 재생성 시도
+                        setTimeout(() => {
+                            this.recreatePressureChart();
+                        }, 100);
+                    }
                 } else {
                     console.warn(`⚠️ 기압 차트 데이터셋[${sensorIndex}] 없음 (총 ${pressureChart.data.datasets.length}개 데이터셋)`);
                 }
@@ -214,7 +222,7 @@ class BME688ChartHandler {
         // 가스저항 차트 업데이트
         if (data.gas_resistance !== undefined) {
             const gasChart = this.dashboard.charts['gas-resistance-multi-chart'];
-            if (gasChart) {
+            if (gasChart && gasChart.data && gasChart.data.datasets) {
                 if (gasChart.data.datasets[sensorIndex]) {
                     gasChart.data.labels.push(time);
                     gasChart.data.datasets[sensorIndex].data.push(data.gas_resistance);
@@ -225,8 +233,16 @@ class BME688ChartHandler {
                         gasChart.data.datasets[sensorIndex].data.shift();
                     }
                     
-                    gasChart.update('none');
-                    console.log(`✅ 가스저항 차트 업데이트 [${sensorIndex}]: ${data.gas_resistance}Ω`);
+                    try {
+                        gasChart.update('none');
+                        console.log(`✅ 가스저항 차트 업데이트 [${sensorIndex}]: ${data.gas_resistance}Ω`);
+                    } catch (updateError) {
+                        console.warn(`⚠️ 가스저항 차트 업데이트 실패: ${updateError.message}`);
+                        // 차트 재생성 시도
+                        setTimeout(() => {
+                            this.recreateGasChart();
+                        }, 100);
+                    }
                 } else {
                     console.warn(`⚠️ 가스저항 차트 데이터셋[${sensorIndex}] 없음 (총 ${gasChart.data.datasets.length}개 데이터셋)`);
                 }
@@ -264,6 +280,28 @@ class BME688ChartHandler {
     // 초기화 상태 확인
     isReady() {
         return this.isInitialized;
+    }
+    
+    // 기압 차트 재생성 (오류 복구용)
+    recreatePressureChart() {
+        console.log(`🔄 기압 차트 재생성 시도`);
+        try {
+            this.createSingleSensorChart('pressure-multi-chart', 'pressure', 'BME688-1.3 기압');
+            console.log(`✅ 기압 차트 재생성 완료`);
+        } catch (error) {
+            console.error(`❌ 기압 차트 재생성 실패: ${error.message}`);
+        }
+    }
+    
+    // 가스저항 차트 재생성 (오류 복구용)
+    recreateGasChart() {
+        console.log(`🔄 가스저항 차트 재생성 시도`);
+        try {
+            this.createSingleSensorChart('gas-resistance-multi-chart', 'gas_resistance', 'BME688-1.3 가스저항');
+            console.log(`✅ 가스저항 차트 재생성 완료`);
+        } catch (error) {
+            console.error(`❌ 가스저항 차트 재생성 실패: ${error.message}`);
+        }
     }
 }
 
