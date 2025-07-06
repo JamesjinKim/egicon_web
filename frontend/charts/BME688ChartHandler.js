@@ -216,14 +216,31 @@ class BME688ChartHandler {
                 },
                 scales: {
                     x: {
+                        type: 'linear',
                         display: true,
-                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                        title: {
+                            display: true,
+                            text: '데이터 포인트'
+                        },
+                        grid: { 
+                            color: 'rgba(0, 0, 0, 0.05)' 
+                        },
+                        ticks: {
+                            maxTicksLimit: 8,
+                            stepSize: 1
+                        }
                     },
                     y: {
                         display: true,
+                        title: {
+                            display: true,
+                            text: sensorConfig.unit || sensorType
+                        },
                         min: sensorConfig.min,
                         max: sensorConfig.max,
-                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                        grid: { 
+                            color: 'rgba(0, 0, 0, 0.05)' 
+                        }
                     }
                 }
             }
@@ -313,20 +330,31 @@ class BME688ChartHandler {
         }
         
         this.isUpdating = true;
-        const time = new Date(timestamp * 1000).toLocaleTimeString();
         
         // 기압 차트 업데이트
         if (data.pressure !== undefined) {
             const pressureChart = this.dashboard.charts['pressure-multi-chart'];
             if (pressureChart && pressureChart.data && pressureChart.data.datasets) {
                 if (pressureChart.data.datasets[sensorIndex]) {
-                    pressureChart.data.labels.push(time);
-                    pressureChart.data.datasets[sensorIndex].data.push(data.pressure);
+                    // 첫 번째 센서만 X축 레이블 추가 (다른 센서들은 같은 시간축 공유)
+                    if (sensorIndex === 0) {
+                        const dataPointIndex = pressureChart.data.datasets[0].data.length;
+                        pressureChart.data.labels.push(dataPointIndex);
+                    }
+                    
+                    // Y축 데이터만 추가
+                    pressureChart.data.datasets[sensorIndex].data.push({
+                        x: pressureChart.data.datasets[sensorIndex].data.length,
+                        y: data.pressure
+                    });
                     
                     // 최대 데이터 포인트 제한
-                    if (pressureChart.data.labels.length > this.dashboard.config.maxDataPoints) {
-                        pressureChart.data.labels.shift();
+                    if (pressureChart.data.datasets[sensorIndex].data.length > this.dashboard.config.maxDataPoints) {
                         pressureChart.data.datasets[sensorIndex].data.shift();
+                        // 첫 번째 센서일 때만 레이블도 제거
+                        if (sensorIndex === 0 && pressureChart.data.labels.length > this.dashboard.config.maxDataPoints) {
+                            pressureChart.data.labels.shift();
+                        }
                     }
                     
                     try {
@@ -356,13 +384,25 @@ class BME688ChartHandler {
             const gasChart = this.dashboard.charts['gas-resistance-multi-chart'];
             if (gasChart && gasChart.data && gasChart.data.datasets) {
                 if (gasChart.data.datasets[sensorIndex]) {
-                    gasChart.data.labels.push(time);
-                    gasChart.data.datasets[sensorIndex].data.push(data.gas_resistance);
+                    // 첫 번째 센서만 X축 레이블 추가 (다른 센서들은 같은 시간축 공유)
+                    if (sensorIndex === 0) {
+                        const dataPointIndex = gasChart.data.datasets[0].data.length;
+                        gasChart.data.labels.push(dataPointIndex);
+                    }
+                    
+                    // Y축 데이터만 추가
+                    gasChart.data.datasets[sensorIndex].data.push({
+                        x: gasChart.data.datasets[sensorIndex].data.length,
+                        y: data.gas_resistance
+                    });
                     
                     // 최대 데이터 포인트 제한
-                    if (gasChart.data.labels.length > this.dashboard.config.maxDataPoints) {
-                        gasChart.data.labels.shift();
+                    if (gasChart.data.datasets[sensorIndex].data.length > this.dashboard.config.maxDataPoints) {
                         gasChart.data.datasets[sensorIndex].data.shift();
+                        // 첫 번째 센서일 때만 레이블도 제거
+                        if (sensorIndex === 0 && gasChart.data.labels.length > this.dashboard.config.maxDataPoints) {
+                            gasChart.data.labels.shift();
+                        }
                     }
                     
                     try {
