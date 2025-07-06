@@ -3370,8 +3370,10 @@ class EGIconDashboard {
         // SHT40 센서 개수 업데이트
         this.updateSHT40SensorCount(count);
         
-        // 성공한 센서 데이터만 처리
-        const successfulSensors = sensors.filter(sensor => sensor.status === 'success');
+        // 성공한 센서 데이터 및 테스트 데이터 처리
+        const successfulSensors = sensors.filter(sensor => 
+            sensor.status === 'success' || sensor.status === 'crc_skip_with_test_data'
+        );
         
         if (successfulSensors.length === 0) {
             console.log('📊 처리할 성공 데이터가 없음 (모두 CRC 스킵 또는 에러)');
