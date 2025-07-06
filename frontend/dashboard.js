@@ -1796,13 +1796,18 @@ class EGIconDashboard {
             );
             
             if (!existingSensor) {
-                this.sensorGroups['pressure-gas'].sensors.push({
+                const newSensor = {
                     sensor_id: sensorId,
                     sensorId: sensorId,
                     sensor_type: 'BME688',
                     bus: sensor.bus,
                     mux_channel: sensor.mux_channel
-                });
+                };
+                this.sensorGroups['pressure-gas'].sensors.push(newSensor);
+                console.log(`✅ BME688 센서 그룹에 추가됨: ${sensorId}`, newSensor);
+                console.log(`📊 현재 pressure-gas 그룹 센서 목록:`, this.sensorGroups['pressure-gas'].sensors);
+            } else {
+                console.log(`ℹ️ BME688 센서 이미 등록됨: ${sensorId}`);
             }
             
             this.sensorGroups['pressure-gas'].totalSensors = this.sensorGroups['pressure-gas'].sensors.length;
@@ -2821,14 +2826,24 @@ class EGIconDashboard {
         // BME688 센서의 경우 pressure-gas 그룹에서 배열 인덱스 찾기
         if (sensorId.includes('bme688')) {
             const pressureGasGroup = this.sensorGroups['pressure-gas'];
+            console.log(`🔍 BME688 그룹 상태 확인:`, pressureGasGroup);
+            
             if (pressureGasGroup && pressureGasGroup.sensors && Array.isArray(pressureGasGroup.sensors)) {
+                console.log(`🔍 BME688 그룹 센서 목록 (${pressureGasGroup.sensors.length}개):`, pressureGasGroup.sensors);
+                
                 const sensorIndex = pressureGasGroup.sensors.findIndex(sensor => 
                     sensor.sensorId === sensorId || sensor.sensor_id === sensorId
                 );
+                
                 if (sensorIndex !== -1) {
                     console.log(`🎯 BME688 센서 인덱스 찾음: ${sensorId} → 인덱스 ${sensorIndex}`);
                     return sensorIndex;
+                } else {
+                    console.warn(`❌ BME688 센서를 그룹에서 찾을 수 없음: ${sensorId}`);
+                    console.warn(`   등록된 센서들:`, pressureGasGroup.sensors.map(s => s.sensorId || s.sensor_id));
                 }
+            } else {
+                console.warn(`❌ pressure-gas 그룹이 비어있거나 배열이 아님`);
             }
         }
         
