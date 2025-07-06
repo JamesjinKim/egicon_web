@@ -1537,13 +1537,14 @@ class EGIconDashboard {
                     console.log(`🚀 BME688 폴링 시작 [${index + 1}/${bme688Sensors.length}]: ${sensorId}`, sensorInfo);
                     
                     // 각 센서마다 약간의 딜레이를 두어 동시 요청 방지
+                    // index (0-4)를 차트 데이터셋 인덱스로 사용
                     setTimeout(() => {
                         this.startBME688DataPolling(sensorId, sensorInfo, index);
                     }, index * 500); // 0.5초씩 간격
                 });
                 
-                // pressure-gas 그룹 상태 업데이트
-                this.updatePressureGasGroupStatus({ sensors: bme688Sensors });
+                // BME688 상태 위젯 초기 설정 (깜박임 방지를 위해 한 번만 설정)
+                this.initializeBME688StatusWidgets(bme688Sensors.length);
                 
                 // 다중 센서 차트 초기화 (6개 센서) - 딜레이로 안전하게
                 console.log(`⏰ BME688 차트 초기화 2초 후 예약됨...`);
@@ -1561,24 +1562,33 @@ class EGIconDashboard {
         }
     }
 
-    // pressure-gas 그룹 상태 업데이트
+    // BME688 상태 위젯 초기화 (한 번만 설정, 깜박임 방지)
+    initializeBME688StatusWidgets(sensorCount) {
+        console.log(`🔧 BME688 상태 위젯 초기화: ${sensorCount}/5 센서`);
+        
+        const statusWidget = document.getElementById('pressure-gas-status-widget');
+        if (statusWidget) {
+            statusWidget.textContent = `${sensorCount}/5 활성`;
+            console.log(`✅ BME688 상태 위젯 설정 완료: ${sensorCount}/5 활성`);
+        }
+        
+        const statusRangeElement = document.getElementById('pressure-gas-range');
+        if (statusRangeElement) {
+            statusRangeElement.textContent = sensorCount > 0 ? '정상 동작 중' : '센서 확인 중';
+        }
+        
+        // 그룹 헤더 상태도 고정
+        const groupStatusElement = document.getElementById('pressure-gas-status');
+        if (groupStatusElement) {
+            groupStatusElement.textContent = `${sensorCount}개 연결됨`;
+            groupStatusElement.className = 'sensor-group-status online';
+        }
+    }
+
+    // pressure-gas 그룹 상태 업데이트 (사용하지 않음 - 깜박임 방지를 위해 initializeBME688StatusWidgets 사용)
     updatePressureGasGroupStatus(groupData) {
-        const sensorCount = groupData.sensors.length;
-        
-        // 그룹 상태 업데이트
-        const statusElement = document.getElementById('pressure-gas-status');
-        if (statusElement) {
-            statusElement.textContent = `${sensorCount}개 연결됨`;
-            statusElement.className = 'sensor-group-status online';
-        }
-        
-        // 그룹 요약 업데이트
-        const summaryElement = document.getElementById('pressure-gas-summary');
-        if (summaryElement) {
-            summaryElement.textContent = `BME688×${sensorCount}`;
-        }
-        
-        console.log(`✅ pressure-gas 그룹 상태 업데이트: ${sensorCount}개 센서`);
+        // 깜박임 방지를 위해 비활성화됨
+        // 초기화 시에만 initializeBME688StatusWidgets()에서 설정됨
     }
     
     // SHT40 센서 초기화
@@ -3234,19 +3244,8 @@ class EGIconDashboard {
                 console.log(`✅ pressure 범위 업데이트 성공: ${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`);
             }
             
-            // BME688 센서 상태 위젯 업데이트 (pressure 메트릭에서만 1회 실행)
-            const statusWidget = document.getElementById('pressure-gas-status-widget');
-            if (statusWidget) {
-                const sensorCount = sensorData.length;
-                // 실제 연결된 센서 수에 맞춰 동적 표시 (5개 센서 기준)
-                statusWidget.textContent = `${sensorCount}/5 활성`;
-                console.log(`✅ BME688 상태 위젯 업데이트: ${sensorCount}/5 활성`);
-            }
-            
-            const statusRangeElement = document.getElementById('pressure-gas-range');
-            if (statusRangeElement) {
-                statusRangeElement.textContent = sensorData.length > 0 ? '정상 동작 중' : '센서 확인 중';
-            }
+            // BME688 센서 상태 위젯은 초기화 시에만 설정 (깜박임 방지)
+            // 실시간 업데이트에서는 상태 위젯 갱신하지 않음
             return;
         }
         
