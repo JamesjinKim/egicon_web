@@ -2883,6 +2883,8 @@ class EGIconDashboard {
 
     // 실시간 Multi-line 차트 업데이트
     updateMultiSensorChartRealtime(metric, sensorDataArray, timestamp) {
+        console.log(`🚀 updateMultiSensorChartRealtime 호출됨: metric="${metric}", 센서수=${sensorDataArray.length}`);
+        
         // 메트릭 이름을 HTML ID에 맞게 변환 (언더스코어를 하이픈으로)
         const normalizedMetric = metric.replace(/_/g, '-');
         const chartId = `${normalizedMetric}-multi-chart`;
