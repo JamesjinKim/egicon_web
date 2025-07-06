@@ -348,10 +348,9 @@ def setup_api_routes(app: FastAPI):
                 sensor_type = sensor.get("sensor_type", "").upper()
                 
                 if sensor_type == "BME688":
-                    # BME688: 온도/습도 제거, 기압/가스저항만 사용
+                    # BME688: 온도/습도 제거, 기압/가스저항만 사용 (air-quality는 SPS30 전용)
                     groups["pressure"]["sensors"].append(sensor)  # 기압 전용
                     groups["pressure-gas"]["sensors"].append(sensor)  # 메인 대시보드용 (기압+가스저항)
-                    groups["air-quality"]["sensors"].append(sensor)  # 가스저항 전용
                 elif sensor_type == "SHT40":
                     groups["sht40"]["sensors"].append(sensor)  # SHT40은 별도 그룹으로
                 elif sensor_type == "SDP810":
@@ -755,10 +754,9 @@ def setup_api_routes(app: FastAPI):
                     "address": "0x77",
                     "sensor_type": "BME688",
                     "timestamp": datetime.now().isoformat(),
-                    "data": {
-                        "pressure": bme_data.get("pressure", 0.0),
-                        "gas_resistance": bme_data.get("gas_resistance", 0)
-                    },
+                    # 프론트엔드가 기대하는 평탄한 구조로 변경
+                    "pressure": bme_data.get("pressure", 0.0),
+                    "gas_resistance": bme_data.get("gas_resistance", 0),
                     "units": {
                         "pressure": "hPa",
                         "gas_resistance": "Ω"
