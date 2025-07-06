@@ -1814,6 +1814,7 @@ class EGIconDashboard {
 
     // BME688 다중 센서 차트 초기화
     initializeBME688MultiSensorCharts(sensors) {
+        console.log(`🚨 initializeBME688MultiSensorCharts 함수 시작됨!`);
         console.log(`📊 BME688 다중 센서 차트 초기화: ${sensors.length}개 센서`);
         console.log(`📊 센서 상세:`, sensors);
         
