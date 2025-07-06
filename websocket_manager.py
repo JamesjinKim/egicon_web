@@ -338,10 +338,12 @@ class RealTimeDataCollector:
                 
                 await manager.broadcast(json.dumps(sht40_message))
                 
-                # 성공한 센서 수만 로그 출력
+                # 모든 상태 포함하여 로그 출력 (성공, CRC 스킵, 에러)
                 success_count = sum(1 for d in sht40_data if d.get('status') == 'success')
-                if success_count > 0:
-                    print(f"🌡️ SHT40 데이터 브로드캐스트: {success_count}/{len(sht40_data)}개 성공")
+                crc_skip_count = sum(1 for d in sht40_data if d.get('status') == 'crc_skip')
+                error_count = sum(1 for d in sht40_data if d.get('status') == 'error')
+                
+                print(f"🌡️ SHT40 데이터 브로드캐스트: 성공 {success_count}, CRC 스킵 {crc_skip_count}, 에러 {error_count} (총 {len(sht40_data)}개)")
                 
         except Exception as e:
             print(f"❌ SHT40 데이터 수집 실패: {e}")
