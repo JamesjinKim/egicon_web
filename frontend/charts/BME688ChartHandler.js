@@ -14,13 +14,12 @@ class BME688ChartHandler {
         this.errorCount = 0; // 연속 에러 카운트
         this.maxErrors = 5; // 최대 연속 에러 허용 수
         
-        console.log('📊 BME688ChartHandler 초기화 완료');
+        // BME688ChartHandler 초기화 완료
     }
     
     // BME688 전체 센서 차트 초기화
     initializeCharts(sensors) {
-        console.log(`🚨 BME688 전체 센서 차트 초기화 시작!`);
-        console.log(`📊 BME688 센서 ${sensors.length}개 전체 처리`);
+        console.log(`📊 BME688 차트 초기화: ${sensors.length}개 센서`);
         
         if (sensors.length === 0) {
             console.warn(`⚠️ BME688 센서가 없어 차트 생성 중단`);
@@ -47,15 +46,13 @@ class BME688ChartHandler {
             `BME688-${sensor.bus}.${sensor.mux_channel} 가스저항`
         );
         
-        console.log(`🔨 ${sensors.length}개 센서 멀티 차트 생성`);
-        console.log(`📊 기압 라벨:`, pressureLabels);
-        console.log(`📊 가스저항 라벨:`, gasLabels);
+        // 멀티 센서 차트 생성
         
         // 멀티 센서 차트 생성
         this.createMultiSensorChart('pressure-multi-chart', 'pressure', pressureLabels);
         this.createMultiSensorChart('gas-resistance-multi-chart', 'gas_resistance', gasLabels);
         
-        console.log(`✅ ${sensors.length}개 센서 차트 생성 완료`);
+        console.log(`✅ BME688 차트 생성 완료: ${sensors.length}개`);
         
         // 최종 확인
         setTimeout(() => {
@@ -73,7 +70,7 @@ class BME688ChartHandler {
 
     // 단일 센서 차트 생성 (기본 1개 데이터셋)
     createSingleSensorChart(canvasId, sensorType, label) {
-        console.log(`🔨 단일 센서 차트 생성: ${canvasId}, 라벨: ${label}`);
+        // 단일 센서 차트 생성
         
         const ctx = document.getElementById(canvasId);
         if (!ctx) {
@@ -144,13 +141,12 @@ class BME688ChartHandler {
             }
         });
         
-        console.log(`✅ 단일 센서 차트 생성 완료: ${canvasId}`);
+        // 단일 센서 차트 생성 완료
     }
 
     // 멀티 센서 차트 생성 (여러 데이터셋)
     createMultiSensorChart(canvasId, sensorType, labels) {
-        console.log(`🔨 멀티 센서 차트 생성: ${canvasId}, 라벨 수: ${labels.length}`);
-        console.log(`📊 라벨 상세:`, labels);
+        // 멀티 센서 차트 생성
         
         const ctx = document.getElementById(canvasId);
         if (!ctx) {
@@ -197,7 +193,7 @@ class BME688ChartHandler {
             pointBorderWidth: 2
         }));
         
-        console.log(`📊 실제 생성된 데이터셋:`, datasets.map((d, i) => `${i}: ${d.label}`));
+        // 실제 생성된 데이터셋
         
         this.dashboard.charts[canvasId] = new Chart(ctx, {
             type: 'line',
@@ -248,47 +244,31 @@ class BME688ChartHandler {
             }
         });
         
-        console.log(`✅ 멀티 센서 차트 생성 완료: ${canvasId} (${datasets.length}개 데이터셋)`)
+        // 멀티 센서 차트 생성 완료
     }
 
     // BME688 차트 최종 확인
     verifyCharts() {
-        console.log(`🔍 BME688 차트 최종 확인`);
-        
         const pressureChart = this.dashboard.charts['pressure-multi-chart'];
         const gasChart = this.dashboard.charts['gas-resistance-multi-chart'];
         
-        console.log(`📊 최종 차트 상태:`, {
-            'pressure-multi-chart': !!pressureChart,
-            'gas-resistance-multi-chart': !!gasChart
-        });
-        
-        if (pressureChart) {
-            console.log(`📊 pressure 차트: ${pressureChart.data.datasets.length}개 데이터셋`);
-            console.log(`📊 pressure 라벨:`, pressureChart.data.datasets.map(d => d.label));
+        if (!pressureChart || !gasChart) {
+            console.error('❌ BME688 차트 생성 실패');
+            return;
         }
         
-        if (gasChart) {
-            console.log(`📊 gas_resistance 차트: ${gasChart.data.datasets.length}개 데이터셋`);
-            console.log(`📊 gas_resistance 라벨:`, gasChart.data.datasets.map(d => d.label));
-        }
-        
-        console.log(`✅ BME688 단계별 차트 초기화 완전 완료!`);
+        console.log(`✅ BME688 차트 초기화 완료`);
     }
 
     // 실시간 데이터를 차트에 업데이트
     updateChartsWithRealtimeData(sensorId, data, timestamp) {
-        console.log(`🔄 BME688 차트 데이터 업데이트: ${sensorId}`, data);
-        
         // sensorId에서 bus와 channel 추출하여 인덱스 찾기
         const sensorIndex = this.findSensorIndex(sensorId);
         
         if (sensorIndex === -1) {
-            console.warn(`⚠️ 센서 ID ${sensorId}에 해당하는 인덱스를 찾을 수 없음`);
+            console.warn(`⚠️ BME688 센서 인덱스 찾기 실패: ${sensorId}`);
             return;
         }
-        
-        console.log(`📊 BME688 멀티 센서 데이터 차트 전달: ${sensorId} → 인덱스 ${sensorIndex}`, data);
         
         // 차트 직접 업데이트
         this.updateChartDataDirectly(sensorId, data, timestamp, sensorIndex);
@@ -311,13 +291,13 @@ class BME688ChartHandler {
             sensor.bus === bus && sensor.mux_channel === channel
         );
         
-        console.log(`🔍 센서 인덱스 검색: ${sensorId} (Bus${bus}, Ch${channel}) → 인덱스 ${index}`);
+        // 센서 인덱스 검색 완료
         return index;
     }
     
     // 차트에 직접 데이터 업데이트 (BME688 전용)
     updateChartDataDirectly(sensorId, data, timestamp, sensorIndex) {
-        console.log(`📊 BME688 차트 직접 업데이트: ${sensorId} [${sensorIndex}]`, data);
+        // BME688 차트 직접 업데이트
         
         // 연속 에러가 너무 많으면 업데이트 중단
         if (this.errorCount >= this.maxErrors) {
@@ -327,7 +307,6 @@ class BME688ChartHandler {
         
         // 이미 업데이트 중이면 건너뜀 (동시 업데이트 방지)
         if (this.isUpdating) {
-            console.log(`⏸️ BME688 차트 업데이트 중, 건너뜀`);
             return;
         }
         
@@ -374,11 +353,10 @@ class BME688ChartHandler {
                     
                     try {
                         pressureChart.update('none');
-                        console.log(`✅ 기압 차트 업데이트 [${sensorIndex}]: ${data.pressure}hPa`);
                         this.errorCount = 0; // 성공 시 에러 카운트 리셋
                     } catch (updateError) {
                         this.errorCount++;
-                        console.warn(`⚠️ 기압 차트 업데이트 실패 (${this.errorCount}/${this.maxErrors}): ${updateError.message}`);
+                        console.warn(`⚠️ BME688 기압 차트 에러 (${this.errorCount}/${this.maxErrors}): ${updateError.message}`);
                         // 차트 재생성 시도
                         if (this.errorCount < this.maxErrors) {
                             setTimeout(() => {
@@ -435,11 +413,10 @@ class BME688ChartHandler {
                     
                     try {
                         gasChart.update('none');
-                        console.log(`✅ 가스저항 차트 업데이트 [${sensorIndex}]: ${data.gas_resistance}Ω`);
                         this.errorCount = 0; // 성공 시 에러 카운트 리셋
                     } catch (updateError) {
                         this.errorCount++;
-                        console.warn(`⚠️ 가스저항 차트 업데이트 실패 (${this.errorCount}/${this.maxErrors}): ${updateError.message}`);
+                        console.warn(`⚠️ BME688 가스저항 차트 에러 (${this.errorCount}/${this.maxErrors}): ${updateError.message}`);
                         // 차트 재생성 시도
                         if (this.errorCount < this.maxErrors) {
                             setTimeout(() => {

@@ -12,18 +12,18 @@ class BME688SensorManager {
         this.chartHandler = null; // BME688ChartHandler 인스턴스
         this.latestData = []; // 각 센서의 최신 데이터 저장
         
-        console.log('🔧 BME688SensorManager 초기화 완료');
+        // BME688SensorManager 초기화 완료
     }
     
     // 차트 핸들러 설정
     setChartHandler(chartHandler) {
         this.chartHandler = chartHandler;
-        console.log('📊 BME688 차트 핸들러 연결됨');
+        // BME688 차트 핸들러 연결됨
     }
     
     // BME688 센서 그룹에 센서 추가
     addSensorToGroup(sensorData, sensorId) {
-        console.log(`📊 BME688 기압/가스저항 센서 발견: ${JSON.stringify(sensorData)} → ${sensorId}`);
+        // BME688 센서 발견
         
         const dashboard = this.dashboard;
         
@@ -51,12 +51,12 @@ class BME688SensorManager {
         dashboard.sensorGroups['pressure-gas'].sensors.push(sensorInfo);
         dashboard.sensorGroups['pressure-gas'].totalSensors = dashboard.sensorGroups['pressure-gas'].sensors.length;
 
-        console.log(`✅ BME688 센서 그룹에 추가됨: ${sensorId}`, sensorInfo);
+        // BME688 센서 그룹에 추가됨
 
         // 센서 개수 업데이트
         this.updateSensorCount();
         
-        console.log(`✅ BME688 센서 추가 완료: ${sensorId} (총 ${dashboard.sensorGroups['pressure-gas']?.sensors?.length || 0}개)`);
+        // BME688 센서 추가 완료
     }
 
     // 센서 개수 업데이트
@@ -71,7 +71,7 @@ class BME688SensorManager {
     // 감지된 BME688 센서에 대해 폴링 시작 (단일 센서 우선)
     async startPollingForDiscoveredSensors() {
         try {
-            console.log('🔍 BME688 센서 검색 및 폴링 시작...');
+            console.log('🔍 BME688 센서 검색 시작');
             
             // 센서 그룹에서 BME688 센서 찾기
             const response = await fetch('/api/sensors/groups');
@@ -80,7 +80,7 @@ class BME688SensorManager {
             }
             
             const groupsData = await response.json();
-            console.log('📡 센서 그룹 데이터:', groupsData);
+            // 센서 그룹 데이터 수신
             
             // pressure-gas 그룹에서 BME688 센서 찾기
             const pressureGasGroup = groupsData.groups && groupsData.groups['pressure-gas'];
@@ -89,7 +89,7 @@ class BME688SensorManager {
                 const bme688Sensors = pressureGasGroup.sensors.filter(sensor => 
                     sensor.sensor_type === 'BME688'
                 );
-                console.log(`✅ BME688 센서 ${bme688Sensors.length}개 발견`, bme688Sensors);
+                console.log(`✅ BME688 센서 ${bme688Sensors.length}개 발견`);
                 
                 // BME688 센서 5개 전체 처리 (Bus 1의 채널 2,3,5,6,7)
                 const targetChannels = [2, 3, 5, 6, 7]; // Bus 1의 목표 채널들
@@ -97,8 +97,7 @@ class BME688SensorManager {
                     sensor.bus === 1 && targetChannels.includes(sensor.mux_channel)
                 );
                 
-                console.log(`🎆 BME688 센서 ${validSensors.length}개 전체 처리 시작:`, 
-                    validSensors.map(s => `Bus${s.bus}:Ch${s.mux_channel}`));
+                console.log(`🚀 BME688 센서 ${validSensors.length}개 폴링 시작`);
                 
                 if (validSensors.length > 0) {
                     // 모든 유효한 센서에 대해 폴링 시작
@@ -109,7 +108,7 @@ class BME688SensorManager {
                         };
                         
                         const sensorId = `bme688_${sensor.bus}_${sensor.mux_channel}_77`;
-                        console.log(`🚀 BME688 센서 폴링 시작 [${index}]: ${sensorId}`, sensorInfo);
+                        // BME688 센서 폴링 시작
                         
                         // 각 센서마다 고유 인덱스로 폴링 시작
                         this.startDataPolling(sensorId, sensorInfo, index);
@@ -118,10 +117,8 @@ class BME688SensorManager {
                     // BME688 상태 위젯 설정 (전체 센서 개수)
                     this.initializeStatusWidgets(validSensors.length);
                     
-                    // 5개 센서 차트 초기화
-                    console.log(`⏰ BME688 전체 센서 차트 초기화 2초 후 예약됨...`);
+                    // 차트 초기화
                     setTimeout(() => {
-                        console.log(`🚀 BME688 전체 센서 차트 초기화 시작 (${validSensors.length}개)`);
                         if (this.chartHandler) {
                             this.chartHandler.initializeCharts(validSensors);
                         }
@@ -161,7 +158,7 @@ class BME688SensorManager {
 
     // 상태 위젯 초기화
     initializeStatusWidgets(sensorCount) {
-        console.log(`🔧 BME688 상태 위젯 초기화: ${sensorCount}/${sensorCount} 센서`);
+        // BME688 상태 위젯 초기화
         
         // 헤더 상태 업데이트 (pressure-gas-status)
         const headerStatusElement = document.getElementById('pressure-gas-status');
@@ -176,13 +173,12 @@ class BME688SensorManager {
             statusElement.textContent = `${sensorCount}/${sensorCount} 센서`;
         }
         
-        console.log(`✅ BME688 상태 위젯 설정 완료: ${sensorCount}개 연결됨`);
+        console.log(`✅ BME688 상태 설정: ${sensorCount}개 연결됨`);
     }
 
     // 데이터 폴링 시작
     startDataPolling(sensorId, sensor, sensorIndex) {
-        console.log(`🔄 BME688 데이터 폴링 시작: ${sensorId} (인덱스: ${sensorIndex})`, sensor);
-        console.log(`⏰ 폴링 간격: ${this.dashboard.config.updateInterval}ms`);
+        // BME688 데이터 폴링 시작
         
         // 즉시 한 번 실행
         this.fetchSensorData(sensor, sensorId, sensorIndex);
@@ -195,7 +191,7 @@ class BME688SensorManager {
         // 인터벌 ID 저장
         this.pollingIntervals.push(intervalId);
         
-        console.log(`✅ BME688 폴링 설정 완료: ${sensorId} - interval ID ${intervalId}`);
+        // BME688 폴링 설정 완료
     }
 
     // 센서 데이터 가져오기
@@ -211,7 +207,7 @@ class BME688SensorManager {
                 const gasResistance = result.data.gas_resistance;
                 const timestamp = Date.now() / 1000;
                 
-                console.log(`📊 BME688 데이터 [${sensorIndex}]: 기압=${pressure}hPa, 가스저항=${gasResistance}Ω`);
+                // BME688 데이터 수신
                 
                 // 차트 핸들러를 통한 직접 차트 업데이트 (에러 처리 추가)
                 if (this.chartHandler && this.chartHandler.isReady()) {
@@ -222,7 +218,7 @@ class BME688SensorManager {
                         }, timestamp);
                     } catch (chartError) {
                         console.warn(`⚠️ BME688 차트 업데이트 에러: ${chartError.message}`);
-                        console.log(`📦 에러 발생으로 데이터 버퍼링으로 전환`);
+                        // 에러 발생으로 데이터 버퍼링으로 전환
                         // 에러 발생 시 버퍼링으로 전환
                         this.chartHandler.bufferData(sensorId, {
                             pressure: pressure,
@@ -230,7 +226,7 @@ class BME688SensorManager {
                         }, timestamp);
                     }
                 } else {
-                    console.log(`📦 BME688ChartHandler 준비되지 않음, 데이터 버퍼링`);
+                    // BME688ChartHandler 준비되지 않음, 데이터 버퍼링
                     // 차트 핸들러가 준비되지 않은 경우 데이터를 버퍼에 저장
                     if (this.chartHandler) {
                         this.chartHandler.bufferData(sensorId, {
@@ -279,7 +275,7 @@ class BME688SensorManager {
             gasValueElement.textContent = `${Math.round(avgGasResistance)} Ω`;
         }
         
-        console.log(`✅ BME688 위젯 업데이트 완료 [${validData.length}개 센서] - 평균 기압: ${avgPressure.toFixed(2)}hPa, 평균 가스저항: ${Math.round(avgGasResistance)}Ω`);
+        // BME688 위젯 업데이트 완료
     }
 
     // 폴링 중지
@@ -288,7 +284,7 @@ class BME688SensorManager {
             clearInterval(intervalId);
         });
         this.pollingIntervals = [];
-        console.log('🛑 BME688 폴링 중지됨');
+        // BME688 폴링 중지됨
     }
 
     // 센서 목록 반환
