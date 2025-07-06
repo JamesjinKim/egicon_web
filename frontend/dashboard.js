@@ -1871,6 +1871,15 @@ class EGIconDashboard {
         this.createMultiSensorChart('gas-resistance-multi-chart', 'gas_resistance', gasLabels);
         
         console.log(`✅ BME688 다중 센서 차트 초기화 완료`);
+        
+        // 차트가 실제로 생성되었는지 확인
+        setTimeout(() => {
+            console.log(`🔍 생성된 차트 확인:`, {
+                'pressure-multi-chart': !!this.charts['pressure-multi-chart'],
+                'gas-resistance-multi-chart': !!this.charts['gas-resistance-multi-chart'],
+                chartsKeys: Object.keys(this.charts)
+            });
+        }, 100);
     }
 
     // BME688 데이터 폴링 시작 (기압/가스저항만)
