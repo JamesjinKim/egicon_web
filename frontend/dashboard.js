@@ -1564,12 +1564,12 @@ class EGIconDashboard {
 
     // BME688 상태 위젯 초기화 (한 번만 설정, 깜박임 방지)
     initializeBME688StatusWidgets(sensorCount) {
-        console.log(`🔧 BME688 상태 위젯 초기화: ${sensorCount}/5 센서`);
+        console.log(`🔧 BME688 상태 위젯 초기화: ${sensorCount}/${sensorCount} 센서`);
         
         const statusWidget = document.getElementById('pressure-gas-status-widget');
         if (statusWidget) {
-            statusWidget.textContent = `${sensorCount}/5 활성`;
-            console.log(`✅ BME688 상태 위젯 설정 완료: ${sensorCount}/5 활성`);
+            statusWidget.textContent = `${sensorCount}/${sensorCount} 활성`;
+            console.log(`✅ BME688 상태 위젯 설정 완료: ${sensorCount}/${sensorCount} 활성`);
         }
         
         const statusRangeElement = document.getElementById('pressure-gas-range');
