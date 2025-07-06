@@ -1815,10 +1815,18 @@ class EGIconDashboard {
     // BME688 다중 센서 차트 초기화
     initializeBME688MultiSensorCharts(sensors) {
         console.log(`📊 BME688 다중 센서 차트 초기화: ${sensors.length}개 센서`);
+        console.log(`📊 센서 상세:`, sensors);
         
         // DOM 요소 존재 확인
         const pressureCanvas = document.getElementById('pressure-multi-chart');
         const gasCanvas = document.getElementById('gas-resistance-multi-chart');
+        
+        console.log(`🔍 캔버스 검색 결과:`, {
+            pressure: !!pressureCanvas,
+            gas: !!gasCanvas,
+            pressureElement: pressureCanvas,
+            gasElement: gasCanvas
+        });
         
         if (!pressureCanvas || !gasCanvas) {
             console.error(`❌ BME688 차트 캔버스 요소 누락:`, {
