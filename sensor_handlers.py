@@ -605,7 +605,7 @@ async def read_all_sht40_data():
                 "timestamp": time.time()
             }
             results.append(error_data)
-            print(f"❌ SHT40 센서 읽기 실패 {sensor_config.get('location', '알 수 없음')}: {e}")
+            # SHT40 센서 읽기 실패 로그 제거 (과도한 에러 로그 방지)
     
     return results
 

@@ -75,6 +75,7 @@ class SHT40Sensor:
             self.bus.i2c_rdwr(write_msg)
             time.sleep(0.1)  # 리셋 후 충분한 대기 시간
             
+            # 연결 성공 시에만 로그 출력
             logger.info(f"SHT40 센서 연결 완료 (버스: {self.bus_num}, 주소: 0x{self.address:02X}, "
                        f"채널: {self.mux_channel})")
             return True
@@ -83,7 +84,7 @@ class SHT40Sensor:
             if self.bus:
                 self.bus.close()
                 self.bus = None
-            logger.error(f"SHT40 센서 연결 실패: {e}")
+            # 연결 실패 로그 제거, 조용히 예외만 발생
             raise e
     
     def calculate_crc(self, data):
@@ -160,16 +161,10 @@ class SHT40Sensor:
             t_crc_ok = self.verify_crc(t_data, t_crc)
             rh_crc_ok = self.verify_crc(rh_data, rh_crc)
             
-            # CRC 에러 처리 개선
+            # CRC 에러 처리 개선 (로그 출력 제거)
             if not t_crc_ok or not rh_crc_ok:
-                if not t_crc_ok:
-                    logger.warning(f"SHT40 온도 데이터 CRC 검증 실패 (센서: {self.sensor_id})")
-                if not rh_crc_ok:
-                    logger.warning(f"SHT40 습도 데이터 CRC 검증 실패 (센서: {self.sensor_id})")
-                
                 if skip_crc_errors:
-                    logger.info(f"SHT40 CRC 에러로 인한 데이터 스킵 (센서: {self.sensor_id})")
-                    return None  # CRC 에러 시 None 반환 (예외 발생하지 않음)
+                    return None  # CRC 에러 시 조용히 None 반환
             
             # 원시 데이터를 실제 값으로 변환
             t_raw = (t_data[0] << 8) | t_data[1]
@@ -182,19 +177,17 @@ class SHT40Sensor:
             # 습도를 물리적 범위로 제한
             humidity = max(0, min(100, humidity))
             
-            # 비정상적인 값 필터링 (사용자 요구사항)
+            # 비정상적인 값 필터링 (로그 출력 제거)
             if temperature > 80 or temperature < -20:  # 비정상적인 온도 범위
-                logger.warning(f"SHT40 비정상적인 온도값 스킵: {temperature}°C (센서: {self.sensor_id})")
                 return None
             
             if humidity > 95:  # 비정상적인 습도 (100%는 가능하지만 95% 이상은 의심)
-                logger.warning(f"SHT40 비정상적인 습도값 스킵: {humidity}%RH (센서: {self.sensor_id})")
                 return None
             
             return round(temperature, 2), round(humidity, 2)
             
         except Exception as e:
-            logger.error(f"SHT40 온습도 측정 실패 (센서: {self.sensor_id}): {e}")
+            # 측정 실패 로그 제거, 조용히 예외만 발생
             raise Exception(f"온습도 측정 실패: {e}")
     
     def read_with_retry(self, precision="medium", max_retries=3, base_delay=0.2):
@@ -215,37 +208,33 @@ class SHT40Sensor:
                 result = self.read_temperature_humidity(precision, skip_crc_errors=True)
                 
                 if result is not None:
-                    logger.debug(f"SHT40 측정 성공 (센서: {self.sensor_id}, 시도: {attempt + 1})")
+                    # 성공한 데이터만 로그 출력
+                    logger.info(f"SHT40 측정 성공: {result[0]}°C, {result[1]}%RH (센서: {self.sensor_id})")
                     return result
                 else:
-                    # CRC 에러나 비정상값으로 인한 None 반환 
-                    # 이 경우 재시도하지 않고 바로 None 반환하여 다음 정규 호출 사이클까지 대기
-                    logger.debug(f"SHT40 데이터 스킵 (CRC 에러 또는 비정상값, 센서: {self.sensor_id})")
+                    # CRC 에러나 비정상값으로 인한 None 반환 (로그 출력 제거)
                     return None
                     
             except Exception as e:
                 error_msg = str(e)
                 
-                # I/O 에러에 대해서만 재시도 (CRC 에러가 아닌 통신 문제)
+                # I/O 에러에 대해서만 재시도 (로그 출력 제거)
                 if "Remote I/O error" in error_msg or "121" in error_msg:
                     if attempt < max_retries - 1:  # 마지막 시도가 아닌 경우만 재시도
                         delay = base_delay * (1.5 ** attempt)  # 점진적 백오프
-                        logger.warning(f"SHT40 Remote I/O error (센서: {self.sensor_id}, 시도: {attempt + 1}), {delay:.1f}초 후 재시도")
                         time.sleep(delay)
                         continue
                 elif "Input/output error" in error_msg or "5" in error_msg:
                     if attempt < max_retries - 1:
                         delay = base_delay * 1.2
-                        logger.warning(f"SHT40 I/O error (센서: {self.sensor_id}, 시도: {attempt + 1}), {delay:.1f}초 후 재시도")
                         time.sleep(delay)
                         continue
                 
-                # 재시도할 수 없는 에러이거나 마지막 시도인 경우
-                logger.warning(f"SHT40 측정 실패 (센서: {self.sensor_id}, 시도: {attempt + 1}): {e}")
+                # 재시도할 수 없는 에러이거나 마지막 시도인 경우 (로그 출력 제거)
                 if attempt < max_retries - 1:
                     time.sleep(base_delay)
         
-        logger.error(f"SHT40 {max_retries}번 시도 후 측정 실패 (센서: {self.sensor_id})")
+        # 최종 실패 시에도 로그 출력 제거
         return None
     
     def read_serial_number(self):
