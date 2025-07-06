@@ -142,8 +142,10 @@ Thumbs.db
 *.backup
 *.orig
 
-# Development files
-test_*
+# Development files (exclude temporary test files, but keep official sensor test files)
+test_temp_*
+test_scratch_*
+test_debug_*
 debug_*
 scratch_*
 
