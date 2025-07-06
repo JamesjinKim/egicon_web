@@ -1441,7 +1441,13 @@ class EGIconDashboard {
                 console.log(`📊 센서 데이터 상세:`, sensorDataArray.map(s => `${s.sensorId}(idx:${s.sensorIndex})=${s.value}`));
                 
                 // Multi-line 차트 업데이트
-                this.updateMultiSensorChartRealtime(metric, sensorDataArray, now);
+                console.log(`🚨 updateMultiSensorChartRealtime 호출 시도: ${metric}`);
+                try {
+                    this.updateMultiSensorChartRealtime(metric, sensorDataArray, now);
+                    console.log(`✅ updateMultiSensorChartRealtime 호출 성공: ${metric}`);
+                } catch (error) {
+                    console.error(`❌ updateMultiSensorChartRealtime 호출 실패: ${metric}`, error);
+                }
                 
                 // 센서 타입에 맞는 그룹 매핑
                 const groupName = this.getGroupNameForMetric(metric);
