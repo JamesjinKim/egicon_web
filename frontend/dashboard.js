@@ -1843,6 +1843,9 @@ class EGIconDashboard {
             `BME688-${sensor.bus}.${sensor.mux_channel} 가스저항`
         );
         
+        console.log(`📊 생성된 라벨들:`, { pressureLabels, gasLabels });
+        console.log(`📊 센서 개수: ${sensors.length}개`);
+        
         // 기존 차트 파괴 후 다중 센서 차트 생성 (HTML ID 사용)
         this.createMultiSensorChart('pressure-multi-chart', 'pressure', pressureLabels);
         this.createMultiSensorChart('gas-resistance-multi-chart', 'gas_resistance', gasLabels);
