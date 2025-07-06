@@ -263,6 +263,85 @@ class BME688Sensor {
         
         console.log(`✅ BME688 단계별 차트 초기화 완전 완료!`);
     }
+
+    // 실시간 데이터를 차트에 업데이트
+    updateChartsWithRealtimeData(sensorId, data, timestamp) {
+        console.log(`🔄 BME688 차트 데이터 업데이트: ${sensorId}`, data);
+        
+        // 센서 인덱스 찾기
+        const sensorIndex = this.dashboard.extractSensorIndex(sensorId);
+        if (sensorIndex === -1) {
+            console.warn(`⚠️ BME688 센서 인덱스 찾을 수 없음: ${sensorId}`);
+            return;
+        }
+        
+        console.log(`📊 BME688 데이터 차트 전달: ${sensorId} → 인덱스 ${sensorIndex}`, data);
+        
+        // 기압 데이터 업데이트
+        if (data.pressure !== undefined) {
+            this.addDataToChart('pressure-multi-chart', sensorIndex, data.pressure, timestamp);
+        }
+        
+        // 가스저항 데이터 업데이트
+        if (data.gas_resistance !== undefined) {
+            this.addDataToChart('gas-resistance-multi-chart', sensorIndex, data.gas_resistance, timestamp);
+        }
+    }
+
+    // 차트에 실제 데이터 포인트 추가
+    addDataToChart(chartId, datasetIndex, value, timestamp) {
+        const chart = this.dashboard.charts[chartId];
+        if (!chart) {
+            console.error(`❌ 차트 없음: ${chartId}`);
+            return;
+        }
+        
+        if (datasetIndex >= chart.data.datasets.length) {
+            console.error(`❌ 데이터셋 인덱스 초과: ${datasetIndex} >= ${chart.data.datasets.length}`);
+            return;
+        }
+        
+        const timeLabel = new Date(timestamp).toLocaleTimeString();
+        
+        // 라벨 추가 (첫 번째 데이터셋 기준)
+        if (datasetIndex === 0) {
+            chart.data.labels.push(timeLabel);
+            
+            // 최대 데이터 포인트 제한
+            if (chart.data.labels.length > this.dashboard.config.maxDataPoints) {
+                chart.data.labels.shift();
+            }
+        }
+        
+        // 해당 데이터셋에 값 추가
+        chart.data.datasets[datasetIndex].data.push(value);
+        
+        // 최대 데이터 포인트 제한
+        if (chart.data.datasets[datasetIndex].data.length > this.dashboard.config.maxDataPoints) {
+            chart.data.datasets[datasetIndex].data.shift();
+        }
+        
+        // 다른 데이터셋들도 길이 맞추기 (null로 채우기)
+        chart.data.datasets.forEach((dataset, idx) => {
+            if (idx !== datasetIndex && dataset.data.length < chart.data.labels.length) {
+                dataset.data.push(null);
+            }
+            // 길이 제한
+            if (dataset.data.length > this.dashboard.config.maxDataPoints) {
+                dataset.data.shift();
+            }
+        });
+        
+        // 차트 업데이트
+        chart.update('none');
+        
+        console.log(`✅ 차트 데이터 추가: ${chartId}[${datasetIndex}] = ${value}`);
+    }
+
+    // 초기화 완료 상태 확인
+    isReady() {
+        return this.isInitialized;
+    }
 }
 
 class EGIconDashboard {
@@ -2354,8 +2433,17 @@ class EGIconDashboard {
                 
                 console.log(`📊 BME688 데이터 [${sensorIndex}]: 기압=${pressure}hPa, 가스저항=${gasResistance}Ω`);
                 
-                // 다중 센서 차트 업데이트를 위해 기존 WebSocket 데이터 처리 시스템 활용
-                this.handleRealtimeData([pressureData, gasResistanceData]);
+                // BME688Sensor 클래스를 통한 직접 차트 업데이트
+                if (this.bme688Sensor && this.bme688Sensor.isReady()) {
+                    this.bme688Sensor.updateChartsWithRealtimeData(sensorId, {
+                        pressure: pressure,
+                        gas_resistance: gasResistance
+                    }, timestamp);
+                } else {
+                    console.log(`⚠️ BME688Sensor 준비되지 않음, 기존 방식 사용`);
+                    // 다중 센서 차트 업데이트를 위해 기존 WebSocket 데이터 처리 시스템 활용
+                    this.handleRealtimeData([pressureData, gasResistanceData]);
+                }
                 
                 // 위젯 업데이트 (첫 번째 센서 기준)
                 if (sensorIndex === 0) {
