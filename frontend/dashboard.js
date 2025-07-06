@@ -16,8 +16,34 @@ class BME688Sensor {
         this.sensors = [];
         this.pollingIntervals = [];
         this.isInitialized = false;
+        this.pendingData = []; // 초기화 전에 받은 데이터 버퍼
         
         console.log('📊 BME688Sensor 클래스 초기화 완료');
+    }
+    
+    // 대기 중인 데이터 버퍼에 추가
+    bufferData(sensorId, data, timestamp) {
+        this.pendingData.push({ sensorId, data, timestamp });
+        console.log(`📦 BME688 데이터 버퍼에 추가: ${sensorId} (총 ${this.pendingData.length}개)`);
+    }
+    
+    // 대기 중인 데이터 처리
+    processPendingData() {
+        if (this.pendingData.length === 0) {
+            console.log(`✅ BME688 대기 데이터 없음`);
+            return;
+        }
+        
+        console.log(`🔄 BME688 대기 데이터 ${this.pendingData.length}개 처리 시작`);
+        
+        const dataToProcess = [...this.pendingData];
+        this.pendingData = []; // 버퍼 초기화
+        
+        dataToProcess.forEach(({ sensorId, data, timestamp }) => {
+            this.updateChartsWithRealtimeData(sensorId, data, timestamp);
+        });
+        
+        console.log(`✅ BME688 대기 데이터 처리 완료`);
     }
 
     // BME688 센서 그룹에 센서 추가
@@ -277,6 +303,9 @@ class BME688Sensor {
         
         console.log(`📊 BME688 데이터 차트 전달: ${sensorId} → 인덱스 ${sensorIndex}`, data);
         
+        // 차트 직접 업데이트
+        this.updateChartDataDirectly(sensorId, data, timestamp, sensorIndex);
+        
         // 기압 데이터 업데이트
         if (data.pressure !== undefined) {
             this.addDataToChart('pressure-multi-chart', sensorIndex, data.pressure, timestamp);
@@ -341,6 +370,53 @@ class BME688Sensor {
     // 초기화 완료 상태 확인
     isReady() {
         return this.isInitialized;
+    }
+    
+    // 차트에 직접 데이터 업데이트 (BME688 전용)
+    updateChartDataDirectly(sensorId, data, timestamp, sensorIndex) {
+        console.log(`📊 BME688 차트 직접 업데이트: ${sensorId} [${sensorIndex}]`, data);
+        
+        const time = new Date(timestamp * 1000).toLocaleTimeString();
+        
+        // 기압 차트 업데이트
+        if (data.pressure !== undefined) {
+            const pressureChart = this.dashboard.charts['pressure-multi-chart'];
+            if (pressureChart && pressureChart.data.datasets[sensorIndex]) {
+                pressureChart.data.labels.push(time);
+                pressureChart.data.datasets[sensorIndex].data.push(data.pressure);
+                
+                // 최대 데이터 포인트 제한
+                if (pressureChart.data.labels.length > this.dashboard.config.maxDataPoints) {
+                    pressureChart.data.labels.shift();
+                    pressureChart.data.datasets[sensorIndex].data.shift();
+                }
+                
+                pressureChart.update('none');
+                console.log(`✅ 기압 차트 업데이트 [${sensorIndex}]: ${data.pressure}hPa`);
+            } else {
+                console.warn(`⚠️ 기압 차트 또는 데이터셋[${sensorIndex}] 없음`);
+            }
+        }
+        
+        // 가스저항 차트 업데이트
+        if (data.gas_resistance !== undefined) {
+            const gasChart = this.dashboard.charts['gas-resistance-multi-chart'];
+            if (gasChart && gasChart.data.datasets[sensorIndex]) {
+                gasChart.data.labels.push(time);
+                gasChart.data.datasets[sensorIndex].data.push(data.gas_resistance);
+                
+                // 최대 데이터 포인트 제한
+                if (gasChart.data.labels.length > this.dashboard.config.maxDataPoints) {
+                    gasChart.data.labels.shift();
+                    gasChart.data.datasets[sensorIndex].data.shift();
+                }
+                
+                gasChart.update('none');
+                console.log(`✅ 가스저항 차트 업데이트 [${sensorIndex}]: ${data.gas_resistance}Ω`);
+            } else {
+                console.warn(`⚠️ 가스저항 차트 또는 데이터셋[${sensorIndex}] 없음`);
+            }
+        }
     }
 }
 
@@ -2440,9 +2516,17 @@ class EGIconDashboard {
                         gas_resistance: gasResistance
                     }, timestamp);
                 } else {
-                    console.log(`⚠️ BME688Sensor 준비되지 않음, 기존 방식 사용`);
-                    // 다중 센서 차트 업데이트를 위해 기존 WebSocket 데이터 처리 시스템 활용
-                    this.handleRealtimeData([pressureData, gasResistanceData]);
+                    console.log(`📦 BME688Sensor 준비되지 않음, 데이터 버퍼링`);
+                    // BME688Sensor가 준비되지 않은 경우 데이터를 버퍼에 저장
+                    if (this.bme688Sensor) {
+                        this.bme688Sensor.bufferData(sensorId, {
+                            pressure: pressure,
+                            gas_resistance: gasResistance
+                        }, timestamp);
+                    } else {
+                        // 폴백: 기존 방식 사용
+                        this.handleRealtimeData([pressureData, gasResistanceData]);
+                    }
                 }
                 
                 // 위젯 업데이트 (첫 번째 센서 기준)
