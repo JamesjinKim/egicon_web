@@ -1785,8 +1785,9 @@ class EGIconDashboard {
         
         // BME688 센서 그룹의 센서 목록 업데이트 (API 구조에 맞게 단순화)
         if (this.sensorGroups['pressure-gas']) {
-            // sensors를 배열로 관리 (API 응답과 동일)
-            if (!this.sensorGroups['pressure-gas'].sensors) {
+            // sensors를 배열로 강제 초기화 (API 응답과 동일)
+            if (!this.sensorGroups['pressure-gas'].sensors || !Array.isArray(this.sensorGroups['pressure-gas'].sensors)) {
+                console.warn(`🔧 pressure-gas.sensors 배열로 강제 초기화 (기존 타입: ${typeof this.sensorGroups['pressure-gas'].sensors})`);
                 this.sensorGroups['pressure-gas'].sensors = [];
             }
             
