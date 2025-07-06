@@ -3486,7 +3486,14 @@ class EGIconDashboard {
             
             if (!dataset) {
                 // 새 센서면 데이터셋 생성
-                const color = this.getSensorColor(chart.data.datasets.length);
+                let color;
+                if (metric === 'humidity') {
+                    const blueColors = ['#1e90ff', '#4169e1', '#0000ff', '#6495ed', '#87ceeb', '#5f9ea0'];
+                    color = blueColors[chart.data.datasets.length % blueColors.length];
+                } else {
+                    color = this.getSensorColor(chart.data.datasets.length);
+                }
+                
                 dataset = {
                     label: sensorData.location || sensorId,
                     data: [],
@@ -3588,15 +3595,26 @@ class EGIconDashboard {
         const chart = new Chart(ctx, {
             type: 'line',
             data: {
-                datasets: Array.isArray(sensors) ? sensors.map((sensor, index) => ({
-                    label: sensor.location || sensor.sensor_id,
-                    data: [],
-                    borderColor: this.getSensorColor(index),
-                    backgroundColor: this.getSensorColor(index) + '20',
-                    fill: false,
-                    tension: 0.1,
-                    sensorId: sensor.sensor_id
-                })) : []
+                datasets: Array.isArray(sensors) ? sensors.map((sensor, index) => {
+                    // 습도 차트는 파란색 계열, 온도 차트는 기본 색상 팔레트 사용
+                    let color;
+                    if (metric === 'humidity') {
+                        const blueColors = ['#1e90ff', '#4169e1', '#0000ff', '#6495ed', '#87ceeb', '#5f9ea0'];
+                        color = blueColors[index % blueColors.length];
+                    } else {
+                        color = this.getSensorColor(index);
+                    }
+                    
+                    return {
+                        label: sensor.location || sensor.sensor_id,
+                        data: [],
+                        borderColor: color,
+                        backgroundColor: color + '20',
+                        fill: false,
+                        tension: 0.1,
+                        sensorId: sensor.sensor_id
+                    };
+                }) : []
             },
             options: {
                 responsive: true,
