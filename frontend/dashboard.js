@@ -1890,8 +1890,8 @@ class EGIconDashboard {
             const result = await response.json();
             
             if (result.success && result.data) {
-                const pressure = result.data.data.pressure;
-                const gasResistance = result.data.data.gas_resistance;
+                const pressure = result.data.pressure;
+                const gasResistance = result.data.gas_resistance;
                 const timestamp = new Date(result.data.timestamp);
                 
                 // 다중 센서 시스템용 데이터 형식
