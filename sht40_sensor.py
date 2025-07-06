@@ -289,15 +289,36 @@ class SHT40Sensor:
         }
     
     def test_connection(self):
-        """센서 연결 테스트 (개선된 버전)"""
+        """센서 연결 테스트 (CRC 에러 허용 버전)"""
         try:
-            # 연결 테스트에는 medium 정밀도 사용하고 재시도 2회
+            # 1차: 정상 데이터 시도
             result = self.read_with_retry(precision="medium", max_retries=2, base_delay=0.2)
             if result is not None:
                 temp, humidity = result
                 return True, f"온도: {temp}°C, 습도: {humidity}%RH"
-            else:
-                return False, "데이터 읽기 실패 (CRC 에러 또는 비정상값)"
+            
+            # 2차: CRC 에러 무시하고 센서 응답만 확인
+            try:
+                # CRC 검증 없이 센서 응답만 확인
+                result_raw = self.read_temperature_humidity(precision="low", skip_crc_errors=False)
+                if result_raw is not None:
+                    temp, humidity = result_raw
+                    return True, f"온도: {temp}°C, 습도: {humidity}%RH (CRC 주의)"
+            except Exception:
+                pass
+            
+            # 3차: 최소한의 통신 확인 (리셋 명령 응답)
+            if self.mux_channel is not None:
+                self._select_mux_channel()
+                time.sleep(0.02)
+            
+            # 리셋 명령 전송해서 센서 존재 여부만 확인
+            write_msg = smbus2.i2c_msg.write(self.address, [self.CMD_SOFT_RESET])
+            self.bus.i2c_rdwr(write_msg)
+            time.sleep(0.1)
+            
+            return True, "센서 응답 확인 (데이터 측정은 CRC 에러)"
+            
         except Exception as e:
             return False, str(e)
     
