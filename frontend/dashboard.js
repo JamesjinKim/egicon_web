@@ -1430,6 +1430,7 @@ class EGIconDashboard {
         Object.entries(groupedData).forEach(([metric, sensorDataArray]) => {
             if (sensorDataArray.length > 0) {
                 console.log(`🔍 그룹 데이터 처리: ${metric} - ${sensorDataArray.length}개 센서`);
+                console.log(`📊 센서 데이터 상세:`, sensorDataArray.map(s => `${s.sensorId}(idx:${s.sensorIndex})=${s.value}`));
                 
                 // Multi-line 차트 업데이트
                 this.updateMultiSensorChartRealtime(metric, sensorDataArray, now);
