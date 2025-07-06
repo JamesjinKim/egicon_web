@@ -880,6 +880,14 @@ class EGIconDashboard {
         console.log(`📊 다중 센서 차트 생성 시작: ${canvasId}, 타입: ${sensorType}, 라벨: ${sensorLabels.length}개`);
         console.log(`📊 라벨 상세:`, sensorLabels);
         
+        // BME688 차트 중복 생성 방지
+        if ((canvasId === 'pressure-multi-chart' || canvasId === 'gas-resistance-multi-chart') && 
+            this.charts[canvasId] && 
+            this.charts[canvasId].data.datasets.length === 5) {
+            console.log(`⚠️ BME688 차트 ${canvasId} 이미 5개 데이터셋으로 생성됨, 중복 생성 방지`);
+            return;
+        }
+        
         // DOM 로드 확인
         if (document.readyState !== 'complete') {
             console.log(`⏳ DOM 로드 대기 중... readyState: ${document.readyState}`);
@@ -1827,83 +1835,199 @@ class EGIconDashboard {
         console.log(`✅ BME688 센서 추가 완료: ${sensorId} (총 ${this.sensorGroups['pressure-gas']?.sensors?.length || 0}개)`);
     }
 
-    // BME688 다중 센서 차트 초기화
+    // BME688 단계별 차트 초기화 (첫 번째 센서로 기본 차트 생성)
     initializeBME688MultiSensorCharts(sensors) {
-        console.log(`🚨 initializeBME688MultiSensorCharts 함수 시작됨!`);
-        console.log(`📊 BME688 다중 센서 차트 초기화: ${sensors.length}개 센서`);
-        console.log(`📊 센서 상세:`, sensors);
+        console.log(`🚨 BME688 단계별 차트 초기화 시작!`);
+        console.log(`📊 BME688 센서 ${sensors.length}개 단계별 처리`);
+        
+        if (sensors.length === 0) {
+            console.warn(`⚠️ BME688 센서가 없어 차트 생성 중단`);
+            return;
+        }
         
         // DOM 요소 존재 확인
-        console.log(`🔍 DOM readyState: ${document.readyState}`);
-        console.log(`🔍 전체 캔버스 목록:`, Array.from(document.querySelectorAll('canvas')).map(c => c.id));
-        
         const pressureCanvas = document.getElementById('pressure-multi-chart');
         const gasCanvas = document.getElementById('gas-resistance-multi-chart');
         
-        console.log(`🔍 캔버스 검색 결과:`, {
-            pressure: !!pressureCanvas,
-            gas: !!gasCanvas,
-            pressureElement: pressureCanvas,
-            gasElement: gasCanvas
-        });
-        
         if (!pressureCanvas || !gasCanvas) {
-            console.error(`❌ BME688 차트 캔버스 요소 누락:`, {
-                pressure: !!pressureCanvas,
-                gas: !!gasCanvas
-            });
-            
-            // 1초 후 재시도
+            console.error(`❌ 캔버스 요소 누락, 1초 후 재시도`);
             setTimeout(() => {
                 this.initializeBME688MultiSensorCharts(sensors);
             }, 1000);
             return;
         }
         
-        // 기압 차트용 센서 라벨 생성
-        const pressureLabels = sensors.map((sensor, index) => 
-            `BME688-${sensor.bus}.${sensor.mux_channel} 기압`
-        );
+        // 1단계: 첫 번째 센서로 기본 차트 생성
+        const firstSensor = sensors[0];
+        console.log(`🔨 1단계: 첫 번째 센서로 기본 차트 생성`, firstSensor);
         
-        // 가스저항 차트용 센서 라벨 생성  
-        const gasLabels = sensors.map((sensor, index) => 
-            `BME688-${sensor.bus}.${sensor.mux_channel} 가스저항`
-        );
+        const firstPressureLabel = `BME688-${firstSensor.bus}.${firstSensor.mux_channel} 기압`;
+        const firstGasLabel = `BME688-${firstSensor.bus}.${firstSensor.mux_channel} 가스저항`;
         
-        console.log(`📊 생성된 라벨들:`, { pressureLabels, gasLabels });
-        console.log(`📊 센서 개수: ${sensors.length}개`);
+        // 기본 차트 생성 (1개 데이터셋)
+        this.createSingleSensorChart('pressure-multi-chart', 'pressure', firstPressureLabel);
+        this.createSingleSensorChart('gas-resistance-multi-chart', 'gas_resistance', firstGasLabel);
         
-        // 기존 차트 파괴 후 다중 센서 차트 생성 (HTML ID 사용)
-        this.createMultiSensorChart('pressure-multi-chart', 'pressure', pressureLabels);
-        this.createMultiSensorChart('gas-resistance-multi-chart', 'gas_resistance', gasLabels);
+        console.log(`✅ 1단계 완료: 기본 차트 생성됨`);
         
-        console.log(`✅ BME688 다중 센서 차트 초기화 완료`);
+        // 2단계: 나머지 센서들을 순차적으로 추가
+        if (sensors.length > 1) {
+            console.log(`🔨 2단계: 나머지 ${sensors.length - 1}개 센서 추가 시작`);
+            
+            for (let i = 1; i < sensors.length; i++) {
+                const sensor = sensors[i];
+                const pressureLabel = `BME688-${sensor.bus}.${sensor.mux_channel} 기압`;
+                const gasLabel = `BME688-${sensor.bus}.${sensor.mux_channel} 가스저항`;
+                
+                console.log(`➕ 센서 ${i + 1}/${sensors.length} 추가: ${sensor.bus}.${sensor.mux_channel}`);
+                
+                this.addDatasetToChart('pressure-multi-chart', pressureLabel, i);
+                this.addDatasetToChart('gas-resistance-multi-chart', gasLabel, i);
+            }
+            
+            console.log(`✅ 2단계 완료: 모든 센서 추가됨`);
+        }
         
-        // 차트가 실제로 생성되었는지 확인
+        // 최종 확인
         setTimeout(() => {
-            const pressureChart = this.charts['pressure-multi-chart'];
-            const gasChart = this.charts['gas-resistance-multi-chart'];
-            
-            console.log(`🔍 생성된 차트 확인:`, {
-                'pressure-multi-chart': !!pressureChart,
-                'gas-resistance-multi-chart': !!gasChart,
-                chartsKeys: Object.keys(this.charts)
-            });
-            
-            if (pressureChart) {
-                console.log(`📊 pressure 차트 데이터셋:`, {
-                    count: pressureChart.data.datasets.length,
-                    labels: pressureChart.data.datasets.map(d => d.label)
-                });
-            }
-            
-            if (gasChart) {
-                console.log(`📊 gas_resistance 차트 데이터셋:`, {
-                    count: gasChart.data.datasets.length,
-                    labels: gasChart.data.datasets.map(d => d.label)
-                });
-            }
+            this.verifyBME688Charts();
         }, 100);
+    }
+
+    // 단일 센서 차트 생성 (기본 1개 데이터셋)
+    createSingleSensorChart(canvasId, sensorType, label) {
+        console.log(`🔨 단일 센서 차트 생성: ${canvasId}, 라벨: ${label}`);
+        
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) {
+            console.error(`❌ 캔버스 요소 없음: ${canvasId}`);
+            return;
+        }
+        
+        // 기존 차트 파괴
+        const existingChart = Chart.getChart(canvasId);
+        if (existingChart) {
+            console.log(`🗑️ 기존 차트 파괴: ${canvasId}`);
+            existingChart.destroy();
+        }
+        
+        if (this.charts[canvasId]) {
+            delete this.charts[canvasId];
+        }
+        
+        const sensorConfig = this.sensorTypes[sensorType];
+        if (!sensorConfig) {
+            console.error(`❌ 센서 설정 없음: ${sensorType}`);
+            return;
+        }
+        
+        // 첫 번째 데이터셋 생성
+        const dataset = {
+            label: label,
+            data: [],
+            borderColor: '#ff6384',
+            backgroundColor: '#ff638420',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.4,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#ff6384',
+            pointBorderWidth: 2
+        };
+        
+        this.charts[canvasId] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [dataset]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                    },
+                    y: {
+                        display: true,
+                        min: sensorConfig.min,
+                        max: sensorConfig.max,
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                    }
+                }
+            }
+        });
+        
+        console.log(`✅ 단일 센서 차트 생성 완료: ${canvasId}`);
+    }
+
+    // 기존 차트에 데이터셋 추가
+    addDatasetToChart(canvasId, label, index) {
+        console.log(`➕ 데이터셋 추가: ${canvasId}, 라벨: ${label}, 인덱스: ${index}`);
+        
+        const chart = this.charts[canvasId];
+        if (!chart) {
+            console.error(`❌ 차트 없음: ${canvasId}`);
+            return;
+        }
+        
+        // 색상 팔레트
+        const colors = ['#ff6384', '#36a2eb', '#4bc0c0', '#ff9f40', '#9966ff'];
+        const color = colors[index % colors.length];
+        
+        const newDataset = {
+            label: label,
+            data: [],
+            borderColor: color,
+            backgroundColor: color + '20',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.4,
+            pointRadius: 2,
+            pointHoverRadius: 5,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: color,
+            pointBorderWidth: 2
+        };
+        
+        chart.data.datasets.push(newDataset);
+        chart.update('none'); // 애니메이션 없이 업데이트
+        
+        console.log(`✅ 데이터셋 추가 완료: ${canvasId} (총 ${chart.data.datasets.length}개)`);
+    }
+
+    // BME688 차트 최종 확인
+    verifyBME688Charts() {
+        console.log(`🔍 BME688 차트 최종 확인`);
+        
+        const pressureChart = this.charts['pressure-multi-chart'];
+        const gasChart = this.charts['gas-resistance-multi-chart'];
+        
+        console.log(`📊 최종 차트 상태:`, {
+            'pressure-multi-chart': !!pressureChart,
+            'gas-resistance-multi-chart': !!gasChart
+        });
+        
+        if (pressureChart) {
+            console.log(`📊 pressure 차트: ${pressureChart.data.datasets.length}개 데이터셋`);
+            console.log(`📊 pressure 라벨:`, pressureChart.data.datasets.map(d => d.label));
+        }
+        
+        if (gasChart) {
+            console.log(`📊 gas_resistance 차트: ${gasChart.data.datasets.length}개 데이터셋`);
+            console.log(`📊 gas_resistance 라벨:`, gasChart.data.datasets.map(d => d.label));
+        }
+        
+        console.log(`✅ BME688 단계별 차트 초기화 완전 완료!`);
     }
 
     // BME688 데이터 폴링 시작 (기압/가스저항만)
