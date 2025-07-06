@@ -1815,13 +1815,7 @@ class EGIconDashboard {
             this.sensorGroups['pressure-gas'].totalSensors = this.sensorGroups['pressure-gas'].sensors.length;
         }
         
-        // 센서 상태 업데이트 (수정된 구조 사용)
-        const statusElement = document.getElementById('pressure-gas-status');
-        if (statusElement) {
-            const sensorCount = this.sensorGroups['pressure-gas']?.sensors?.length || 0;
-            statusElement.textContent = `${sensorCount}개 연결됨`;
-            statusElement.className = 'sensor-group-status online';
-        }
+        // 센서 상태는 initializeBME688StatusWidgets에서 이미 설정됨 (중복 방지)
         
         // 센서 그룹 요약 업데이트 (수정된 구조 사용)
         const summaryElement = document.getElementById('pressure-gas-summary');
@@ -2126,15 +2120,7 @@ class EGIconDashboard {
             statusRangeElement.textContent = '정상 동작 중';
         }
         
-        // 그룹 헤더 상태 업데이트 (실제 BME688 센서 수 사용)
-        const groupStatusElement = document.getElementById('pressure-gas-status');
-        if (groupStatusElement) {
-            const sensorCount = this.sensorGroups['pressure-gas']?.sensors?.bme688?.length || 0;
-            if (sensorCount > 0) {
-                groupStatusElement.textContent = `${sensorCount}개 연결됨`;
-                groupStatusElement.className = 'sensor-group-status online';
-            }
-        }
+        // 그룹 헤더 상태는 initializeBME688StatusWidgets에서 이미 설정됨 (중복 방지)
         
         // 그룹 요약 업데이트 (실제 BME688 센서 수 사용)
         const groupSummaryElement = document.getElementById('pressure-gas-summary');
