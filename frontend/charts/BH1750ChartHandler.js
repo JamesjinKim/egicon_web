@@ -182,13 +182,44 @@ class BH1750ChartHandler {
                 isVisible: getComputedStyle(ctx).display !== 'none'
             });
             
-            // 차트 렌더링 강제 수행
+            // 차트 렌더링 강제 수행 및 표시 상태 확인
             setTimeout(() => {
                 if (this.dashboard.charts[canvasId]) {
                     try {
+                        const canvas = document.getElementById(canvasId);
+                        console.log(`🖼️ 차트 캔버스 표시 상태 확인:`, {
+                            canvasId: canvasId,
+                            canvasExists: !!canvas,
+                            canvasSize: canvas ? {width: canvas.width, height: canvas.height} : null,
+                            canvasStyle: canvas ? {
+                                display: getComputedStyle(canvas).display,
+                                visibility: getComputedStyle(canvas).visibility,
+                                width: getComputedStyle(canvas).width,
+                                height: getComputedStyle(canvas).height
+                            } : null,
+                            parentContainer: canvas ? {
+                                display: getComputedStyle(canvas.parentElement).display,
+                                visibility: getComputedStyle(canvas.parentElement).visibility
+                            } : null
+                        });
+                        
                         this.dashboard.charts[canvasId].resize();
                         this.dashboard.charts[canvasId].update();
                         console.log(`🔄 BH1750 차트 강제 렌더링 완료: ${canvasId}`);
+                        
+                        // 데이터 포인트 수 확인
+                        const chart = this.dashboard.charts[canvasId];
+                        if (chart.data && chart.data.datasets) {
+                            console.log(`📊 차트 데이터 상태:`, {
+                                datasetCount: chart.data.datasets.length,
+                                datasets: chart.data.datasets.map((ds, i) => ({
+                                    index: i,
+                                    label: ds.label,
+                                    dataPoints: ds.data.length,
+                                    lastPoint: ds.data[ds.data.length - 1]
+                                }))
+                            });
+                        }
                     } catch (renderError) {
                         console.warn(`⚠️ BH1750 차트 강제 렌더링 실패: ${renderError.message}`);
                     }
