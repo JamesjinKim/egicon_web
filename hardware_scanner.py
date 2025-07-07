@@ -536,6 +536,199 @@ class HardwareScanner:
         except Exception as e:
             return False
 
+    def scan_bh1750_sensors(self) -> List[Dict]:
+        """BH1750 조도 센서 동적 스캔 (모든 채널 검색)"""
+        print("🔍 BH1750 조도 센서 동적 스캔 시작...")
+        bh1750_devices = []
+        
+        if not self.is_raspberry_pi or not I2C_AVAILABLE:
+            # Mock 데이터 반환 (개발 환경)
+            mock_bh1750_devices = [
+                {
+                    "sensor_type": "BH1750",
+                    "sensor_id": "bh1750_1_4_23",
+                    "bus": 1,
+                    "address": "0x23",
+                    "mux_channel": 4,
+                    "mux_address": "0x70",
+                    "display_channel": 12,
+                    "location": "Bus 1, CH 12",
+                    "interface": "I2C",
+                    "status": "connected",
+                    "measurements": ["light"],
+                    "units": {"light": "lux"},
+                    "test_result": "조도: 345.0 lux",
+                    "discovered_at": time.time()
+                }
+            ]
+            bh1750_devices.extend(mock_bh1750_devices)
+            print("🔧 Mock 모드: BH1750 센서 시뮬레이션")
+            return bh1750_devices
+        
+        print("🔗 라즈베리파이 환경: 실제 BH1750 센서 동적 검색")
+        
+        # 전체 버스와 채널에서 BH1750 센서 동적 발견
+        for bus_num in [0, 1]:
+            # 직접 연결 센서 먼저 스캔
+            print(f"  🔍 Bus {bus_num} 직접 연결 스캔...")
+            try:
+                direct_sensors = self._scan_bh1750_direct(bus_num)
+                
+                # 추가 정보 보강
+                for sensor in direct_sensors:
+                    sensor["display_channel"] = None
+                    sensor["location"] = f"Bus {bus_num}, 직접 연결"
+                    sensor["discovered_at"] = time.time()
+                
+                bh1750_devices.extend(direct_sensors)
+                if direct_sensors:
+                    print(f"    ✅ Bus {bus_num} 직접 연결: {len(direct_sensors)}개 발견")
+                
+            except Exception as e:
+                print(f"    ❌ Bus {bus_num} 직접 스캔 실패: {e}")
+            
+            # 멀티플렉서 채널별 스캔 (모든 채널 0-7)
+            if bus_num in self.tca_info:
+                mux_address = self.tca_info[bus_num]["address"]
+                print(f"  🔍 Bus {bus_num} TCA9548A 채널별 스캔...")
+                
+                try:
+                    # 모든 채널 스캔 (0-7)
+                    for channel in range(8):
+                        if not self._select_channel(bus_num, channel):
+                            continue
+                            
+                        channel_sensors = self._scan_bh1750_direct(bus_num, channel, mux_address)
+                        
+                        # 추가 정보 보강 (display_channel, location 등)
+                        for sensor in channel_sensors:
+                            sensor['mux_channel'] = channel
+                            sensor['mux_address'] = f"0x{mux_address:02X}"
+                            display_channel = channel + (8 if bus_num == 1 else 0)
+                            sensor["display_channel"] = display_channel
+                            sensor["location"] = f"Bus {bus_num}, CH {display_channel}"
+                            sensor["discovered_at"] = time.time()
+                        
+                        bh1750_devices.extend(channel_sensors)
+                        if channel_sensors:
+                            print(f"    ✅ Bus {bus_num} CH{channel}: {len(channel_sensors)}개 발견")
+                        
+                        self._disable_all_channels(bus_num)
+                    
+                except Exception as e:
+                    print(f"    ❌ Bus {bus_num} 멀티플렉서 스캔 실패: {e}")
+        
+        print(f"📊 BH1750 동적 스캔 결과: {len(bh1750_devices)}개 센서 발견")
+        
+        # 발견된 센서 상세 정보 출력
+        for i, sensor in enumerate(bh1750_devices, 1):
+            print(f"  {i}. {sensor['location']} - {sensor['address']} ({sensor['test_result']})")
+        
+        return bh1750_devices
+    
+    def _scan_bh1750_direct(self, bus_num: int, channel: int = None, mux_address: int = None) -> List[Dict]:
+        """BH1750 센서 직접 스캔 (test_bh1750_sensors.py 로직 기반)"""
+        devices = []
+        
+        if bus_num not in self.buses:
+            return devices
+        
+        bus = self.buses[bus_num]
+        bh1750_addresses = [0x23, 0x5C]  # 기본 주소와 ADDR=HIGH 주소
+        
+        for address in bh1750_addresses:
+            try:
+                # BH1750 연결 테스트 (test_bh1750_sensors.py의 SimpleBH1750 로직)
+                connection_success = False
+                
+                # 방법 1: Power On 명령
+                try:
+                    bus.write_byte(address, 0x01)  # Power On
+                    time.sleep(0.01)
+                    connection_success = True
+                except:
+                    pass
+                
+                # 방법 2: Reset 명령
+                if not connection_success:
+                    try:
+                        bus.write_byte(address, 0x07)  # Reset
+                        time.sleep(0.01)
+                        connection_success = True
+                    except:
+                        pass
+                
+                # 방법 3: 직접 측정 명령
+                if not connection_success:
+                    try:
+                        bus.write_byte(address, 0x20)  # One Time H-Resolution Mode
+                        time.sleep(0.15)  # 150ms 대기
+                        data = bus.read_i2c_block_data(address, 0x20, 2)
+                        if len(data) == 2:
+                            connection_success = True
+                    except:
+                        pass
+                
+                if connection_success:
+                    # 실제 조도 측정 테스트
+                    light_value = self._test_bh1750_measurement(bus, address)
+                    
+                    if light_value is not None:
+                        sensor_id = f"bh1750_{bus_num}_{channel if channel is not None else 'direct'}_{address:02x}"
+                        
+                        sensor_data = {
+                            "sensor_type": "BH1750",
+                            "sensor_id": sensor_id,
+                            "bus": bus_num,
+                            "address": f"0x{address:02X}",
+                            "mux_channel": channel,
+                            "mux_address": f"0x{mux_address:02X}" if mux_address else None,
+                            "interface": "I2C",
+                            "status": "connected",
+                            "measurements": ["light"],
+                            "units": {"light": "lux"},
+                            "test_result": f"조도: {light_value} lux"
+                        }
+                        devices.append(sensor_data)
+                        
+            except Exception as e:
+                # 주소에 센서가 없는 경우 - 정상적인 상황
+                continue
+        
+        return devices
+    
+    def _test_bh1750_measurement(self, bus, address) -> Optional[float]:
+        """BH1750 조도 측정 테스트 (실제 값 반환)"""
+        try:
+            # One Time H-Resolution Mode로 측정
+            bus.write_byte(address, 0x20)
+            time.sleep(0.15)  # 150ms 대기
+            
+            # 데이터 읽기
+            try:
+                data = bus.read_i2c_block_data(address, 0x20, 2)
+            except:
+                # 개별 read_byte로 시도
+                data = []
+                for _ in range(2):
+                    byte_val = bus.read_byte(address)
+                    data.append(byte_val)
+                    time.sleep(0.001)
+            
+            if len(data) >= 2:
+                # 조도값 계산
+                raw_value = (data[0] << 8) | data[1]
+                lux = raw_value / 1.2  # BH1750 조도 계산 공식
+                
+                # 합리적인 범위 체크
+                if 0 <= lux <= 65535:
+                    return round(lux, 1)
+            
+            return None
+            
+        except Exception as e:
+            return None
+
     def scan_sht40_sensors(self) -> List[Dict]:
         """SHT40 동적 센서 스캔 (모든 채널 검색)"""
         print("🔍 SHT40 동적 센서 스캔 시작...")
@@ -938,6 +1131,17 @@ class HardwareScanner:
                 print(f"⚠️ SDP810 스캔 실패, 건너뛰기: {e}")
                 scan_result["sdp810_devices"] = []
             
+            # BH1750 전용 센서 스캔 추가
+            bh1750_devices = []
+            try:
+                print("🔍 BH1750 전용 센서 스캔 시작...")
+                bh1750_devices = self.scan_bh1750_sensors()
+                scan_result["bh1750_devices"] = bh1750_devices
+                print(f"✅ BH1750 스캔 완료: {len(bh1750_devices)}개 발견")
+            except Exception as e:
+                print(f"⚠️ BH1750 스캔 실패, 건너뛰기: {e}")
+                scan_result["bh1750_devices"] = []
+            
             # UART 센서 스캔 (전체 시스템에서 한 번만)
             uart_devices = []
             try:
@@ -985,6 +1189,24 @@ class HardwareScanner:
                 scan_result["sensors"].append(sdp810_sensor_data)
                 scan_result["i2c_devices"].append(sdp810_sensor_data)
             
+            # BH1750 센서도 전체 센서 목록에 추가
+            for bh1750_device in bh1750_devices:
+                bh1750_sensor_data = {
+                    "bus": bh1750_device.get("bus"),
+                    "mux_channel": bh1750_device.get("mux_channel"),
+                    "address": bh1750_device.get("address"),
+                    "sensor_name": bh1750_device["sensor_type"],
+                    "sensor_type": bh1750_device["sensor_type"],
+                    "sensor_id": bh1750_device.get("sensor_id"),
+                    "status": bh1750_device["status"],
+                    "interface": "I2C",
+                    "measurements": bh1750_device.get("measurements", []),
+                    "units": bh1750_device.get("units", {}),
+                    "test_result": bh1750_device.get("test_result", "")
+                }
+                scan_result["sensors"].append(bh1750_sensor_data)
+                scan_result["i2c_devices"].append(bh1750_sensor_data)
+            
             # UART 센서도 전체 센서 목록에 추가
             for uart_device in uart_devices:
                 uart_sensor_data = {
@@ -1006,7 +1228,8 @@ class HardwareScanner:
             uart_count = len([s for s in scan_result['sensors'] if s.get('interface') == 'UART'])
             sht40_count = len([s for s in scan_result['sensors'] if s.get('sensor_type') == 'SHT40'])
             sdp810_count = len([s for s in scan_result['sensors'] if s.get('sensor_type') == 'SDP810'])
-            print(f"✅ 전체 시스템 스캔 완료: I2C {i2c_count}개 (SHT40 {sht40_count}개, SDP810 {sdp810_count}개 포함), UART {uart_count}개 센서 발견")
+            bh1750_count = len([s for s in scan_result['sensors'] if s.get('sensor_type') == 'BH1750'])
+            print(f"✅ 전체 시스템 스캔 완료: I2C {i2c_count}개 (SHT40 {sht40_count}개, SDP810 {sdp810_count}개, BH1750 {bh1750_count}개 포함), UART {uart_count}개 센서 발견")
             
         except Exception as e:
             scan_result["success"] = False
