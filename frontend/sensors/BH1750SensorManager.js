@@ -23,7 +23,8 @@ class BH1750SensorManager {
     
     // BH1750 센서 그룹에 센서 추가
     addSensorToGroup(sensorData, sensorId) {
-        // BH1750 센서 발견
+        console.log(`🔍 addSensorToGroup 호출됨: ${sensorId}`, sensorData);
+        console.log(`🔍 호출 스택:`, new Error().stack);
         
         const dashboard = this.dashboard;
         
@@ -37,13 +38,19 @@ class BH1750SensorManager {
             dashboard.sensorGroups['light'].sensors.bh1750 = [];
         }
 
-        // 중복 센서 체크 (동일한 bus와 mux_channel 조합)
-        const existingSensor = dashboard.sensorGroups['light'].sensors.bh1750.find(sensor => 
+        // 중복 센서 체크 (sensorId와 bus/channel 조합 모두 확인)
+        const existingSensorById = dashboard.sensorGroups['light'].sensors.bh1750.find(sensor => 
+            sensor.sensorId === sensorId || sensor.sensor_id === sensorId
+        );
+        const existingSensorByLocation = dashboard.sensorGroups['light'].sensors.bh1750.find(sensor => 
             sensor.bus === sensorData.bus && sensor.mux_channel === sensorData.mux_channel
         );
         
-        if (existingSensor) {
-            console.log(`⚠️ BH1750 센서 중복 감지, 추가하지 않음: Bus ${sensorData.bus}, Channel ${sensorData.mux_channel}`);
+        if (existingSensorById || existingSensorByLocation) {
+            console.log(`⚠️ BH1750 센서 중복 감지, 추가하지 않음:`);
+            console.log(`  - 센서 ID 중복: ${!!existingSensorById}, ${sensorId}`);
+            console.log(`  - 위치 중복: ${!!existingSensorByLocation}, Bus ${sensorData.bus}, Channel ${sensorData.mux_channel}`);
+            console.log(`  - 현재 센서 목록:`, dashboard.sensorGroups['light'].sensors.bh1750.map(s => ({id: s.sensorId, bus: s.bus, channel: s.mux_channel})));
             return; // 중복 센서는 추가하지 않음
         }
 
