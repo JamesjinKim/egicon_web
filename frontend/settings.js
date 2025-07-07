@@ -116,6 +116,7 @@ class EGIconSettings {
         if (this.isScanning) return;
         
         console.log('🔍 전체 시스템 스캔 시작');
+        console.log('🌐 API URL:', `${this.API_URL}/sensors/scan-dual-mux`);
         this.isScanning = true;
         
         const scanBtn = document.getElementById('scan-all-system');
@@ -127,6 +128,7 @@ class EGIconSettings {
             scanBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 스캔 중...';
             
             // API 호출
+            console.log('📡 API 요청 시작...');
             const response = await fetch(`${this.API_URL}/sensors/scan-dual-mux`, {
                 method: 'POST',
                 headers: {
@@ -134,24 +136,53 @@ class EGIconSettings {
                 }
             });
             
+            console.log('📡 API 응답 상태:', response.status, response.statusText);
+            console.log('📡 API 응답 헤더:', Object.fromEntries(response.headers.entries()));
+            
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const result = await response.json();
+            console.log('📦 API 응답 전체 데이터:', result);
+            console.log('📦 응답 구조 분석:', {
+                hasSuccess: 'success' in result,
+                successValue: result.success,
+                hasSensors: 'sensors' in result,
+                sensorsType: typeof result.sensors,
+                sensorsLength: Array.isArray(result.sensors) ? result.sensors.length : 'not array',
+                hasMessage: 'message' in result,
+                hasError: 'error' in result,
+                allKeys: Object.keys(result)
+            });
             
             if (result.success) {
                 this.currentScanResult = result;
+                
+                // 안전한 센서 개수 계산
+                const sensorCount = this.getSafeDisplayCount(result);
+                console.log('🔢 계산된 센서 개수:', sensorCount);
+                
                 this.updateSystemDisplay(result);
                 this.updateScanResults(result);
-                this.showToast('success', `전체 스캔 완료: ${result.sensors.length}개 센서 발견`);
+                this.showToast('success', `전체 스캔 완료: ${sensorCount}개 센서 발견`);
                 console.log('✅ 전체 시스템 스캔 완료:', result);
             } else {
-                throw new Error(result.message || '스캔 실패');
+                console.error('❌ API에서 실패 응답:', {
+                    success: result.success,
+                    message: result.message,
+                    error: result.error
+                });
+                throw new Error(result.message || result.error || '스캔 실패');
             }
             
         } catch (error) {
-            console.error('전체 시스템 스캔 오류:', error);
+            console.error('🚨 전체 시스템 스캔 오류:', error);
+            console.error('🚨 에러 상세 정보:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
             this.showToast('error', `전체 스캔 실패: ${error.message}`);
         } finally {
             // UI 복원
@@ -159,6 +190,43 @@ class EGIconSettings {
             scanBtn.disabled = false;
             scanBtn.innerHTML = originalText;
         }
+    }
+    
+    // 안전한 센서 개수 계산
+    getSafeDisplayCount(result) {
+        // 다양한 응답 구조에 대응
+        if (result.sensors && Array.isArray(result.sensors)) {
+            return result.sensors.length;
+        }
+        if (typeof result.total_sensors === 'number') {
+            return result.total_sensors;
+        }
+        if (result.devices && typeof result.devices === 'object') {
+            return Object.keys(result.devices).length;
+        }
+        if (result.sensor_count && typeof result.sensor_count === 'number') {
+            return result.sensor_count;
+        }
+        
+        // 개별 센서 타입별 카운트
+        let count = 0;
+        const sensorTypes = ['sht40_devices', 'bme688_devices', 'bh1750_devices', 'sdp810_devices'];
+        sensorTypes.forEach(type => {
+            if (result[type] && Array.isArray(result[type])) {
+                count += result[type].length;
+            }
+        });
+        
+        console.log('🔍 센서 개수 계산 세부사항:', {
+            sensors: result.sensors?.length || 0,
+            total_sensors: result.total_sensors || 0,
+            devices: result.devices ? Object.keys(result.devices).length : 0,
+            sensor_count: result.sensor_count || 0,
+            calculated_count: count,
+            final_count: count || 0
+        });
+        
+        return count || 0;
     }
     
     
