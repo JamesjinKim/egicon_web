@@ -309,10 +309,10 @@ class SDP810SensorManager {
         // 즉시 한 번 실행
         this.fetchSensorData(sensor, sensorId, sensorIndex);
         
-        // 주기적 업데이트 설정 (2초 간격)
+        // 주기적 업데이트 설정 (5초 간격으로 변경 - 리소스 고갈 방지)
         const intervalId = setInterval(() => {
             this.fetchSensorData(sensor, sensorId, sensorIndex);
-        }, 2000); // 2초 간격
+        }, 5000); // 5초 간격으로 변경
         
         // 인터벌 ID 저장
         this.pollingIntervals.push(intervalId);
@@ -498,11 +498,12 @@ class SDP810SensorManager {
                     console.error('❌ SDP810 차트 핸들러가 없음');
                 }
                 
-                // 2초 간격 실제 API 폴링 시작
-                setTimeout(() => {
-                    console.log('🔗 SDP810 실제 API 폴링 시작');
-                    this.startRealSensorPolling(sensor);
-                }, 2000);
+                // 중복 폴링 방지 - startDataPolling으로 이미 폴링 중이므로 비활성화
+                console.log('⚠️ SDP810 중복 폴링 방지: startRealSensorPolling 비활성화');
+                // setTimeout(() => {
+                //     console.log('🔗 SDP810 실제 API 폴링 시작');
+                //     this.startRealSensorPolling(sensor);
+                // }, 2000);
             }, 1000); // 1초 지연으로 DOM 완전 로딩 대기
         }
     }
