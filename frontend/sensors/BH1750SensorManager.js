@@ -44,16 +44,27 @@ class BH1750SensorManager {
             dashboard.sensorGroups['light'].sensors.bh1750 = [];
         }
         
-        // 현재 센서 목록 상태 로깅
+        // 현재 센서 목록 상태 로깅 및 정리
         console.log(`📊 센서 추가 전 현재 bh1750 센서 목록 (${dashboard.sensorGroups['light'].sensors.bh1750.length}개):`);
         dashboard.sensorGroups['light'].sensors.bh1750.forEach((sensor, index) => {
             console.log(`  ${index}: `, {
                 id: sensor.sensorId || sensor.sensor_id,
                 bus: sensor.bus,
                 channel: sensor.mux_channel,
+                type: typeof sensor,
                 fullData: sensor
             });
         });
+        
+        // 잘못된 형태(문자열 등)의 센서 데이터 제거
+        const validSensors = dashboard.sensorGroups['light'].sensors.bh1750.filter(sensor => 
+            typeof sensor === 'object' && sensor !== null && typeof sensor !== 'string'
+        );
+        
+        if (validSensors.length !== dashboard.sensorGroups['light'].sensors.bh1750.length) {
+            console.log(`🧹 잘못된 센서 데이터 정리: ${dashboard.sensorGroups['light'].sensors.bh1750.length}개 → ${validSensors.length}개`);
+            dashboard.sensorGroups['light'].sensors.bh1750 = validSensors;
+        }
 
         // 중복 센서 체크 (sensorId와 bus/channel 조합 모두 확인)
         const existingSensorById = dashboard.sensorGroups['light'].sensors.bh1750.find(sensor => 
