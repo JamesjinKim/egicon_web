@@ -37,6 +37,13 @@ class BH1750SensorManager {
         if (!dashboard.sensorGroups['light'].sensors.bh1750) {
             dashboard.sensorGroups['light'].sensors.bh1750 = [];
         }
+        
+        // 현재 센서 목록 상태 로깅
+        console.log(`📊 센서 추가 전 현재 bh1750 센서 목록:`, dashboard.sensorGroups['light'].sensors.bh1750.map(s => ({
+            id: s.sensorId || s.sensor_id,
+            bus: s.bus,
+            channel: s.mux_channel
+        })));
 
         // 중복 센서 체크 (sensorId와 bus/channel 조합 모두 확인)
         const existingSensorById = dashboard.sensorGroups['light'].sensors.bh1750.find(sensor => 
