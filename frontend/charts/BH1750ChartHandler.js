@@ -123,10 +123,40 @@ class BH1750ChartHandler {
             console.log(`📊 Chart.js 차트 생성 시도 중...`);
             console.log(`📊 데이터셋 미리보기:`, datasets.map(d => ({ label: d.label, dataLength: d.data.length })));
             
-            // 차트 생성 전 캔버스 크기 강제 설정
-            ctx.width = ctx.parentElement.clientWidth || 400;
-            ctx.height = ctx.parentElement.clientHeight || 300;
-            console.log(`📐 캔버스 크기 설정: ${ctx.width}x${ctx.height}`);
+            // 차트 생성 전 캔버스 및 컨테이너 강제 설정
+            console.log(`📐 캔버스 강제 설정 시작: ${canvasId}`);
+            
+            // 캔버스 부모 요소들 강제 표시
+            const canvas = ctx;
+            const chartContainer = canvas.closest('.chart-container');
+            const chartCard = canvas.closest('.chart-card');
+            const sensorGroup = canvas.closest('.sensor-group');
+            
+            // 모든 부모 컨테이너 강제 표시
+            if (sensorGroup) {
+                sensorGroup.style.display = 'block';
+                console.log(`📐 sensor-group 강제 표시`);
+            }
+            if (chartCard) {
+                chartCard.style.display = 'block';
+                chartCard.style.visibility = 'visible';
+                console.log(`📐 chart-card 강제 표시`);
+            }
+            if (chartContainer) {
+                chartContainer.style.display = 'block';
+                chartContainer.style.height = '300px';
+                chartContainer.style.minHeight = '300px';
+                console.log(`📐 chart-container 강제 설정: 300px 높이`);
+            }
+            
+            // 캔버스 자체 크기 강제 설정
+            canvas.style.display = 'block';
+            canvas.style.width = '100%';
+            canvas.style.height = '300px';
+            canvas.width = chartContainer ? chartContainer.clientWidth : 400;
+            canvas.height = 300;
+            
+            console.log(`📐 캔버스 크기 강제 설정: ${canvas.width}x${canvas.height}`);
             
             this.dashboard.charts[canvasId] = new Chart(ctx, {
                 type: 'line',
@@ -178,67 +208,13 @@ class BH1750ChartHandler {
             });
             
             console.log(`✅ BH1750 Chart.js 차트 객체 생성 성공: ${canvasId}`);
+            console.log(`📊 차트 강제 렌더링 시작`);
             
-            // 단계별 디버깅으로 오류 지점 특정
-            try {
-                console.log(`🔍 1단계: 생성된 차트 확인`);
-                console.log(`📊 생성된 차트:`, this.dashboard.charts[canvasId]);
-                console.log(`📊 데이터셋 개수: ${datasets.length}`);
-            } catch (step1Error) {
-                console.error(`❌ 1단계 실패:`, step1Error.message);
-            }
+            // 차트 강제 렌더링
+            this.dashboard.charts[canvasId].resize();
+            this.dashboard.charts[canvasId].update('active');
             
-            try {
-                console.log(`🔍 2단계: 캔버스 상태 확인`);
-                console.log(`📊 차트 캔버스 상태:`, {
-                    chartExists: !!this.dashboard.charts[canvasId],
-                    canvasWidth: ctx.width,
-                    canvasHeight: ctx.height,
-                    isVisible: getComputedStyle(ctx).display !== 'none'
-                });
-            } catch (step2Error) {
-                console.error(`❌ 2단계 실패:`, step2Error.message);
-            }
-            
-            try {
-                console.log(`🔍 3단계: DOM 요소 찾기`);
-                const canvas = document.getElementById(canvasId);
-                console.log(`📊 캔버스 요소:`, !!canvas);
-                
-                if (canvas) {
-                    console.log(`🔍 4단계: 컨테이너 요소 찾기`);
-                    const chartContainer = canvas.closest('.chart-container');
-                    const chartCard = canvas.closest('.chart-card');
-                    console.log(`📊 컨테이너들:`, {
-                        chartContainer: !!chartContainer,
-                        chartCard: !!chartCard
-                    });
-                    
-                    console.log(`🔍 5단계: CSS 스타일 확인`);
-                    console.log(`🖼️ 차트 캔버스 표시 상태:`, {
-                        canvasId: canvasId,
-                        canvasSize: {width: canvas.width, height: canvas.height},
-                        canvasStyle: {
-                            display: getComputedStyle(canvas).display,
-                            visibility: getComputedStyle(canvas).visibility,
-                            width: getComputedStyle(canvas).width,
-                            height: getComputedStyle(canvas).height
-                        }
-                    });
-                }
-            } catch (step3Error) {
-                console.error(`❌ 3-5단계 실패:`, step3Error.message);
-                console.error(step3Error.stack);
-            }
-            
-            try {
-                console.log(`🔍 6단계: 차트 렌더링`);
-                this.dashboard.charts[canvasId].resize();
-                this.dashboard.charts[canvasId].update();
-                console.log(`🔄 BH1750 차트 강제 렌더링 완료: ${canvasId}`);
-            } catch (step6Error) {
-                console.error(`❌ 6단계 실패:`, step6Error.message);
-            }
+            console.log(`🔄 BH1750 차트 강제 렌더링 완료: ${canvasId}`);
             
         } catch (chartError) {
             console.error(`❌ BH1750 차트 생성 실패: ${chartError.message}`);
