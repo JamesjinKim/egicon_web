@@ -97,6 +97,14 @@ class SDP810SensorManager {
             summaryElement.textContent = `SDP810×${sensorCount}`;
             console.log(`📊 differential-pressure-group-summary 업데이트: SDP810×${sensorCount}`);
         }
+        
+        // 차트 제목 업데이트
+        const chartTitleElement = document.getElementById('differential-pressure-chart-title');
+        if (chartTitleElement) {
+            const sensorCount = this.discoveredSensorCount || 0;
+            chartTitleElement.textContent = `차압 센서 통합 차트 (${sensorCount}개)`;
+            console.log(`📊 differential-pressure-chart-title 업데이트: 차압 센서 통합 차트 (${sensorCount}개)`);
+        }
     }
     
     // 감지된 SDP810 센서에 대해 폴링 시작
