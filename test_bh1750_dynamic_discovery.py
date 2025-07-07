@@ -15,7 +15,7 @@ async def test_bh1750_realtime_data():
     
     print("=" * 70)
     print("BH1750 실시간 데이터 수집 테스트")
-    print("대상: Bus 1, CH 8 - 0x23 (2초 간격 10번 측정)")
+    print("대상: Bus 1, CH 0 - 0x23 (2초 간격 10번 측정)")
     print("=" * 70)
     
     # 하드웨어 스캐너 인스턴스 가져오기
@@ -24,7 +24,7 @@ async def test_bh1750_realtime_data():
     
     # 테스트 대상 센서 정보
     target_bus = 1
-    target_channel = 8
+    target_channel = 0  # 실제 발견된 채널
     target_address = 0x23
     measurement_count = 10
     interval_seconds = 2
