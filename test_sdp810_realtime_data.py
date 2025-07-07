@@ -2,7 +2,8 @@
 """
 SDP810 실시간 데이터 수집 테스트
 ================================
-SDP810 차압센서에서 2초 간격으로 10번 측정하여 결과 출력
+SDP810 차압센서에서 7초 간격으로 10번 측정하여 결과 출력
+(SDP810은 7초 이상 간격이 필요함)
 ref/sdp810_sensor.py와 ref/test_sdp810_direct.py 기반
 """
 
@@ -18,16 +19,16 @@ async def test_sdp810_realtime_data():
     
     print("=" * 70)
     print("SDP810 실시간 데이터 수집 테스트")
-    print("차압센서에서 2초 간격으로 10번 측정")
+    print("차압센서에서 7초 간격으로 10번 측정")
     print("=" * 70)
     
     # 하드웨어 스캐너 인스턴스 가져오기
     scanner = get_scanner()
     print(f"라즈베리파이 환경: {scanner.is_raspberry_pi}")
     
-    # 테스트 설정
+    # 테스트 설정 (SDP810은 7초 이상 간격 필요)
     measurement_count = 10
-    interval_seconds = 2
+    interval_seconds = 7
     
     print(f"\n🎯 테스트 설정:")
     print(f"   - 측정 횟수: {measurement_count}회")
@@ -73,7 +74,7 @@ async def test_sdp810_realtime_data():
         return
     
     # 2. 실시간 데이터 수집
-    print(f"\n2. 실시간 데이터 수집 (2초 간격 10회):")
+    print(f"\n2. 실시간 데이터 수집 (7초 간격 10회):")
     print("-" * 40)
     print(f"{'순번':>3} {'시간':>8} {'차압 (Pa)':>12} {'CRC':>5} {'상태':>8}")
     print("-" * 40)
@@ -94,7 +95,8 @@ async def test_sdp810_realtime_data():
                     if not scanner._select_channel(bus, channel):
                         raise Exception("멀티플렉서 채널 선택 실패")
                 
-                # SDP810 차압 측정
+                # SDP810 차압 측정 (센서 안정화 대기)
+                time.sleep(0.1)  # 센서 안정화 대기
                 bus_obj = scanner.buses[bus]
                 pressure_data = measure_sdp810_pressure(bus_obj, address)
                 
@@ -310,6 +312,9 @@ async def manual_sdp810_scan(scanner):
 def measure_sdp810_pressure(bus_obj, address):
     """SDP810 센서에서 차압 측정 (ref/sdp810_sensor.py 기반)"""
     try:
+        # SDP810 센서 안정화 대기 (센서 특성상 필요)
+        time.sleep(0.05)
+        
         # 3바이트 읽기: [pressure_msb, pressure_lsb, crc]
         import smbus2
         read_msg = smbus2.i2c_msg.read(address, 3)
