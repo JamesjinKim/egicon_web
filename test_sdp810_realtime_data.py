@@ -108,17 +108,21 @@ async def test_sdp810_realtime_data():
                     pressure_value = pressure_data['pressure']
                     crc_ok = pressure_data['crc_ok']
                     
+                    # CRC 상태에 따른 전체 상태 결정
+                    overall_status = 'OK' if crc_ok else 'CRC_FAIL'
+                    
                     # 측정 결과 기록
                     measurements.append({
                         'sequence': i + 1,
                         'time': current_time,
                         'pressure': pressure_value,
                         'crc_ok': crc_ok,
-                        'status': 'OK'
+                        'status': overall_status
                     })
                     
                     crc_status = "✅" if crc_ok else "❌"
-                    print(f"{i+1:3d} {time_str:>8} {pressure_value:>10.3f} {crc_status:>5} {'✅ OK':>8}")
+                    status_display = "✅ OK" if crc_ok else "⚠️ CRC"
+                    print(f"{i+1:3d} {time_str:>8} {pressure_value:>10.3f} {crc_status:>5} {status_display:>8}")
                 else:
                     raise Exception(pressure_data['error'])
                 
@@ -158,15 +162,18 @@ async def test_sdp810_realtime_data():
     print(f"\n3. 측정 결과 분석:")
     print("-" * 40)
     
-    successful_measurements = [m for m in measurements if m['status'] in ['OK', 'MOCK'] and m['pressure'] is not None]
+    successful_measurements = [m for m in measurements if m['status'] in ['OK', 'MOCK', 'CRC_FAIL'] and m['pressure'] is not None]
+    perfect_measurements = [m for m in measurements if m['status'] in ['OK', 'MOCK'] and m['pressure'] is not None]
+    crc_failed_measurements = [m for m in measurements if m['status'] == 'CRC_FAIL']
     
     if successful_measurements:
         pressure_values = [m['pressure'] for m in successful_measurements]
         crc_successes = [m for m in successful_measurements if m['crc_ok']]
         
-        print(f"✅ 성공한 측정: {len(successful_measurements)}/{measurement_count}회")
-        print(f"❌ 실패한 측정: {errors}회")
-        print(f"✅ CRC 검증 성공: {len(crc_successes)}/{len(successful_measurements)}회")
+        print(f"✅ 완전 성공한 측정: {len(perfect_measurements)}/{measurement_count}회 (CRC 포함)")
+        print(f"⚠️ CRC 실패 측정: {len(crc_failed_measurements)}/{measurement_count}회 (데이터는 유효)")
+        print(f"❌ 완전 실패한 측정: {errors}회")
+        print(f"📊 전체 데이터 신뢰도: {len(crc_successes)}/{len(successful_measurements)}회 ({len(crc_successes)/len(successful_measurements)*100:.1f}%)")
         print(f"📊 차압 통계:")
         print(f"   - 최소값: {min(pressure_values):.4f} Pa")
         print(f"   - 최대값: {max(pressure_values):.4f} Pa")
@@ -230,9 +237,17 @@ async def test_sdp810_realtime_data():
     print("=" * 70)
     
     if successful_measurements:
-        print(f"✅ 테스트 성공: {len(successful_measurements)}/{measurement_count}회 측정 성공")
+        print(f"✅ 테스트 성공: {len(successful_measurements)}/{measurement_count}회 데이터 수집")
+        print(f"   - 완전 성공 (CRC 포함): {len(perfect_measurements)}회")
+        print(f"   - CRC 실패 (데이터 유효): {len(crc_failed_measurements)}회")
         print(f"📊 최종 차압값: {successful_measurements[-1]['pressure']:.4f} Pa")
-        print(f"🔧 Dashboard API 검증 준비 완료")
+        
+        if len(perfect_measurements) >= measurement_count * 0.7:  # 70% 이상 완전 성공
+            print(f"🔧 Dashboard API 검증 준비 완료 (데이터 신뢰도 양호)")
+        elif len(successful_measurements) >= measurement_count * 0.8:  # 80% 이상 데이터 수집
+            print(f"⚠️ Dashboard API 검증 가능 (CRC 오류 다수, 센서 점검 권장)")
+        else:
+            print(f"❌ Dashboard API 검증 어려움 (데이터 신뢰도 낮음)")
     else:
         print(f"❌ 테스트 실패: 성공한 측정이 없습니다.")
         print(f"🔧 확인사항:")
