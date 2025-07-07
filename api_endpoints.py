@@ -809,6 +809,179 @@ def setup_api_routes(app: FastAPI):
             print(f"❌ BME688 센서 테스트 실패: {e}")
             return {"success": False, "error": str(e), "data": None}
 
+    # BH1750 전용 엔드포인트
+    @app.get("/api/sensors/bh1750")
+    async def get_bh1750_sensors():
+        """
+        BH1750 조도 센서 목록 조회 (동적 발견)
+        
+        운영 시 중요사항:
+        - 하드웨어 스캐너의 동적 BH1750 발견 기능 호출
+        - 모든 버스와 채널에서 BH1750 센서 자동 감지
+        - 주소 0x23(기본), 0x5C(ADDR=HIGH) 모두 지원
+        - 실제 조도 측정으로 센서 검증
+        
+        Returns:
+            dict: BH1750 센서 목록 및 개수 정보
+        """
+        try:
+            scanner = get_scanner()
+            
+            # BH1750 센서 동적 스캔 실행
+            if hasattr(scanner, 'scan_bh1750_sensors'):
+                bh1750_devices = scanner.scan_bh1750_sensors()
+                
+                return {
+                    "success": True,
+                    "timestamp": datetime.now().isoformat(),
+                    "bh1750_sensors": bh1750_devices,
+                    "count": len(bh1750_devices)
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "BH1750 스캔 기능이 지원되지 않습니다",
+                    "data": None
+                }
+            
+        except Exception as e:
+            print(f"❌ BH1750 센서 목록 조회 실패: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": f"BH1750 센서 조회 실패: {str(e)}",
+                "timestamp": datetime.now().isoformat(),
+                "bh1750_sensors": [],
+                "count": 0
+            }
+    
+    @app.get("/api/sensors/bh1750/{bus}/{channel}")
+    async def get_bh1750_sensor_data(bus: int, channel: int):
+        """
+        특정 위치의 BH1750 센서 조도 데이터 읽기
+        
+        운영 시 중요사항:
+        - 실제 BH1750 센서에서 조도 측정 (lux 단위)
+        - TCA9548A 멀티플렉서 채널 자동 전환
+        - One Time H-Resolution Mode 사용 (0x20)
+        - read_i2c_block_data 실패 시 개별 read_byte 대체
+        - 측정 범위: 0-65535 lux
+        
+        Args:
+            bus (int): I2C 버스 번호
+            channel (int): 멀티플렉서 채널 번호 ('direct'면 직접 연결)
+        
+        Returns:
+            dict: BH1750 센서 조도 측정 데이터
+        """
+        try:
+            scanner = get_scanner()
+            
+            # 실제 BH1750 센서 데이터 읽기
+            if scanner.is_raspberry_pi:
+                # 실제 하드웨어에서 측정
+                try:
+                    # 채널이 'direct'가 아니면 멀티플렉서 채널 선택
+                    if str(channel).lower() != 'direct' and isinstance(channel, int):
+                        if not scanner._select_channel(bus, channel):
+                            return {"success": False, "error": "멀티플렉서 채널 선택 실패", "data": None}
+                    
+                    # BH1750 조도 측정
+                    bus_obj = scanner.buses[bus]
+                    light_value = scanner._test_bh1750_measurement(bus_obj, 0x23)  # 기본 주소 0x23
+                    
+                    # 0x23에서 실패하면 0x5C(ADDR=HIGH) 시도
+                    if light_value is None:
+                        light_value = scanner._test_bh1750_measurement(bus_obj, 0x5C)
+                    
+                    # 멀티플렉서 채널 비활성화
+                    if str(channel).lower() != 'direct' and isinstance(channel, int):
+                        scanner._disable_all_channels(bus)
+                    
+                    if light_value is not None:
+                        # 사용된 주소 확인 (추후 확장용)
+                        used_address = "0x23"  # 기본값
+                        
+                        sensor_data = {
+                            "sensor_id": f"bh1750_{bus}_{channel}_{used_address[2:]}",
+                            "bus": bus,
+                            "channel": channel if str(channel).lower() != 'direct' else None,
+                            "address": used_address,
+                            "sensor_type": "BH1750",
+                            "timestamp": datetime.now().isoformat(),
+                            "light": light_value,
+                            "units": {
+                                "light": "lux"
+                            },
+                            "status": "connected"
+                        }
+                        return {"success": True, "data": sensor_data}
+                    else:
+                        return {"success": False, "error": "BH1750 센서 측정 실패", "data": None}
+                        
+                except Exception as hw_error:
+                    return {"success": False, "error": f"하드웨어 통신 오류: {str(hw_error)}", "data": None}
+            else:
+                # Mock 데이터 (개발 환경)
+                mock_light = 345.0 + random.uniform(-50, 50)  # 295-395 lux 범위
+                
+                sensor_data = {
+                    "sensor_id": f"bh1750_{bus}_{channel}_23",
+                    "bus": bus,
+                    "channel": channel if str(channel).lower() != 'direct' else None,
+                    "address": "0x23",
+                    "sensor_type": "BH1750",
+                    "timestamp": datetime.now().isoformat(),
+                    "light": round(mock_light, 1),
+                    "units": {
+                        "light": "lux"
+                    },
+                    "status": "connected"
+                }
+                return {"success": True, "data": sensor_data}
+            
+        except Exception as e:
+            print(f"❌ BH1750 센서 데이터 읽기 실패: {e}")
+            return {"success": False, "error": str(e), "data": None}
+    
+    @app.post("/api/sensors/bh1750/test")
+    async def test_bh1750_sensor():
+        """
+        BH1750 센서 전용 스캔 및 테스트
+        
+        운영 시 중요사항:
+        - 하드웨어 스캐너의 BH1750 전용 스캔 기능 호출
+        - 모든 버스와 채널에서 BH1750 센서 동적 발견
+        - Power On, Reset, 직접 측정 등 다중 연결 방법 시도
+        - 실제 조도 측정으로 센서 작동 검증
+        
+        Returns:
+            dict: BH1750 센서 스캔 및 테스트 결과
+        """
+        try:
+            scanner = get_scanner()
+            
+            # BH1750 센서 스캔 실행
+            if hasattr(scanner, 'scan_bh1750_sensors'):
+                bh1750_devices = scanner.scan_bh1750_sensors()
+                
+                return {
+                    "success": True,
+                    "timestamp": datetime.now().isoformat(),
+                    "bh1750_devices": bh1750_devices,
+                    "count": len(bh1750_devices)
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "BH1750 스캔 기능이 지원되지 않습니다",
+                    "data": None
+                }
+                
+        except Exception as e:
+            print(f"❌ BH1750 센서 테스트 실패: {e}")
+            return {"success": False, "error": str(e), "data": None}
+
     # SHT40 센서 전용 엔드포인트
     @app.post("/api/sensors/scan-sht40")
     async def scan_sht40_sensors_api():
