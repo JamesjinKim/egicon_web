@@ -37,6 +37,16 @@ class BH1750SensorManager {
             dashboard.sensorGroups['light'].sensors.bh1750 = [];
         }
 
+        // 중복 센서 체크 (동일한 bus와 mux_channel 조합)
+        const existingSensor = dashboard.sensorGroups['light'].sensors.bh1750.find(sensor => 
+            sensor.bus === sensorData.bus && sensor.mux_channel === sensorData.mux_channel
+        );
+        
+        if (existingSensor) {
+            console.log(`⚠️ BH1750 센서 중복 감지, 추가하지 않음: Bus ${sensorData.bus}, Channel ${sensorData.mux_channel}`);
+            return; // 중복 센서는 추가하지 않음
+        }
+
         // BH1750 센서 데이터 준비
         const sensorInfo = {
             sensor_id: sensorId,
@@ -49,6 +59,8 @@ class BH1750SensorManager {
 
         dashboard.sensorGroups['light'].sensors.bh1750.push(sensorInfo);
         dashboard.sensorGroups['light'].totalSensors = dashboard.sensorGroups['light'].sensors.bh1750.length;
+        
+        console.log(`✅ BH1750 센서 추가: Bus ${sensorData.bus}, Channel ${sensorData.mux_channel} (총 ${dashboard.sensorGroups['light'].sensors.bh1750.length}개)`);
 
         // BH1750 센서 그룹에 추가됨
 
