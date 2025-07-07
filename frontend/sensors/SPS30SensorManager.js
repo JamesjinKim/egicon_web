@@ -113,10 +113,31 @@ class SPS30SensorManager {
         }
     }
     
+    // SPS30 연결 활성 상태 설정 (데이터 수신 시)
+    setStatusConnected(sensorData) {
+        const statusElement = document.getElementById('sps30-status');
+        if (statusElement) {
+            statusElement.textContent = '연결 활성중';
+            statusElement.className = 'sensor-group-status online';
+            console.log('✅ SPS30 상태를 연결 활성중으로 설정 (데이터 수신)');
+        }
+        
+        const modelElement = document.getElementById('sps30-model');
+        if (modelElement) {
+            const serialDisplay = sensorData.serial_number ? 
+                sensorData.serial_number.substring(0, 8) : 'UART';
+            modelElement.textContent = `SPS30 ${serialDisplay}`;
+            console.log(`✅ SPS30 모델 정보 업데이트: SPS30 ${serialDisplay}`);
+        }
+    }
+    
     // SPS30 실시간 데이터 처리
     updateData(sensorData) {
         if (sensorData.sensor_type === 'SPS30' && sensorData.values) {
             const values = sensorData.values;
+            
+            // 데이터가 들어오면 연결 상태를 활성중으로 업데이트
+            this.setStatusConnected(sensorData);
             
             // PM2.5 값 추출 및 업데이트
             if (values.pm25 !== undefined) {
