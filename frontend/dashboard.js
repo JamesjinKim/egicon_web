@@ -3704,7 +3704,8 @@ class EGIconDashboard {
                 const { success, crc_skip, error } = statistics;
                 statusElement.textContent = `${success}/${sensorCount} 활성`;
             } else {
-                statusElement.textContent = `${sensorCount}/0 활성`;
+                // 통계 정보가 없을 때는 발견된 센서 수로 표시
+                statusElement.textContent = `${sensorCount}/${sensorCount} 활성`;
             }
         }
         
