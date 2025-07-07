@@ -28,7 +28,7 @@ class SDP810ChartHandler {
         }
         
         // DOM 요소 존재 확인
-        const pressureCanvas = document.getElementById('pressure-multi-chart');
+        const pressureCanvas = document.getElementById('differential-pressure-chart');
         
         if (!pressureCanvas) {
             console.error(`❌ 캔버스 요소 누락, 1초 후 재시도`);
@@ -45,7 +45,7 @@ class SDP810ChartHandler {
         console.log(`📊 SDP810 단일 센서 차트 라벨:`, pressureLabel);
         
         // 단일 센서 차트 생성
-        this.createSingleSensorChart('pressure-multi-chart', 'pressure', pressureLabel);
+        this.createSingleSensorChart('differential-pressure-chart', 'pressure', pressureLabel);
         
         console.log(`✅ SDP810 차트 생성 완료: ${sensors.length}개`);
         
@@ -203,7 +203,7 @@ class SDP810ChartHandler {
 
     // SDP810 차트 최종 확인
     verifyCharts() {
-        const pressureChart = this.dashboard.charts['pressure-multi-chart'];
+        const pressureChart = this.dashboard.charts['differential-pressure-chart'];
         
         if (!pressureChart) {
             console.error('❌ SDP810 차트 생성 실패');
@@ -279,7 +279,7 @@ class SDP810ChartHandler {
         // 차압 차트 업데이트 (단일 센서 1:1 방식)
         if (data.pressure !== undefined) {
             console.log(`📊 차압 데이터 업데이트 시작: ${data.pressure} Pa`);
-            const pressureChart = this.dashboard.charts['pressure-multi-chart'];
+            const pressureChart = this.dashboard.charts['differential-pressure-chart'];
             console.log(`📊 차압 차트 객체 확인:`, {
                 exists: !!pressureChart,
                 hasData: !!(pressureChart && pressureChart.data),
@@ -335,7 +335,7 @@ class SDP810ChartHandler {
                         
                         // 업데이트 후 차트 실제 렌더링 상태 확인
                         try {
-                            const canvas = document.getElementById('pressure-multi-chart');
+                            const canvas = document.getElementById('differential-pressure-chart');
                             if (canvas && pressureChart) {
                                 console.log(`🔎 차트 업데이트 후 상태:`, {
                                     chartVisible: canvas.style.display !== 'none',
@@ -365,7 +365,7 @@ class SDP810ChartHandler {
                     console.warn(`⚠️ 차압 차트 데이터셋[${datasetIndex}] 없음 (총 ${pressureChart.data.datasets.length}개 데이터셋)`);
                 }
             } else {
-                console.warn(`⚠️ 차압 차트 'pressure-multi-chart' 없음`);
+                console.warn(`⚠️ 차압 차트 'differential-pressure-chart' 없음`);
             }
         }
         
@@ -408,19 +408,19 @@ class SDP810ChartHandler {
         console.log(`🔄 SDP810 차트 재생성 시도`);
         try {
             // 기존 차트 완전 제거
-            const existingChart = this.dashboard.charts['pressure-multi-chart'];
+            const existingChart = this.dashboard.charts['differential-pressure-chart'];
             if (existingChart) {
                 existingChart.destroy();
-                delete this.dashboard.charts['pressure-multi-chart'];
+                delete this.dashboard.charts['differential-pressure-chart'];
             }
             
             // DOM 요소 확인 후 재생성
-            const canvas = document.getElementById('pressure-multi-chart');
+            const canvas = document.getElementById('differential-pressure-chart');
             if (canvas && canvas.ownerDocument) {
                 const pressureLabels = this.sensors.map(sensor => 
                     `SDP810-${sensor.bus}.${sensor.mux_channel} 차압`
                 );
-                this.createSingleSensorChart('pressure-multi-chart', 'pressure', pressureLabels[0]);
+                this.createSingleSensorChart('differential-pressure-chart', 'pressure', pressureLabels[0]);
                 console.log(`✅ SDP810 차트 재생성 완료`);
             } else {
                 console.warn(`⚠️ SDP810 차트 DOM 요소 없음, 재생성 건너뜀`);

@@ -1779,7 +1779,7 @@ body {
     min-height: 300px !important;
 }
 
-.sensor-group[data-group="pressure"] #pressure-multi-chart {
+.sensor-group[data-group="pressure"] #differential-pressure-chart {
     display: block !important;
     width: 100% !important;
     height: 300px !important;
