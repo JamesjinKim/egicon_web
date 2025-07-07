@@ -543,13 +543,11 @@ async def read_sht40_data(sensor_info: Dict[str, Any]) -> Dict[str, Any]:
                 "status": "success"
             })
         else:
-            # CRC 에러 시에도 대시보드 테스트를 위해 임시 데이터 제공
-            # TODO: 하드웨어 문제 해결 후 이 부분 제거
-            import random
+            # 실제 센서 데이터를 읽을 수 없는 경우 None 반환 (Mock 데이터 제거)
             data.update({
-                "temperature": 22.5 + random.uniform(-1, 1),  # 임시 테스트 데이터
-                "humidity": 65.0 + random.uniform(-5, 5),     # 임시 테스트 데이터
-                "status": "crc_skip_with_test_data"
+                "temperature": None,
+                "humidity": None,
+                "status": "sensor_read_failed"
             })
         
         return data

@@ -2499,8 +2499,23 @@ class EGIconDashboard {
             this.sht40Data.temperature.push(sensorData);
         }
         
-        // 평균 및 범위 계산
+        // 온도 데이터가 없는 경우 처리
         const temps = this.sht40Data.temperature.map(d => d.value);
+        if (temps.length === 0) {
+            // 위젯에 데이터 없음 표시
+            const avgElement = document.getElementById('sht40-temperature-average');
+            if (avgElement) {
+                avgElement.textContent = '-- °C';
+            }
+            
+            const rangeElement = document.getElementById('sht40-temperature-range');
+            if (rangeElement) {
+                rangeElement.textContent = '센서 데이터 없음';
+            }
+            return;
+        }
+        
+        // 평균 및 범위 계산
         const avgTemp = temps.reduce((a, b) => a + b, 0) / temps.length;
         const minTemp = Math.min(...temps);
         const maxTemp = Math.max(...temps);
@@ -2529,8 +2544,23 @@ class EGIconDashboard {
             this.sht40Data.humidity.push(sensorData);
         }
         
-        // 평균 및 범위 계산
+        // 습도 데이터가 없는 경우 처리
         const humidities = this.sht40Data.humidity.map(d => d.value);
+        if (humidities.length === 0) {
+            // 위젯에 데이터 없음 표시
+            const avgElement = document.getElementById('sht40-humidity-average');
+            if (avgElement) {
+                avgElement.textContent = '-- %';
+            }
+            
+            const rangeElement = document.getElementById('sht40-humidity-range');
+            if (rangeElement) {
+                rangeElement.textContent = '센서 데이터 없음';
+            }
+            return;
+        }
+        
+        // 평균 및 범위 계산
         const avgHumidity = humidities.reduce((a, b) => a + b, 0) / humidities.length;
         const minHumidity = Math.min(...humidities);
         const maxHumidity = Math.max(...humidities);
@@ -3521,11 +3551,9 @@ class EGIconDashboard {
         // SHT40 센서 개수 업데이트
         this.updateSHT40SensorCount(count);
         
-        // 성공한 센서 데이터 및 테스트 데이터 처리 (임시로 CRC 스킵도 포함)
+        // 실제 센서 데이터만 사용 (Mock 데이터 제거)
         const successfulSensors = sensors.filter(sensor => 
-            sensor.status === 'success' || 
-            sensor.status === 'crc_skip_with_test_data' ||
-            sensor.status === 'crc_skip'  // 임시로 CRC 스킵도 처리
+            sensor.status === 'success'
         );
         
         if (successfulSensors.length === 0) {
@@ -3533,17 +3561,16 @@ class EGIconDashboard {
             return;
         }
         
-        console.log(`📊 SHT40 데이터 처리: ${successfulSensors.length}개 센서 (CRC 스킵 포함)`);
+        console.log(`📊 SHT40 데이터 처리: ${successfulSensors.length}개 센서 (실제 데이터만)`);
         
-        // CRC 스킵 센서에 임시 테스트 데이터 추가
-        successfulSensors.forEach(sensor => {
-            if (sensor.status === 'crc_skip' && (sensor.temperature === null || sensor.humidity === null)) {
-                const now = Date.now();
-                sensor.temperature = 23.5 + Math.sin(now / 10000) * 2;  // 21.5~25.5°C 범위
-                sensor.humidity = 65.0 + Math.cos(now / 8000) * 10;     // 55~75% 범위
-                sensor.status = 'crc_skip_with_test_data';
-                console.log(`🧪 임시 테스트 데이터 생성: ${sensor.sensor_id} T=${sensor.temperature.toFixed(1)}°C H=${sensor.humidity.toFixed(1)}%`);
+        // 유효한 온습도 데이터가 있는 센서만 사용
+        const validSensors = successfulSensors.filter(sensor => {
+            if (sensor.temperature === null || sensor.temperature === undefined ||
+                sensor.humidity === null || sensor.humidity === undefined) {
+                console.log(`⚠️ 센서 데이터 없음: ${sensor.sensor_id} (상태: ${sensor.status})`);
+                return false;
             }
+            return true;
         });
         
         // 온도/습도 데이터 분리 및 처리
@@ -3551,7 +3578,7 @@ class EGIconDashboard {
         const humidityData = [];
         const now = new Date();
         
-        successfulSensors.forEach(sensor => {
+        validSensors.forEach(sensor => {
             if (sensor.temperature !== null && sensor.temperature !== undefined) {
                 temperatureData.push({
                     sensorId: sensor.sensor_id,
@@ -3575,17 +3602,23 @@ class EGIconDashboard {
         if (temperatureData.length > 0) {
             this.updateSHT40MultiSensorChart('temperature', temperatureData);
             this.updateSHT40SummaryWidgets('temperature', temperatureData);
+        } else {
+            // 온도 데이터가 없을 때 "데이터 없음" 표시
+            this.updateSHT40SummaryWidgets('temperature', []);
         }
         
         if (humidityData.length > 0) {
             this.updateSHT40MultiSensorChart('humidity', humidityData);
             this.updateSHT40SummaryWidgets('humidity', humidityData);
+        } else {
+            // 습도 데이터가 없을 때 "데이터 없음" 표시
+            this.updateSHT40SummaryWidgets('humidity', []);
         }
         
-        // 센서 상태 업데이트 (실제 처리된 센서 수 전달)
-        this.updateSHT40GroupStatus(count, statistics, successfulSensors.length);
+        // 센서 상태 업데이트 (실제 유효한 데이터를 가진 센서 수 전달)
+        this.updateSHT40GroupStatus(count, statistics, validSensors.length);
         
-        console.log(`✅ SHT40 실시간 데이터 처리 완료: ${successfulSensors.length}/${count}개 센서`);
+        console.log(`✅ SHT40 실시간 데이터 처리 완료: ${validSensors.length}/${count}개 센서 (실제 데이터만)`);
     }
     
     // SHT40 센서 목록 업데이트
@@ -3682,24 +3715,35 @@ class EGIconDashboard {
     
     // SHT40 요약 위젯 업데이트
     updateSHT40SummaryWidgets(metric, sensorDataArray) {
-        if (sensorDataArray.length === 0) return;
+        const unit = metric === 'temperature' ? '°C' : '%';
+        const prefix = metric === 'temperature' ? 'sht40-temperature' : 'sht40-humidity';
+        const emptyValue = metric === 'temperature' ? '-- °C' : '-- %';
+        
+        const avgElement = document.getElementById(`${prefix}-average`);
+        const rangeElement = document.getElementById(`${prefix}-range`);
+        
+        if (sensorDataArray.length === 0) {
+            // 데이터가 없는 경우 "데이터 없음" 표시
+            if (avgElement) {
+                avgElement.textContent = emptyValue;
+            }
+            if (rangeElement) {
+                rangeElement.textContent = '센서 데이터 없음';
+            }
+            return;
+        }
         
         const values = sensorDataArray.map(sensor => sensor.value);
         const average = values.reduce((sum, val) => sum + val, 0) / values.length;
         const min = Math.min(...values);
         const max = Math.max(...values);
         
-        const unit = metric === 'temperature' ? '°C' : '%';
-        const prefix = metric === 'temperature' ? 'sht40-temperature' : 'sht40-humidity';
-        
         // 평균값 업데이트
-        const avgElement = document.getElementById(`${prefix}-average`);
         if (avgElement) {
             avgElement.textContent = `${average.toFixed(1)}${unit}`;
         }
         
         // 범위 업데이트
-        const rangeElement = document.getElementById(`${prefix}-range`);
         if (rangeElement) {
             rangeElement.textContent = `${min.toFixed(1)} ~ ${max.toFixed(1)}${unit}`;
         }
@@ -3715,8 +3759,8 @@ class EGIconDashboard {
                 statusElement.textContent = `${actualProcessedCount}/${sensorCount} 활성`;
             } else if (statistics) {
                 const { success, crc_skip, error } = statistics;
-                // CRC 스킵도 활성 센서로 간주 (임시 테스트 데이터 제공)
-                const activeSensors = success + (crc_skip || 0);
+                // 성공한 센서만 활성으로 간주 (실제 데이터만 사용)
+                const activeSensors = success;
                 statusElement.textContent = `${activeSensors}/${sensorCount} 활성`;
             } else {
                 // 통계 정보가 없을 때는 발견된 센서 수로 표시
