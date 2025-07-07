@@ -604,37 +604,107 @@ def setup_api_routes(app: FastAPI):
             dict: SDP810 센서 차압 측정 데이터
         """
         try:
-            # 실제 SDP810 센서 데이터 읽기 (240 스케일링 + CRC 재시도)
-            from sdp810_sensor import SDP810Sensor
+            # hardware_scanner를 통한 SDP810 센서 데이터 읽기 (CRC 검증 포함)
+            scanner = get_scanner()
             
-            # SDP810 센서 인스턴스 생성
-            sensor = SDP810Sensor(bus_num=bus, mux_address=0x70, mux_channel=channel)
-            
-            if sensor.connect():
-                # 재시도 로직으로 압력 읽기 (CRC 오류 시 자동 재시도)
-                pressure = sensor.read_pressure_with_retry(max_retries=3)
+            if scanner.is_raspberry_pi:
+                # 멀티플렉서 채널 선택
+                if not scanner._select_channel(bus, channel):
+                    return {"success": False, "error": "멀티플렉서 채널 선택 실패"}
                 
-                if pressure is not None:
-                    sensor_data = {
-                        "sensor_id": f"sdp810_{bus}_{channel}_25",
-                        "bus": bus,
-                        "channel": channel,
-                        "address": "0x25",
-                        "sensor_type": "SDP810",
-                        "timestamp": datetime.now().isoformat(),
-                        "data": {
-                            "differential_pressure": round(pressure, 4)
-                        },
-                        "units": {
-                            "differential_pressure": "Pa"
-                        },
-                        "status": "connected"
-                    }
-                    return {"success": True, "data": sensor_data}
-                else:
-                    return {"success": False, "error": "센서 읽기 실패 (CRC 오류 재시도 후)", "data": None}
+                # SDP810 센서에서 원시 데이터 읽기
+                bus_obj = scanner.buses[bus]
+                address = 0x25
+                
+                # 직접 센서 측정 (test_sdp810_realtime_data.py와 동일한 방식)
+                try:
+                    import smbus2
+                    import struct
+                    import time
+                    
+                    # 센서 안정화 대기
+                    time.sleep(0.05)
+                    
+                    # 3바이트 읽기: [pressure_msb, pressure_lsb, crc]
+                    read_msg = smbus2.i2c_msg.read(address, 3)
+                    bus_obj.i2c_rdwr(read_msg)
+                    raw_data = list(read_msg)
+                    
+                    if len(raw_data) == 3:
+                        pressure_msb = raw_data[0]
+                        pressure_lsb = raw_data[1]
+                        received_crc = raw_data[2]
+                        
+                        # CRC 검증
+                        def calculate_crc8(data):
+                            crc = 0xFF
+                            for byte in data:
+                                crc ^= byte
+                                for _ in range(8):
+                                    if crc & 0x80:
+                                        crc = (crc << 1) ^ 0x31
+                                    else:
+                                        crc = crc << 1
+                            return crc & 0xFF
+                        
+                        calculated_crc = calculate_crc8([pressure_msb, pressure_lsb])
+                        crc_valid = calculated_crc == received_crc
+                        
+                        # 압력 계산
+                        raw_pressure = struct.unpack('>h', bytes([pressure_msb, pressure_lsb]))[0]
+                        pressure_pa = raw_pressure / 60.0  # SDP810 스케일링
+                        pressure_pa = max(-500.0, min(500.0, pressure_pa))  # 범위 제한
+                        
+                        # 멀티플렉서 채널 해제
+                        scanner._disable_all_channels(bus)
+                        
+                        # CRC 실패 시 에러 응답 (프론트엔드에서 skip 처리)
+                        if not crc_valid:
+                            return {
+                                "success": False, 
+                                "error": "CRC 검증 실패", 
+                                "data": None,
+                                "crc_error": True
+                            }
+                        
+                        # CRC 성공 시 데이터 응답
+                        return {
+                            "success": True,
+                            "data": {
+                                "pressure": round(pressure_pa, 4),
+                                "timestamp": datetime.now().isoformat(),
+                                "crc_valid": crc_valid
+                            },
+                            "sensor_info": {
+                                "bus": bus,
+                                "mux_channel": channel,
+                                "address": "0x25"
+                            }
+                        }
+                    else:
+                        scanner._disable_all_channels(bus)
+                        return {"success": False, "error": f"데이터 길이 오류: {len(raw_data)}"}
+                        
+                except Exception as read_error:
+                    scanner._disable_all_channels(bus)
+                    return {"success": False, "error": f"센서 읽기 오류: {read_error}"}
             else:
-                return {"success": False, "error": "센서 연결 실패", "data": None}
+                # Mock 데이터 (개발 환경)
+                import random
+                mock_pressure = round(random.uniform(-0.1, 0.1), 4)
+                return {
+                    "success": True,
+                    "data": {
+                        "pressure": mock_pressure,
+                        "timestamp": datetime.now().isoformat(),
+                        "crc_valid": True
+                    },
+                    "sensor_info": {
+                        "bus": bus,
+                        "mux_channel": channel,
+                        "address": "0x25"
+                    }
+                }
             
         except Exception as e:
             print(f"❌ SDP810 센서 데이터 읽기 실패: {e}")
