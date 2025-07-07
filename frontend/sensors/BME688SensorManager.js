@@ -243,7 +243,7 @@ class BME688SensorManager {
                 console.warn(`⚠️ BME688 API 오류 [${sensorIndex}]:`, result.message || result.error);
             }
         } catch (error) {
-            console.error(`❌ BME688 데이터 수집 실패 [${sensorIndex}]:`, error);
+            // BME688 데이터 수집 에러 로그 제거 (디버깅 노이즈 감소)
         }
     }
     
