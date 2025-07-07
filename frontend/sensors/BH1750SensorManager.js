@@ -146,7 +146,27 @@ class BH1750SensorManager {
             statusElement.textContent = `${sensorCount}/${sensorCount} 센서`;
         }
         
+        // 초기 테스트 데이터 설정 (API 폴링 비활성화 중)
+        this.setInitialTestData();
+        
         console.log(`✅ BH1750 상태 설정: ${sensorCount}개 연결됨`);
+    }
+    
+    // 초기 테스트 데이터 설정
+    setInitialTestData() {
+        // 조도 위젯 초기값 설정
+        const lightValueElement = document.getElementById('light-average');
+        if (lightValueElement) {
+            lightValueElement.textContent = `-- lux`;
+        }
+        
+        // 조도 범위 위젯 초기값 설정
+        const lightRangeElement = document.getElementById('light-range');
+        if (lightRangeElement) {
+            lightRangeElement.textContent = `-- ~ -- lux`;
+        }
+        
+        console.log('✅ BH1750 초기 테스트 데이터 설정 완료');
     }
 
     // 데이터 폴링 시작
@@ -257,6 +277,9 @@ class BH1750SensorManager {
             console.log('📊 BH1750 조도 센서 발견:', sensor);
             const sensorId = `bh1750_${sensor.bus}_${sensor.mux_channel}`;
             this.addSensorToGroup(sensor, sensorId);
+            
+            // 센서 발견 시 위젯 초기화
+            this.initializeStatusWidgets(1);
         }
     }
 
