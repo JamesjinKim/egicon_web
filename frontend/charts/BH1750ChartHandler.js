@@ -218,11 +218,17 @@ class BH1750ChartHandler {
 
     // 실시간 데이터를 차트에 업데이트
     updateChartsWithRealtimeData(sensorId, data, timestamp) {
+        console.log(`🔄 BH1750 차트 데이터 업데이트 시작: ${sensorId}`, data);
+        
         // sensorId에서 bus와 channel 추출하여 인덱스 찾기
         const sensorIndex = this.findSensorIndex(sensorId);
         
+        console.log(`🔍 센서 인덱스 검색 결과: ${sensorId} → ${sensorIndex}`);
+        console.log(`📊 현재 등록된 센서들:`, this.sensors);
+        
         if (sensorIndex === -1) {
             console.warn(`⚠️ BH1750 센서 인덱스 찾기 실패: ${sensorId}`);
+            console.warn(`📊 검색 대상 센서들:`, this.sensors.map(s => ({bus: s.bus, mux_channel: s.mux_channel})));
             return;
         }
         
@@ -232,22 +238,27 @@ class BH1750ChartHandler {
     
     // 센서 ID로부터 차트 인덱스 찾기
     findSensorIndex(sensorId) {
-        // sensorId 형식: "bh1750_1_3" (bus_channel)
+        console.log(`🔍 센서 인덱스 검색 시작: ${sensorId}`);
+        
+        // sensorId 형식: "bh1750_1_4" (prefix_bus_channel)
         const parts = sensorId.split('_');
+        console.log(`🔍 센서 ID 분할 결과:`, parts);
+        
         if (parts.length < 3) {
-            console.warn(`⚠️ 잘못된 센서 ID 형식: ${sensorId}`);
+            console.warn(`⚠️ 잘못된 센서 ID 형식: ${sensorId}, 부분 개수: ${parts.length}`);
             return -1;
         }
         
         const bus = parseInt(parts[1]);
         const channel = parseInt(parts[2]);
+        console.log(`🔍 추출된 버스/채널: bus=${bus}, channel=${channel}`);
         
         // 초기화된 센서 목록에서 해당 센서의 인덱스 찾기
         const index = this.sensors.findIndex(sensor => 
             sensor.bus === bus && sensor.mux_channel === channel
         );
         
-        // 센서 인덱스 검색 완료
+        console.log(`🔍 센서 인덱스 검색 완료: ${sensorId} → ${index}`);
         return index;
     }
     
