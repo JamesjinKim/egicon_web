@@ -302,40 +302,43 @@ class BH1750SensorManager {
         // BH1750 폴링 설정 완료
     }
 
-    // 센서 데이터 가져오기
+    // 센서 데이터 가져오기 (실제 API 호출)
     async fetchSensorData(sensor, sensorId, sensorIndex) {
         const apiUrl = `/api/sensors/bh1750/${sensor.bus}/${sensor.mux_channel}`;
         
         try {
+            console.log(`🔗 BH1750 API 호출 [${sensorIndex}]: ${apiUrl}`);
+            
             const response = await fetch(apiUrl);
             const result = await response.json();
             
             if (result.success && result.data) {
                 const light = result.data.light;
-                const timestamp = Date.now() / 1000;
+                const timestamp = result.data.timestamp;
                 
-                // BH1750 데이터 수신
+                console.log(`✅ BH1750 실제 데이터 [${sensorIndex}]: ${light.toFixed(1)} lux (${timestamp})`);
                 
                 // 차트 핸들러를 통한 직접 차트 업데이트 (에러 처리 추가)
                 if (this.chartHandler && this.chartHandler.isReady()) {
                     try {
                         this.chartHandler.updateChartsWithRealtimeData(sensorId, {
                             light: light
-                        }, timestamp);
+                        }, Date.now() / 1000);
+                        console.log(`📊 BH1750 차트 업데이트 성공 [${sensorIndex}]`);
                     } catch (chartError) {
-                        console.warn(`⚠️ BH1750 차트 업데이트 에러: ${chartError.message}`);
+                        console.warn(`⚠️ BH1750 차트 업데이트 에러 [${sensorIndex}]: ${chartError.message}`);
                         // 에러 발생 시 버퍼링으로 전환
                         this.chartHandler.bufferData(sensorId, {
                             light: light
-                        }, timestamp);
+                        }, Date.now() / 1000);
                     }
                 } else {
                     // BH1750ChartHandler 준비되지 않음, 데이터 버퍼링
-                    // 차트 핸들러가 준비되지 않은 경우 데이터를 버퍼에 저장
+                    console.log(`📦 BH1750 차트 핸들러 준비 중, 데이터 버퍼링 [${sensorIndex}]`);
                     if (this.chartHandler) {
                         this.chartHandler.bufferData(sensorId, {
                             light: light
-                        }, timestamp);
+                        }, Date.now() / 1000);
                     }
                 }
                 
@@ -343,10 +346,10 @@ class BH1750SensorManager {
                 this.updateWidgets(light, sensorIndex);
                 
             } else {
-                console.warn(`⚠️ BH1750 API 오류 [${sensorIndex}]:`, result.message || result.error);
+                console.warn(`⚠️ BH1750 API 응답 오류 [${sensorIndex}]:`, result.message || result.error);
             }
         } catch (error) {
-            console.error(`❌ BH1750 데이터 수집 실패 [${sensorIndex}]:`, error);
+            console.error(`❌ BH1750 API 호출 실패 [${sensorIndex}]: ${error.message}`);
         }
     }
     
@@ -432,94 +435,74 @@ class BH1750SensorManager {
                     console.error('❌ BH1750 차트 핸들러가 없음');
                 }
                 
-                // 2초 간격으로 실시간 테스트 데이터 시뮬레이션 시작
+                // 실제 API 폴링 시작
                 setTimeout(() => {
-                    console.log('🧪 BH1750 2초 간격 실시간 데이터 시뮬레이션 시작');
-                    this.startRealtimeDataSimulation(sensor);
+                    console.log('🔗 BH1750 실제 API 폴링 시작');
+                    this.startRealSensorPolling(sensor);
                 }, 2000);
             }, 1000); // 1초 지연으로 DOM 완전 로딩 대기
         }
     }
 
-    // 실시간 테스트 데이터 시뮬레이션 (2초 간격)
-    startRealtimeDataSimulation(sensor) {
-        console.log('📊 BH1750 실시간 데이터 시뮬레이션 시작: 2초 간격');
+    // 실제 센서 API 폴링 (2초 간격)
+    startRealSensorPolling(sensor) {
+        console.log('🔗 BH1750 실제 센서 API 폴링 시작: 2초 간격');
         
-        let dataPointCounter = 0;
         const sensorId = `bh1750_${sensor.bus}_${sensor.mux_channel}`;
+        const apiUrl = `/api/sensors/bh1750/${sensor.bus}/${sensor.mux_channel}`;
         
-        // 실시간 데이터 생성 함수 (실제 센서 테스트 결과 기반)
-        const generateRealtimeData = () => {
-            // 조명 상태 변화 시뮬레이션 (10-15초마다 급격한 변화)
-            const cyclePosition = (dataPointCounter * 2000) % 30000; // 30초 주기
-            let lightValue;
-            
-            if (cyclePosition < 8000) {
-                // 8초간: 밝은 상태 (200-1200 lux)
-                const baseLight = 700;
-                const variation = Math.sin(dataPointCounter * 0.05) * 200;
-                const randomFlicker = (Math.random() - 0.5) * 100;
-                lightValue = baseLight + variation + randomFlicker;
-                lightValue = Math.max(200, Math.min(1200, lightValue));
-            } else if (cyclePosition < 12000) {
-                // 4초간: 급격한 감소 (조명 끄기 시뮬레이션)
-                const progress = (cyclePosition - 8000) / 4000; // 0-1
-                const startValue = 700;
-                const endValue = 2;
-                lightValue = startValue * (1 - Math.pow(progress, 2)) + endValue;
-                lightValue = Math.max(0.8, lightValue);
-            } else if (cyclePosition < 20000) {
-                // 8초간: 어두운 상태 (0.8-5 lux)
-                const baseLight = 2;
-                const variation = Math.sin(dataPointCounter * 0.1) * 1.5;
-                const randomNoise = (Math.random() - 0.5) * 2;
-                lightValue = baseLight + variation + randomNoise;
-                lightValue = Math.max(0.8, Math.min(5, lightValue));
-            } else if (cyclePosition < 24000) {
-                // 4초간: 급격한 증가 (조명 켜기 시뮬레이션)
-                const progress = (cyclePosition - 20000) / 4000; // 0-1
-                const startValue = 2;
-                const endValue = 800;
-                lightValue = startValue + (endValue - startValue) * Math.pow(progress, 0.5);
-            } else {
-                // 6초간: 밝은 상태로 복귀 (500-1000+ lux)
-                const baseLight = 750;
-                const variation = Math.sin(dataPointCounter * 0.03) * 300;
-                const randomFlicker = (Math.random() - 0.5) * 150;
-                lightValue = baseLight + variation + randomFlicker;
-                lightValue = Math.max(300, Math.min(1500, lightValue));
+        // 실제 센서 데이터 가져오기 함수
+        const fetchRealSensorData = async () => {
+            try {
+                console.log(`🔗 BH1750 API 호출: ${apiUrl}`);
+                
+                const response = await fetch(apiUrl);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const lightValue = result.data.light;
+                    const timestamp = result.data.timestamp;
+                    
+                    console.log(`✅ BH1750 실제 센서 데이터: ${lightValue.toFixed(1)} lux (${timestamp})`);
+                    
+                    // 위젯 업데이트
+                    this.updateWidgets(lightValue, 0);
+                    
+                    // 차트 업데이트
+                    if (this.chartHandler && this.chartHandler.isReady()) {
+                        console.log('📊 BH1750 실제 데이터로 차트 업데이트');
+                        this.chartHandler.updateChartsWithRealtimeData(sensorId, {
+                            light: lightValue
+                        }, Date.now() / 1000);
+                    } else {
+                        console.warn('⚠️ BH1750 차트 핸들러가 준비되지 않음');
+                        // 차트 핸들러가 준비되지 않은 경우 버퍼에 저장
+                        if (this.chartHandler) {
+                            this.chartHandler.bufferData(sensorId, {
+                                light: lightValue
+                            }, Date.now() / 1000);
+                        }
+                    }
+                    
+                } else {
+                    console.warn(`⚠️ BH1750 API 응답 오류:`, result.error || result.message);
+                }
+                
+            } catch (error) {
+                console.error(`❌ BH1750 API 호출 실패: ${error.message}`);
             }
-            
-            const clampedLight = Math.max(0.8, Math.min(2000, lightValue));
-            
-            console.log(`📊 BH1750 실시간 데이터 생성 #${dataPointCounter}: ${clampedLight.toFixed(1)} lux`);
-            
-            // 위젯 업데이트
-            this.updateWidgets(clampedLight, 0);
-            
-            // 차트 업데이트
-            if (this.chartHandler && this.chartHandler.isReady()) {
-                console.log('📊 BH1750 차트 업데이트 시작');
-                this.chartHandler.updateChartsWithRealtimeData(sensorId, {
-                    light: clampedLight
-                }, Date.now() / 1000);
-            } else {
-                console.warn('⚠️ BH1750 차트 핸들러가 준비되지 않음');
-            }
-            
-            dataPointCounter++;
         };
         
-        // 첫 번째 데이터 즉시 생성
-        generateRealtimeData();
+        // 첫 번째 데이터 즉시 가져오기
+        fetchRealSensorData();
         
-        // 2초 간격으로 지속적인 데이터 업데이트
-        const realtimeInterval = setInterval(generateRealtimeData, 2000);
+        // 2초 간격으로 지속적인 실제 데이터 폴링
+        const pollingInterval = setInterval(fetchRealSensorData, 2000);
         
         // 인터벌 저장 (나중에 정리용)
-        this.pollingIntervals.push(realtimeInterval);
+        this.pollingIntervals.push(pollingInterval);
         
-        console.log('✅ BH1750 2초 간격 실시간 데이터 시뮬레이션 설정 완료');
+        console.log('✅ BH1750 실제 센서 API 폴링 설정 완료 (2초 간격)');
     }
 
     // 실시간 데이터 처리 (WebSocket에서 호출)
