@@ -154,17 +154,34 @@ class BH1750SensorManager {
     
     // 초기 테스트 데이터 설정
     setInitialTestData() {
+        console.log('🔍 BH1750 위젯 요소 디버깅 시작');
+        
         // 조도 위젯 초기값 설정
         const lightValueElement = document.getElementById('light-average');
+        console.log('🔍 light-average 요소:', lightValueElement);
         if (lightValueElement) {
-            lightValueElement.textContent = `-- lux`;
+            lightValueElement.textContent = `연결됨 lux`;
+            console.log('✅ light-average 업데이트:', lightValueElement.textContent);
+        } else {
+            console.error('❌ light-average 요소를 찾을 수 없음');
         }
         
         // 조도 범위 위젯 초기값 설정
         const lightRangeElement = document.getElementById('light-range');
+        console.log('🔍 light-range 요소:', lightRangeElement);
         if (lightRangeElement) {
-            lightRangeElement.textContent = `-- ~ -- lux`;
+            lightRangeElement.textContent = `센서 대기 중`;
+            console.log('✅ light-range 업데이트:', lightRangeElement.textContent);
+        } else {
+            console.error('❌ light-range 요소를 찾을 수 없음');
         }
+        
+        // 모든 light 관련 요소 스캔
+        const allLightElements = document.querySelectorAll('[id*="light"]');
+        console.log('🔍 모든 light 관련 요소들:', allLightElements);
+        allLightElements.forEach((element, index) => {
+            console.log(`  ${index}: ID=${element.id}, 내용="${element.textContent}"`);
+        });
         
         console.log('✅ BH1750 초기 테스트 데이터 설정 완료');
     }
@@ -278,8 +295,17 @@ class BH1750SensorManager {
             const sensorId = `bh1750_${sensor.bus}_${sensor.mux_channel}`;
             this.addSensorToGroup(sensor, sensorId);
             
-            // 센서 발견 시 위젯 초기화
-            this.initializeStatusWidgets(1);
+            // 센서 발견 시 위젯 초기화 (지연 실행)
+            console.log('⏱️ BH1750 위젯 초기화 지연 실행 (DOM 준비 대기)');
+            setTimeout(() => {
+                this.initializeStatusWidgets(1);
+                
+                // 추가로 5초 후 테스트 데이터 시뮬레이션
+                setTimeout(() => {
+                    console.log('🧪 BH1750 테스트 데이터 시뮬레이션');
+                    this.updateWidgets(350.5, 0); // 350.5 lux 테스트 데이터
+                }, 5000);
+            }, 1000); // 1초 지연으로 DOM 완전 로딩 대기
         }
     }
 
