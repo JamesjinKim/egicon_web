@@ -156,6 +156,15 @@ class BH1750SensorManager {
     setInitialTestData() {
         console.log('🔍 BH1750 위젯 요소 디버깅 시작');
         
+        // 조도 센서 그룹 전체 확인
+        const lightGroup = document.querySelector('[data-group="light"]');
+        console.log('🔍 light 그룹 요소:', lightGroup);
+        if (lightGroup) {
+            // 그룹이 숨겨져 있다면 표시
+            lightGroup.style.display = 'block';
+            console.log('✅ light 그룹 표시 강제 설정');
+        }
+        
         // 조도 위젯 초기값 설정
         const lightValueElement = document.getElementById('light-average');
         console.log('🔍 light-average 요소:', lightValueElement);
@@ -164,6 +173,8 @@ class BH1750SensorManager {
             console.log('✅ light-average 업데이트:', lightValueElement.textContent);
         } else {
             console.error('❌ light-average 요소를 찾을 수 없음');
+            // light-average 요소가 없다면 동적으로 생성
+            this.createMissingLightElements();
         }
         
         // 조도 범위 위젯 초기값 설정
@@ -180,10 +191,40 @@ class BH1750SensorManager {
         const allLightElements = document.querySelectorAll('[id*="light"]');
         console.log('🔍 모든 light 관련 요소들:', allLightElements);
         allLightElements.forEach((element, index) => {
-            console.log(`  ${index}: ID=${element.id}, 내용="${element.textContent}"`);
+            console.log(`  ${index}: ID=${element.id}, 내용="${element.textContent}", 표시상태=${getComputedStyle(element).display}`);
         });
         
         console.log('✅ BH1750 초기 테스트 데이터 설정 완료');
+    }
+    
+    // 누락된 light 요소들 생성
+    createMissingLightElements() {
+        console.log('🔧 누락된 light 요소들 동적 생성 시도');
+        
+        const lightGroup = document.querySelector('[data-group="light"]');
+        if (!lightGroup) {
+            console.error('❌ light 그룹 자체를 찾을 수 없음');
+            return;
+        }
+        
+        // summary-widgets-container 찾기
+        const summaryContainer = lightGroup.querySelector('.summary-widgets-container');
+        if (summaryContainer) {
+            console.log('✅ summary-widgets-container 발견');
+            
+            // light-average 요소가 없으면 생성
+            if (!document.getElementById('light-average')) {
+                const lightWidget = summaryContainer.querySelector('.summary-widget.light');
+                if (lightWidget) {
+                    const summaryValue = lightWidget.querySelector('.summary-value');
+                    if (summaryValue && !summaryValue.id) {
+                        summaryValue.id = 'light-average';
+                        summaryValue.textContent = '동적생성 lux';
+                        console.log('✅ light-average 요소 동적 생성 완료');
+                    }
+                }
+            }
+        }
     }
 
     // 데이터 폴링 시작
