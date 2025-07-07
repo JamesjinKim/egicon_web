@@ -42,6 +42,8 @@ class BH1750ChartHandler {
             `BH1750-${sensor.bus}.${sensor.mux_channel} 조도`
         );
         
+        console.log(`📊 BH1750 차트 라벨:`, lightLabels);
+        
         // 멀티 센서 차트 생성
         this.createMultiSensorChart('light-multi-chart', 'light', lightLabels);
         
@@ -63,9 +65,20 @@ class BH1750ChartHandler {
 
     // 멀티 센서 차트 생성 (여러 데이터셋)
     createMultiSensorChart(canvasId, sensorType, labels) {
-        // 멀티 센서 차트 생성
+        console.log(`🔧 BH1750 멀티 센서 차트 생성 시작: ${canvasId}`);
+        console.log(`📊 센서 타입: ${sensorType}, 라벨 개수: ${labels.length}`);
+        console.log(`📊 전달된 라벨들:`, labels);
         
         const ctx = document.getElementById(canvasId);
+        console.log(`🔍 캔버스 요소 확인 (${canvasId}):`, ctx);
+        console.log(`🔍 캔버스 요소 속성:`, ctx ? {
+            id: ctx.id,
+            width: ctx.width,
+            height: ctx.height,
+            display: getComputedStyle(ctx).display,
+            visibility: getComputedStyle(ctx).visibility
+        } : 'null');
+        
         if (!ctx) {
             console.error(`❌ 캔버스 요소 없음: ${canvasId}`);
             return;
@@ -106,54 +119,87 @@ class BH1750ChartHandler {
         
         // 실제 생성된 데이터셋
         
-        this.dashboard.charts[canvasId] = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: datasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    }
+        try {
+            console.log(`📊 Chart.js 차트 생성 시도 중...`);
+            console.log(`📊 데이터셋 미리보기:`, datasets.map(d => ({ label: d.label, dataLength: d.data.length })));
+            
+            this.dashboard.charts[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: datasets
                 },
-                scales: {
-                    x: {
-                        type: 'linear',
-                        display: true,
-                        title: {
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
                             display: true,
-                            text: '데이터 포인트'
-                        },
-                        min: 0,
-                        max: 30,
-                        grid: { 
-                            color: 'rgba(0, 0, 0, 0.05)' 
-                        },
-                        ticks: {
-                            maxTicksLimit: 10,
-                            stepSize: 5
+                            position: 'top'
                         }
                     },
-                    y: {
-                        display: true,
-                        title: {
+                    scales: {
+                        x: {
+                            type: 'linear',
                             display: true,
-                            text: '조도 (lux)'
+                            title: {
+                                display: true,
+                                text: '데이터 포인트'
+                            },
+                            min: 0,
+                            max: 30,
+                            grid: { 
+                                color: 'rgba(0, 0, 0, 0.05)' 
+                            },
+                            ticks: {
+                                maxTicksLimit: 10,
+                                stepSize: 5
+                            }
                         },
-                        min: 0,
-                        max: 10000,
-                        grid: { 
-                            color: 'rgba(0, 0, 0, 0.05)' 
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '조도 (lux)'
+                            },
+                            min: 0,
+                            max: 10000,
+                            grid: { 
+                                color: 'rgba(0, 0, 0, 0.05)' 
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+            
+            console.log(`✅ BH1750 Chart.js 차트 객체 생성 성공: ${canvasId}`);
+            console.log(`📊 생성된 차트:`, this.dashboard.charts[canvasId]);
+            console.log(`📊 데이터셋 개수: ${datasets.length}`);
+            console.log(`📊 차트 캔버스 상태:`, {
+                chartExists: !!this.dashboard.charts[canvasId],
+                canvasWidth: ctx.width,
+                canvasHeight: ctx.height,
+                isVisible: getComputedStyle(ctx).display !== 'none'
+            });
+            
+            // 차트 렌더링 강제 수행
+            setTimeout(() => {
+                if (this.dashboard.charts[canvasId]) {
+                    try {
+                        this.dashboard.charts[canvasId].resize();
+                        this.dashboard.charts[canvasId].update();
+                        console.log(`🔄 BH1750 차트 강제 렌더링 완료: ${canvasId}`);
+                    } catch (renderError) {
+                        console.warn(`⚠️ BH1750 차트 강제 렌더링 실패: ${renderError.message}`);
+                    }
+                }
+            }, 100);
+            
+        } catch (chartError) {
+            console.error(`❌ BH1750 차트 생성 실패: ${chartError.message}`);
+            console.error('차트 생성 상세 에러:', chartError);
+            console.error('Stack trace:', chartError.stack);
+        }
         
         // 멀티 센서 차트 생성 완료
     }

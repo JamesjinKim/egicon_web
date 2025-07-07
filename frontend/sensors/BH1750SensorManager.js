@@ -341,10 +341,53 @@ class BH1750SensorManager {
             setTimeout(() => {
                 this.initializeStatusWidgets(1);
                 
+                // 차트 초기화 직접 호출 (API 폴링 없이 테스트)
+                console.log('📊 BH1750 차트 초기화 직접 호출');
+                console.log('📊 차트 핸들러 상태:', {
+                    exists: !!this.chartHandler,
+                    isReady: this.chartHandler ? this.chartHandler.isReady() : false
+                });
+                
+                if (this.chartHandler) {
+                    // 가상의 센서 정보로 차트 초기화
+                    const testSensors = [{
+                        bus: sensor.bus,
+                        mux_channel: sensor.mux_channel,
+                        sensor_type: 'BH1750'
+                    }];
+                    console.log('📊 테스트 센서 정보:', testSensors);
+                    
+                    // DOM 요소 확인
+                    const chartCanvas = document.getElementById('light-multi-chart');
+                    console.log('📊 차트 캔버스 요소 확인:', {
+                        exists: !!chartCanvas,
+                        id: chartCanvas ? chartCanvas.id : 'null',
+                        display: chartCanvas ? getComputedStyle(chartCanvas).display : 'null'
+                    });
+                    
+                    try {
+                        this.chartHandler.initializeCharts(testSensors);
+                        console.log('✅ BH1750 차트 초기화 호출 완료');
+                    } catch (initError) {
+                        console.error('❌ BH1750 차트 초기화 실패:', initError);
+                    }
+                } else {
+                    console.error('❌ BH1750 차트 핸들러가 없음');
+                }
+                
                 // 추가로 5초 후 테스트 데이터 시뮬레이션
                 setTimeout(() => {
                     console.log('🧪 BH1750 테스트 데이터 시뮬레이션');
                     this.updateWidgets(350.5, 0); // 350.5 lux 테스트 데이터
+                    
+                    // 차트에도 테스트 데이터 추가
+                    if (this.chartHandler && this.chartHandler.isReady()) {
+                        const sensorId = `bh1750_${sensor.bus}_${sensor.mux_channel}`;
+                        console.log('📊 BH1750 차트 테스트 데이터 추가:', sensorId);
+                        this.chartHandler.updateChartsWithRealtimeData(sensorId, {
+                            light: 350.5
+                        }, Date.now() / 1000);
+                    }
                 }, 5000);
             }, 1000); // 1초 지연으로 DOM 완전 로딩 대기
         }
