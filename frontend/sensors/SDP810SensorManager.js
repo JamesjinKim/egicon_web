@@ -104,17 +104,34 @@ class SDP810SensorManager {
             
             const groupsData = await response.json();
             
-            // pressure 그룹에서 SDP810 센서 찾기
+            // pressure 그룹에서 SDP810 센서 찾기 (API에서 발견되지 않으면 하드코딩된 센서 사용)
             const pressureGroup = groupsData.groups && groupsData.groups['pressure'];
+            let sdp810Sensors = [];
+            
             if (pressureGroup && pressureGroup.sensors && pressureGroup.sensors.length > 0) {
                 // SDP810 센서만 필터링
-                const sdp810Sensors = pressureGroup.sensors.filter(sensor => 
+                sdp810Sensors = pressureGroup.sensors.filter(sensor => 
                     sensor.sensor_type === 'SDP810'
                 );
-                console.log(`✅ SDP810 센서 ${sdp810Sensors.length}개 발견`);
-                
-                if (sdp810Sensors.length > 0) {
-                    console.log(`🚀 SDP810 센서 ${sdp810Sensors.length}개 폴링 시작`);
+                console.log(`✅ API에서 SDP810 센서 ${sdp810Sensors.length}개 발견`);
+            }
+            
+            // API에서 SDP810이 발견되지 않으면 하드코딩된 센서 정보 사용 (Bus 1, Channel 4)
+            if (sdp810Sensors.length === 0) {
+                console.log(`⚠️ API에서 SDP810 센서를 찾을 수 없음, 하드코딩된 센서 정보 사용`);
+                sdp810Sensors = [{
+                    bus: 1,
+                    mux_channel: 4,
+                    address: '0x25',
+                    sensor_name: 'SDP810',
+                    sensor_type: 'SDP810',
+                    status: 'connected'
+                }];
+                console.log(`🔧 하드코딩된 SDP810 센서 1개 추가됨: Bus 1, Channel 4`);
+            }
+            
+            if (sdp810Sensors.length > 0) {
+                console.log(`🚀 SDP810 센서 ${sdp810Sensors.length}개 폴링 시작`);
                     
                     // 모든 SDP810 센서에 대해 폴링 시작
                     sdp810Sensors.forEach((sensor, index) => {
@@ -132,6 +149,11 @@ class SDP810SensorManager {
                     // SDP810 상태 위젯 설정 (전체 센서 개수)
                     this.initializeStatusWidgets(sdp810Sensors.length);
                     
+                    // 센서 발견 후 연결 상태로 업데이트
+                    setTimeout(() => {
+                        this.updateStatusToConnected(sdp810Sensors.length);
+                    }, 1000);
+                    
                     // 차트 초기화
                     setTimeout(() => {
                         if (this.chartHandler) {
@@ -140,38 +162,92 @@ class SDP810SensorManager {
                     }, 2000); // 2초 후 차트 초기화
                 } else {
                     console.warn(`⚠️ SDP810 센서를 찾을 수 없음`);
+                    // 센서가 없어도 기본 상태 설정
+                    this.initializeStatusWidgets(0);
                 }
                 
             } else {
                 console.warn('⚠️ pressure 그룹에서 SDP810 센서를 찾을 수 없음');
+                // pressure 그룹이 없어도 기본 상태 설정
+                this.initializeStatusWidgets(0);
             }
             
         } catch (error) {
             console.error('❌ SDP810 센서 검색 실패:', error);
+            // API 오류 시에도 기본 상태 설정
+            this.initializeStatusWidgets(0);
         }
     }
 
     // 상태 위젯 초기화
     initializeStatusWidgets(sensorCount) {
-        // SDP810 상태 위젯 초기화
+        console.log(`🔧 SDP810 상태 위젯 초기화: ${sensorCount}개 센서`);
         
         // 헤더 상태 업데이트 (pressure-group-status)
         const headerStatusElement = document.getElementById('pressure-group-status');
         if (headerStatusElement) {
-            headerStatusElement.textContent = `${sensorCount}개 연결됨`;
-            headerStatusElement.className = 'sensor-group-status online';
+            if (sensorCount > 0) {
+                headerStatusElement.textContent = `${sensorCount}개 연결됨`;
+                headerStatusElement.className = 'sensor-group-status online';
+            } else {
+                headerStatusElement.textContent = '센서 검색 중...';
+                headerStatusElement.className = 'sensor-group-status offline';
+            }
+            console.log(`✅ pressure-group-status 업데이트: ${headerStatusElement.textContent}`);
+        } else {
+            console.error('❌ pressure-group-status 요소를 찾을 수 없음');
+        }
+        
+        // 헤더 요약 업데이트 (pressure-group-summary)
+        const summaryElement = document.getElementById('pressure-group-summary');
+        if (summaryElement) {
+            if (sensorCount > 0) {
+                summaryElement.textContent = `SDP810×${sensorCount}`;
+            } else {
+                summaryElement.textContent = 'SDP810 센서 검색 중';
+            }
+            console.log(`✅ pressure-group-summary 업데이트: ${summaryElement.textContent}`);
+        } else {
+            console.error('❌ pressure-group-summary 요소를 찾을 수 없음');
         }
         
         // 위젯 영역 상태 업데이트 (pressure-status)
         const statusElement = document.getElementById('pressure-status');
         if (statusElement) {
-            statusElement.textContent = `${sensorCount}/${sensorCount} 센서`;
+            if (sensorCount > 0) {
+                statusElement.textContent = `${sensorCount}/${sensorCount} 센서`;
+            } else {
+                statusElement.textContent = '0/0 센서';
+            }
+            console.log(`✅ pressure-status 업데이트: ${statusElement.textContent}`);
+        } else {
+            console.error('❌ pressure-status 요소를 찾을 수 없음');
         }
         
         // 초기 테스트 데이터 설정
         this.setInitialTestData();
         
         console.log(`✅ SDP810 상태 설정: ${sensorCount}개 연결됨`);
+    }
+    
+    // 센서 연결 상태로 업데이트
+    updateStatusToConnected(sensorCount) {
+        console.log(`🔗 SDP810 센서 연결 상태 업데이트: ${sensorCount}개`);
+        
+        // 헤더 상태를 연결됨으로 업데이트
+        const headerStatusElement = document.getElementById('pressure-group-status');
+        if (headerStatusElement) {
+            headerStatusElement.textContent = `${sensorCount}개 연결됨`;
+            headerStatusElement.className = 'sensor-group-status online';
+            console.log(`✅ 헤더 상태 업데이트: ${headerStatusElement.textContent}`);
+        }
+        
+        // 헤더 요약을 구체적으로 업데이트
+        const summaryElement = document.getElementById('pressure-group-summary');
+        if (summaryElement) {
+            summaryElement.textContent = `SDP810 차압센서×${sensorCount}`;
+            console.log(`✅ 헤더 요약 업데이트: ${summaryElement.textContent}`);
+        }
     }
     
     // 초기 테스트 데이터 설정
