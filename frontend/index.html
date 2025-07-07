@@ -289,14 +289,14 @@
             </div>
         </div>
 
-        <!-- SDP810 차압 센서 그룹 -->
-        <div class="sensor-group" data-group="sdp810">
+        <!-- 차압 센서 그룹 (SDP810) -->
+        <div class="sensor-group" data-group="pressure">
             <div class="sensor-group-header">
                 <i class="fas fa-wind"></i>
-                <span class="sensor-group-title">SDP810 차압센서</span>
+                <span class="sensor-group-title">차압 센서</span>
                 <div class="sensor-group-summary">
-                    <span class="sensor-group-status online" id="sdp810-group-status">연결 확인 중...</span>
-                    <span class="summary-item" id="sdp810-group-summary">센서 검색 중</span>
+                    <span class="sensor-group-status online" id="pressure-group-status">연결 확인 중...</span>
+                    <span class="summary-item" id="pressure-group-summary">센서 검색 중</span>
                 </div>
             </div>
             
@@ -305,9 +305,9 @@
                 <div class="summary-widget pressure">
                     <div class="summary-icon">🌬️</div>
                     <div class="summary-content">
-                        <div class="summary-label">평균 차압</div>
-                        <div class="summary-value" id="sdp810-pressure-average">-- Pa</div>
-                        <div class="summary-range" id="sdp810-pressure-range">-- ~ -- Pa</div>
+                        <div class="summary-label">차압</div>
+                        <div class="summary-value" id="differential-pressure-average">-- Pa</div>
+                        <div class="summary-range" id="differential-pressure-range">-- ~ -- Pa</div>
                     </div>
                 </div>
                 
@@ -315,7 +315,7 @@
                     <div class="summary-icon">📊</div>
                     <div class="summary-content">
                         <div class="summary-label">센서 상태</div>
-                        <div class="summary-value" id="sdp810-sensor-status">0/0 활성</div>
+                        <div class="summary-value" id="pressure-status">0/0 센서</div>
                         <div class="summary-range">센서 확인 중</div>
                     </div>
                 </div>
@@ -324,9 +324,9 @@
             <!-- 통합 차트 -->
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3 class="chart-title" id="sdp810-chart-title">SDP810 차압 센서 차트 (0개)</h3>
+                    <h3 class="chart-title" id="pressure-chart-title">차압 센서 통합 차트 (0개)</h3>
                     <div class="chart-container">
-                        <canvas id="sdp810-pressure-chart"></canvas>
+                        <canvas id="pressure-multi-chart"></canvas>
                     </div>
                 </div>
             </div>
@@ -376,9 +376,11 @@
     <script src="frontend/charts/BME688ChartHandler.js"></script>
     <script src="frontend/charts/SPS30ChartHandler.js"></script>
     <script src="frontend/charts/BH1750ChartHandler.js"></script>
+    <script src="frontend/charts/SDP810ChartHandler.js"></script>
     <script src="frontend/sensors/BME688SensorManager.js"></script>
     <script src="frontend/sensors/SPS30SensorManager.js"></script>
     <script src="frontend/sensors/BH1750SensorManager.js"></script>
+    <script src="frontend/sensors/SDP810SensorManager.js"></script>
     
     <!-- 메인 대시보드 -->
     <script src="dashboard.js"></script>

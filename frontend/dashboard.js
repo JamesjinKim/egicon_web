@@ -193,11 +193,14 @@ class EGIconDashboard {
         this.sps30SensorManager = new SPS30SensorManager(this);
         this.bh1750ChartHandler = new BH1750ChartHandler(this);
         this.bh1750SensorManager = new BH1750SensorManager(this);
+        this.sdp810ChartHandler = new SDP810ChartHandler(this);
+        this.sdp810SensorManager = new SDP810SensorManager(this);
         
         // 차트 핸들러와 센서 매니저 연결
         this.bme688SensorManager.setChartHandler(this.bme688ChartHandler);
         this.sps30SensorManager.setChartHandler(this.sps30ChartHandler);
         this.bh1750SensorManager.setChartHandler(this.bh1750ChartHandler);
+        this.sdp810SensorManager.setChartHandler(this.sdp810ChartHandler);
         
         // 실제 센서 데이터만 사용
 
@@ -630,8 +633,7 @@ class EGIconDashboard {
         // SHT40 전용 차트 생성
         this.createSHT40Charts();
         
-        // SDP810 전용 차트 생성
-        this.createSDP810Charts();
+        // SDP810 차트는 SDP810ChartHandler에서 처리
         
         // BME688 pressure-gas 그룹 차트는 센서 발견 후 동적 생성
         console.log('📊 BME688 차트는 센서 발견 후 동적으로 생성됩니다');
@@ -1405,9 +1407,9 @@ class EGIconDashboard {
                 return;
             }
             
-            // SDP810 센서 데이터 처리
+            // SDP810 센서 데이터 처리 (SDP810SensorManager로 위임)
             if (data.sensor_type === 'SDP810') {
-                this.updateSDP810Data(data);
+                this.sdp810SensorManager.processSensorFromWebSocket(data);
                 return;
             }
             
@@ -1492,13 +1494,13 @@ class EGIconDashboard {
             console.error('❌ 실제 센서 데이터 로딩 실패:', error);
         }
         
-        // 강제로 SDP810 API 폴링 시작 (WebSocket 데이터 대신)
-        console.log('🔧 SDP810 강제 폴링 시작...');
-        const sdp810Sensor = { bus: 1, mux_channel: 0 };
-        this.startSDP810DataPolling('sdp810_1_0_25', sdp810Sensor);
+        // SDP810 센서는 SDP810SensorManager에서 처리
         
         // BME688 API 폴링 시작 (리팩토링된 매니저 사용)
         this.bme688SensorManager.startPollingForDiscoveredSensors();
+        
+        // SDP810 API 폴링 시작 (리팩토링된 매니저 사용)
+        this.sdp810SensorManager.startPollingForDiscoveredSensors();
         
         // BH1750 API 폴링 시작 (API 엔드포인트 구현 대기 중)
         // this.bh1750SensorManager.startPollingForDiscoveredSensors();
@@ -1670,13 +1672,13 @@ class EGIconDashboard {
         sensors.forEach((sensor) => {
             // BH1750 조도 센서 처리는 BH1750SensorManager로 이동됨
             
-            // SDP810 차압 센서 처리
+            // SDP810 차압 센서 처리 (SDP810SensorManager로 위임)
             if (sensor.sensor_type === 'SDP810') {
                 const sensorId = `${sensor.sensor_type.toLowerCase()}_${sensor.bus}_${sensor.mux_channel || 0}_25`;
                 console.log('📊 SDP810 차압 센서 발견:', sensor, '→', sensorId);
                 
-                // SDP810 센서 그룹 업데이트
-                this.updateSDP810SensorFromRealData(sensor, sensorId);
+                // SDP810 센서 그룹 업데이트 (SDP810SensorManager로 위임)
+                this.sdp810SensorManager.addSensorToGroup(sensor, sensorId);
             }
             
             // BME688 기압/가스저항 센서 처리

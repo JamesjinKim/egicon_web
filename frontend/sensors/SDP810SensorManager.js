@@ -188,23 +188,23 @@ class SDP810SensorManager {
         }
         
         // 차압 위젯 초기값 설정
-        const pressureValueElement = document.getElementById('pressure-average');
-        console.log('🔍 pressure-average 요소:', pressureValueElement);
+        const pressureValueElement = document.getElementById('differential-pressure-average');
+        console.log('🔍 differential-pressure-average 요소:', pressureValueElement);
         if (pressureValueElement) {
             pressureValueElement.textContent = `연결됨 Pa`;
-            console.log('✅ pressure-average 업데이트:', pressureValueElement.textContent);
+            console.log('✅ differential-pressure-average 업데이트:', pressureValueElement.textContent);
         } else {
-            console.error('❌ pressure-average 요소를 찾을 수 없음');
+            console.error('❌ differential-pressure-average 요소를 찾을 수 없음');
         }
         
         // 차압 범위 위젯 초기값 설정
-        const pressureRangeElement = document.getElementById('pressure-range');
-        console.log('🔍 pressure-range 요소:', pressureRangeElement);
+        const pressureRangeElement = document.getElementById('differential-pressure-range');
+        console.log('🔍 differential-pressure-range 요소:', pressureRangeElement);
         if (pressureRangeElement) {
             pressureRangeElement.textContent = `센서 대기 중`;
-            console.log('✅ pressure-range 업데이트:', pressureRangeElement.textContent);
+            console.log('✅ differential-pressure-range 업데이트:', pressureRangeElement.textContent);
         } else {
-            console.error('❌ pressure-range 요소를 찾을 수 없음');
+            console.error('❌ differential-pressure-range 요소를 찾을 수 없음');
         }
         
         // 최종 센서 개수 확인 및 업데이트 (3초 후)
@@ -316,13 +316,13 @@ class SDP810SensorManager {
         const maxPressure = Math.max(...pressureValues);
         
         // 차압 위젯 업데이트
-        const pressureValueElement = document.getElementById('pressure-average');
+        const pressureValueElement = document.getElementById('differential-pressure-average');
         if (pressureValueElement) {
             pressureValueElement.textContent = `${avgPressure.toFixed(3)} Pa`;
         }
         
         // 차압 범위 위젯 업데이트
-        const pressureRangeElement = document.getElementById('pressure-range');
+        const pressureRangeElement = document.getElementById('differential-pressure-range');
         if (pressureRangeElement) {
             pressureRangeElement.textContent = `${minPressure.toFixed(3)} ~ ${maxPressure.toFixed(3)} Pa`;
         }
