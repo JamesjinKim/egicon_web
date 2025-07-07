@@ -12,6 +12,12 @@ class BH1750SensorManager {
         this.chartHandler = null; // BH1750ChartHandler 인스턴스
         this.latestData = []; // 각 센서의 최신 데이터 저장
         
+        // BH1750 센서 배열 초기화 (새로고침 시 중복 방지)
+        if (this.dashboard.sensorGroups && this.dashboard.sensorGroups['light']) {
+            this.dashboard.sensorGroups['light'].sensors.bh1750 = [];
+            console.log(`🔄 BH1750 센서 배열 초기화됨 (새로고침 대응)`);
+        }
+        
         // BH1750SensorManager 초기화 완료
     }
     
@@ -82,8 +88,11 @@ class BH1750SensorManager {
 
         // BH1750 센서 그룹에 추가됨
 
-        // 센서 개수 업데이트
-        this.updateSensorCount();
+        // 센서 개수 업데이트는 지연 실행하여 최종 값으로 표시
+        setTimeout(() => {
+            this.updateSensorCount();
+            console.log(`🔄 BH1750 센서 개수 최종 업데이트: ${dashboard.sensorGroups['light'].sensors.bh1750.length}개`);
+        }, 2000); // 2초 후 최종 업데이트
         
         // BH1750 센서 추가 완료
     }
@@ -223,6 +232,13 @@ class BH1750SensorManager {
         allLightElements.forEach((element, index) => {
             console.log(`  ${index}: ID=${element.id}, 내용="${element.textContent}", 표시상태=${getComputedStyle(element).display}`);
         });
+        
+        // 최종 센서 개수 확인 및 업데이트 (3초 후)
+        setTimeout(() => {
+            const finalCount = this.dashboard.sensorGroups['light']?.sensors?.bh1750?.length || 0;
+            console.log(`🎯 BH1750 최종 센서 개수 확인: ${finalCount}개`);
+            this.updateSensorCount();
+        }, 3000);
         
         console.log('✅ BH1750 초기 테스트 데이터 설정 완료');
     }
