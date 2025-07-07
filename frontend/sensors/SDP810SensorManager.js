@@ -156,12 +156,14 @@ class SDP810SensorManager {
                     sdp810Sensors.forEach((sensor, index) => {
                         const sensorInfo = {
                             bus: sensor.bus,
-                            mux_channel: sensor.mux_channel
+                            mux_channel: sensor.mux_channel,
+                            sensor_type: sensor.sensor_type,
+                            address: sensor.address
                         };
                         
                         const sensorId = `sdp810_${sensor.bus}_${sensor.mux_channel}`;
                         
-                        // 센서를 pressure 그룹에 추가
+                        // 센서를 differential-pressure 그룹에 추가
                         this.addSensorToGroup(sensor, sensorId);
                         
                         // 각 센서마다 고유 인덱스로 폴링 시작
@@ -442,7 +444,29 @@ class SDP810SensorManager {
         // SDP810 차압 센서 처리
         if (sensor.sensor_type === 'SDP810') {
             console.log('📊 SDP810 차압 센서 발견:', sensor);
-            const sensorId = `sdp810_${sensor.bus}_${sensor.mux_channel}`;
+            
+            // sensor_id에서 bus/channel 정보 추출 (예: 'unknown_1_4' → bus=1, channel=4)
+            let bus = sensor.bus;
+            let mux_channel = sensor.mux_channel;
+            
+            if (!bus || !mux_channel) {
+                // sensor_id에서 bus/channel 추출 시도
+                if (sensor.sensor_id && typeof sensor.sensor_id === 'string') {
+                    const match = sensor.sensor_id.match(/(\d+)_(\d+)$/);
+                    if (match) {
+                        bus = parseInt(match[1]);
+                        mux_channel = parseInt(match[2]);
+                        console.log(`🔍 SDP810 sensor_id에서 추출: bus=${bus}, channel=${mux_channel}`);
+                        
+                        // 센서 객체에 추가
+                        sensor.bus = bus;
+                        sensor.mux_channel = mux_channel;
+                    }
+                }
+            }
+            
+            const sensorId = `sdp810_${bus}_${mux_channel}`;
+            console.log(`🔍 SDP810 센서 ID 생성: ${sensorId}`);
             this.addSensorToGroup(sensor, sensorId);
             
             // 센서 발견 시 위젯 초기화 (지연 실행)
