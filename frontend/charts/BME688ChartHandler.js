@@ -104,6 +104,8 @@ class BME688ChartHandler {
             borderWidth: 2,
             fill: false,
             tension: 0.4,
+            showLine: true,  // 명시적으로 선 표시 활성화
+            spanGaps: true,  // 데이터 간격이 있어도 선 연결
             pointRadius: 2,
             pointHoverRadius: 5,
             pointBackgroundColor: '#ffffff',
@@ -120,6 +122,20 @@ class BME688ChartHandler {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                elements: {
+                    line: {
+                        tension: 0.4,
+                        borderWidth: 2
+                    },
+                    point: {
+                        radius: 2,
+                        hoverRadius: 5
+                    }
+                },
                 plugins: {
                     legend: {
                         display: true,
@@ -186,6 +202,8 @@ class BME688ChartHandler {
             borderWidth: 2,
             fill: false,
             tension: 0.4,
+            showLine: true,  // 명시적으로 선 표시 활성화
+            spanGaps: true,  // 데이터 간격이 있어도 선 연결
             pointRadius: 2,
             pointHoverRadius: 5,
             pointBackgroundColor: '#ffffff',
@@ -204,6 +222,20 @@ class BME688ChartHandler {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                elements: {
+                    line: {
+                        tension: 0.4,
+                        borderWidth: 2
+                    },
+                    point: {
+                        radius: 2,
+                        hoverRadius: 5
+                    }
+                },
                 plugins: {
                     legend: {
                         display: true,
@@ -318,39 +350,58 @@ class BME688ChartHandler {
                 if (pressureChart.data.datasets[sensorIndex]) {
                     // 현재 데이터 길이 확인
                     const currentDataLength = pressureChart.data.datasets[sensorIndex].data.length;
+                    console.log(`📊 BME688 기압 현재 데이터 개수: ${currentDataLength}개`);
                     
-                    // X축 위치 계산 (30개 범위 내에서 슬라이딩)
-                    let xPosition = currentDataLength;
+                    // 30개 이상이면 첫 번째 데이터 제거 (슬라이딩 윈도우)
                     if (currentDataLength >= 30) {
-                        // 30개 이후부터는 슬라이딩 윈도우 적용
-                        xPosition = 29; // 마지막 위치에 고정
-                        // 기존 데이터를 왼쪽으로 이동
-                        pressureChart.data.datasets[sensorIndex].data.forEach((point, index) => {
-                            if (point && typeof point === 'object') {
-                                point.x = index;
-                            }
-                        });
-                    }
-                    
-                    // 첫 번째 센서만 X축 레이블 관리
-                    if (sensorIndex === 0) {
-                        if (currentDataLength < 30) {
-                            pressureChart.data.labels.push(currentDataLength);
-                        }
-                    }
-                    
-                    // 새 데이터 추가
-                    pressureChart.data.datasets[sensorIndex].data.push({
-                        x: xPosition,
-                        y: data.pressure
-                    });
-                    
-                    // 30개 이상이면 첫 번째 데이터 제거
-                    if (pressureChart.data.datasets[sensorIndex].data.length > 30) {
                         pressureChart.data.datasets[sensorIndex].data.shift();
+                        if (sensorIndex === 0) {
+                            pressureChart.data.labels.shift();
+                        }
+                        console.log(`📊 BME688 기압 30개 초과로 첫 번째 데이터 제거됨`);
                     }
                     
-                    pressureChart.update('none');
+                    // 연속적인 X축 값 생성
+                    const nextXValue = currentDataLength >= 30 ? 29 : currentDataLength;
+                    
+                    // 새 데이터 포인트 추가
+                    const newDataPoint = {
+                        x: nextXValue,
+                        y: data.pressure
+                    };
+                    console.log(`📊 BME688 기압 새 데이터 포인트 추가:`, newDataPoint);
+                    
+                    // 데이터와 레이블 동시 추가
+                    pressureChart.data.datasets[sensorIndex].data.push(newDataPoint);
+                    if (sensorIndex === 0) {
+                        pressureChart.data.labels.push(nextXValue);
+                    }
+                    
+                    // 데이터 포인트가 2개 이상일 때만 선 표시
+                    const dataPointCount = pressureChart.data.datasets[sensorIndex].data.length;
+                    if (dataPointCount >= 2) {
+                        pressureChart.data.datasets[sensorIndex].showLine = true;
+                        console.log(`📈 BME688 기압 트렌드 선 활성화: ${dataPointCount}개 데이터 포인트`);
+                    }
+                    
+                    try {
+                        pressureChart.update('none');
+                        console.log(`✅ BME688 기압 차트 업데이트 성공`);
+                        
+                        // 트렌드 선이 보이지 않는 경우 강제 설정
+                        const currentDataset = pressureChart.data.datasets[sensorIndex];
+                        if (currentDataset.data.length >= 2 && !currentDataset.showLine) {
+                            console.log(`🔧 BME688 기압 트렌드 선 강제 활성화`);
+                            currentDataset.showLine = true;
+                            pressureChart.update('none');
+                        }
+                        
+                        this.errorCount = 0; // 성공 시 에러 카운트 리셋
+                    } catch (updateError) {
+                        this.errorCount++;
+                        console.warn(`⚠️ BME688 기압 차트 에러 (${this.errorCount}/${this.maxErrors}): ${updateError.message}`);
+                        throw updateError; // 상위 catch에서 처리
+                    }
                 } else {
                     console.warn(`⚠️ 기압 차트 데이터셋[${sensorIndex}] 없음 (총 ${pressureChart.data.datasets.length}개 데이터셋)`);
                 }
@@ -366,39 +417,58 @@ class BME688ChartHandler {
                 if (gasChart.data.datasets[sensorIndex]) {
                     // 현재 데이터 길이 확인
                     const currentDataLength = gasChart.data.datasets[sensorIndex].data.length;
+                    console.log(`📊 BME688 가스저항 현재 데이터 개수: ${currentDataLength}개`);
                     
-                    // X축 위치 계산 (30개 범위 내에서 슬라이딩)
-                    let xPosition = currentDataLength;
+                    // 30개 이상이면 첫 번째 데이터 제거 (슬라이딩 윈도우)
                     if (currentDataLength >= 30) {
-                        // 30개 이후부터는 슬라이딩 윈도우 적용
-                        xPosition = 29; // 마지막 위치에 고정
-                        // 기존 데이터를 왼쪽으로 이동
-                        gasChart.data.datasets[sensorIndex].data.forEach((point, index) => {
-                            if (point && typeof point === 'object') {
-                                point.x = index;
-                            }
-                        });
-                    }
-                    
-                    // 첫 번째 센서만 X축 레이블 관리
-                    if (sensorIndex === 0) {
-                        if (currentDataLength < 30) {
-                            gasChart.data.labels.push(currentDataLength);
-                        }
-                    }
-                    
-                    // 새 데이터 추가
-                    gasChart.data.datasets[sensorIndex].data.push({
-                        x: xPosition,
-                        y: data.gas_resistance
-                    });
-                    
-                    // 30개 이상이면 첫 번째 데이터 제거
-                    if (gasChart.data.datasets[sensorIndex].data.length > 30) {
                         gasChart.data.datasets[sensorIndex].data.shift();
+                        if (sensorIndex === 0) {
+                            gasChart.data.labels.shift();
+                        }
+                        console.log(`📊 BME688 가스저항 30개 초과로 첫 번째 데이터 제거됨`);
                     }
                     
-                    gasChart.update('none');
+                    // 연속적인 X축 값 생성
+                    const nextXValue = currentDataLength >= 30 ? 29 : currentDataLength;
+                    
+                    // 새 데이터 포인트 추가
+                    const newDataPoint = {
+                        x: nextXValue,
+                        y: data.gas_resistance
+                    };
+                    console.log(`📊 BME688 가스저항 새 데이터 포인트 추가:`, newDataPoint);
+                    
+                    // 데이터와 레이블 동시 추가
+                    gasChart.data.datasets[sensorIndex].data.push(newDataPoint);
+                    if (sensorIndex === 0) {
+                        gasChart.data.labels.push(nextXValue);
+                    }
+                    
+                    // 데이터 포인트가 2개 이상일 때만 선 표시
+                    const dataPointCount = gasChart.data.datasets[sensorIndex].data.length;
+                    if (dataPointCount >= 2) {
+                        gasChart.data.datasets[sensorIndex].showLine = true;
+                        console.log(`📈 BME688 가스저항 트렌드 선 활성화: ${dataPointCount}개 데이터 포인트`);
+                    }
+                    
+                    try {
+                        gasChart.update('none');
+                        console.log(`✅ BME688 가스저항 차트 업데이트 성공`);
+                        
+                        // 트렌드 선이 보이지 않는 경우 강제 설정
+                        const currentDataset = gasChart.data.datasets[sensorIndex];
+                        if (currentDataset.data.length >= 2 && !currentDataset.showLine) {
+                            console.log(`🔧 BME688 가스저항 트렌드 선 강제 활성화`);
+                            currentDataset.showLine = true;
+                            gasChart.update('none');
+                        }
+                        
+                        this.errorCount = 0; // 성공 시 에러 카운트 리셋
+                    } catch (updateError) {
+                        this.errorCount++;
+                        console.warn(`⚠️ BME688 가스저항 차트 에러 (${this.errorCount}/${this.maxErrors}): ${updateError.message}`);
+                        throw updateError; // 상위 catch에서 처리
+                    }
                 } else {
                     console.warn(`⚠️ 가스저항 차트 데이터셋[${sensorIndex}] 없음 (총 ${gasChart.data.datasets.length}개 데이터셋)`);
                 }
