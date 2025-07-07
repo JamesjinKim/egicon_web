@@ -70,12 +70,23 @@ class EGIconDashboard {
                 metrics: ["pressure"],
                 sensors: {
                     // BME688 센서 기압 데이터 전용
-                    bme688: [],  // 동적으로 발견됨
-                    sdp810: []   // SDP810 차압 센서도 포함
+                    bme688: []  // 동적으로 발견됨
                 },
                 totalSensors: 0,  // 동적으로 업데이트됨
                 containerId: "pressure-widgets",
                 disabled: false  // 기압 센서 활성화
+            },
+            "differential-pressure": {
+                title: "차압 센서",
+                icon: "🌬️",
+                metrics: ["differential_pressure"],
+                sensors: {
+                    // SDP810 차압 센서 전용
+                    sdp810: []  // 동적으로 발견됨
+                },
+                totalSensors: 0,  // 동적으로 업데이트됨
+                containerId: "differential-pressure-widgets",
+                disabled: false  // 차압 센서 활성화
             },
             "light": {
                 title: "조도 센서",

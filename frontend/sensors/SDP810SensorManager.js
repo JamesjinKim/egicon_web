@@ -17,9 +17,9 @@ class SDP810SensorManager {
         this.totalRequests = 0; // 총 API 요청 수
         this.discoveredSensorCount = 0; // 실제 발견된 센서 개수
         
-        // SDP810 센서 배열 초기화 (새로고침 시 중복 방지)
-        if (this.dashboard.sensorGroups && this.dashboard.sensorGroups['pressure']) {
-            this.dashboard.sensorGroups['pressure'].sensors.sdp810 = [];
+        // SDP810 센서 배열 초기화 (새로고침 시 중복 방지) - differential-pressure 그룹 사용
+        if (this.dashboard.sensorGroups && this.dashboard.sensorGroups['differential-pressure']) {
+            this.dashboard.sensorGroups['differential-pressure'].sensors = { sdp810: [] };
             console.log(`🔄 SDP810 센서 배열 초기화됨 (새로고침 대응)`);
         }
         
@@ -38,21 +38,24 @@ class SDP810SensorManager {
         
         const dashboard = this.dashboard;
         
-        if (!dashboard.sensorGroups['pressure']) {
-            console.warn('⚠️ pressure 그룹이 존재하지 않음');
+        if (!dashboard.sensorGroups['differential-pressure']) {
+            console.warn('⚠️ differential-pressure 그룹이 존재하지 않음');
             return;
         }
 
         // sensors가 객체인 경우 sdp810 배열에 추가
-        if (!dashboard.sensorGroups['pressure'].sensors.sdp810) {
-            dashboard.sensorGroups['pressure'].sensors.sdp810 = [];
+        if (!dashboard.sensorGroups['differential-pressure'].sensors) {
+            dashboard.sensorGroups['differential-pressure'].sensors = { sdp810: [] };
+        }
+        if (!dashboard.sensorGroups['differential-pressure'].sensors.sdp810) {
+            dashboard.sensorGroups['differential-pressure'].sensors.sdp810 = [];
         }
         
         // 중복 센서 체크 (sensorId와 bus/channel 조합 모두 확인)
-        const existingSensorById = dashboard.sensorGroups['pressure'].sensors.sdp810.find(sensor => 
+        const existingSensorById = dashboard.sensorGroups['differential-pressure'].sensors.sdp810.find(sensor => 
             sensor.sensorId === sensorId || sensor.sensor_id === sensorId
         );
-        const existingSensorByLocation = dashboard.sensorGroups['pressure'].sensors.sdp810.find(sensor => 
+        const existingSensorByLocation = dashboard.sensorGroups['differential-pressure'].sensors.sdp810.find(sensor => 
             sensor.bus === sensorData.bus && sensor.mux_channel === sensorData.mux_channel
         );
         
@@ -73,26 +76,26 @@ class SDP810SensorManager {
             address: sensorData.address || 0x25 // SDP810 기본 주소
         };
 
-        dashboard.sensorGroups['pressure'].sensors.sdp810.push(sensorInfo);
-        dashboard.sensorGroups['pressure'].totalSensors = dashboard.sensorGroups['pressure'].sensors.sdp810.length;
+        dashboard.sensorGroups['differential-pressure'].sensors.sdp810.push(sensorInfo);
+        dashboard.sensorGroups['differential-pressure'].totalSensors = dashboard.sensorGroups['differential-pressure'].sensors.sdp810.length;
         
-        console.log(`✅ SDP810 센서 추가: Bus ${sensorData.bus}, Channel ${sensorData.mux_channel} (총 ${dashboard.sensorGroups['pressure'].sensors.sdp810.length}개)`);
+        console.log(`✅ SDP810 센서 추가: Bus ${sensorData.bus}, Channel ${sensorData.mux_channel} (총 ${dashboard.sensorGroups['differential-pressure'].sensors.sdp810.length}개)`);
 
         // 센서 개수 업데이트는 지연 실행하여 최종 값으로 표시
         setTimeout(() => {
             this.updateSensorCount();
-            console.log(`🔄 SDP810 센서 개수 최종 업데이트: ${dashboard.sensorGroups['pressure'].sensors.sdp810.length}개`);
+            console.log(`🔄 SDP810 센서 개수 최종 업데이트: ${dashboard.sensorGroups['differential-pressure'].sensors.sdp810.length}개`);
         }, 2000); // 2초 후 최종 업데이트
     }
 
     // 센서 개수 업데이트
     updateSensorCount() {
-        const summaryElement = document.querySelector('#pressure-group-summary');
+        const summaryElement = document.querySelector('#differential-pressure-group-summary');
         if (summaryElement) {
             // 실제 발견된 센서 개수 사용 (더 안정적)
             const sensorCount = this.discoveredSensorCount || 0;
             summaryElement.textContent = `SDP810×${sensorCount}`;
-            console.log(`📊 pressure-group-summary 업데이트: SDP810×${sensorCount}`);
+            console.log(`📊 differential-pressure-group-summary 업데이트: SDP810×${sensorCount}`);
         }
     }
     
@@ -188,8 +191,8 @@ class SDP810SensorManager {
     initializeStatusWidgets(sensorCount) {
         console.log(`🔧 SDP810 상태 위젯 초기화: ${sensorCount}개 센서`);
         
-        // 헤더 상태 업데이트 (pressure-group-status)
-        const headerStatusElement = document.getElementById('pressure-group-status');
+        // 헤더 상태 업데이트 (differential-pressure-group-status)
+        const headerStatusElement = document.getElementById('differential-pressure-group-status');
         if (headerStatusElement) {
             if (sensorCount > 0) {
                 headerStatusElement.textContent = `${sensorCount}개 연결됨`;
@@ -198,35 +201,35 @@ class SDP810SensorManager {
                 headerStatusElement.textContent = '센서 검색 중...';
                 headerStatusElement.className = 'sensor-group-status offline';
             }
-            console.log(`✅ pressure-group-status 업데이트: ${headerStatusElement.textContent}`);
+            console.log(`✅ differential-pressure-group-status 업데이트: ${headerStatusElement.textContent}`);
         } else {
-            console.error('❌ pressure-group-status 요소를 찾을 수 없음');
+            console.error('❌ differential-pressure-group-status 요소를 찾을 수 없음');
         }
         
-        // 헤더 요약 업데이트 (pressure-group-summary)
-        const summaryElement = document.getElementById('pressure-group-summary');
+        // 헤더 요약 업데이트 (differential-pressure-group-summary)
+        const summaryElement = document.getElementById('differential-pressure-group-summary');
         if (summaryElement) {
             if (sensorCount > 0) {
                 summaryElement.textContent = `SDP810×${sensorCount}`;
             } else {
                 summaryElement.textContent = 'SDP810 센서 검색 중';
             }
-            console.log(`✅ pressure-group-summary 업데이트: ${summaryElement.textContent}`);
+            console.log(`✅ differential-pressure-group-summary 업데이트: ${summaryElement.textContent}`);
         } else {
-            console.error('❌ pressure-group-summary 요소를 찾을 수 없음');
+            console.error('❌ differential-pressure-group-summary 요소를 찾을 수 없음');
         }
         
-        // 위젯 영역 상태 업데이트 (pressure-status)
-        const statusElement = document.getElementById('pressure-status');
+        // 위젯 영역 상태 업데이트 (differential-pressure-status)
+        const statusElement = document.getElementById('differential-pressure-status');
         if (statusElement) {
             if (sensorCount > 0) {
                 statusElement.textContent = `${sensorCount}/${sensorCount} 센서`;
             } else {
                 statusElement.textContent = '0/0 센서';
             }
-            console.log(`✅ pressure-status 업데이트: ${statusElement.textContent}`);
+            console.log(`✅ differential-pressure-status 업데이트: ${statusElement.textContent}`);
         } else {
-            console.error('❌ pressure-status 요소를 찾을 수 없음');
+            console.error('❌ differential-pressure-status 요소를 찾을 수 없음');
         }
         
         // 초기 테스트 데이터 설정
@@ -240,7 +243,7 @@ class SDP810SensorManager {
         console.log(`🔗 SDP810 센서 연결 상태 업데이트: ${sensorCount}개`);
         
         // 헤더 상태를 연결됨으로 업데이트
-        const headerStatusElement = document.getElementById('pressure-group-status');
+        const headerStatusElement = document.getElementById('differential-pressure-group-status');
         if (headerStatusElement) {
             headerStatusElement.textContent = `${sensorCount}개 연결됨`;
             headerStatusElement.className = 'sensor-group-status online';
@@ -248,7 +251,7 @@ class SDP810SensorManager {
         }
         
         // 헤더 요약을 구체적으로 업데이트
-        const summaryElement = document.getElementById('pressure-group-summary');
+        const summaryElement = document.getElementById('differential-pressure-group-summary');
         if (summaryElement) {
             summaryElement.textContent = `SDP810×${sensorCount}`;
             console.log(`✅ 헤더 요약 업데이트: ${summaryElement.textContent}`);
@@ -260,12 +263,12 @@ class SDP810SensorManager {
         console.log('🔍 SDP810 위젯 요소 디버깅 시작');
         
         // 차압 센서 그룹 전체 확인
-        const pressureGroup = document.querySelector('[data-group="pressure"]');
-        console.log('🔍 pressure 그룹 요소:', pressureGroup);
+        const pressureGroup = document.querySelector('[data-group="differential-pressure"]');
+        console.log('🔍 differential-pressure 그룹 요소:', pressureGroup);
         if (pressureGroup) {
             // 그룹이 숨겨져 있다면 표시
             pressureGroup.style.display = 'block';
-            console.log('✅ pressure 그룹 표시 강제 설정');
+            console.log('✅ differential-pressure 그룹 표시 강제 설정');
         }
         
         // 차압 위젯 초기값 설정
@@ -548,7 +551,7 @@ class SDP810SensorManager {
         const bus = parseInt(parts[1]);
         const channel = parseInt(parts[2]);
         
-        const sensors = this.dashboard.sensorGroups['pressure']?.sensors?.sdp810 || [];
+        const sensors = this.dashboard.sensorGroups['differential-pressure']?.sensors?.sdp810 || [];
         return sensors.findIndex(sensor => 
             sensor.bus === bus && sensor.mux_channel === channel
         );
@@ -556,9 +559,9 @@ class SDP810SensorManager {
     
     // SDP810 연결 활성 상태 설정 (데이터 수신 시)
     setStatusConnected(sensorData) {
-        const statusElement = document.getElementById('pressure-group-status');
+        const statusElement = document.getElementById('differential-pressure-group-status');
         if (statusElement) {
-            const sensorCount = this.dashboard.sensorGroups['pressure']?.sensors?.sdp810?.length || 1;
+            const sensorCount = this.dashboard.sensorGroups['differential-pressure']?.sensors?.sdp810?.length || 1;
             statusElement.textContent = `${sensorCount}개 연결됨`;
             statusElement.className = 'sensor-group-status online';
             console.log('✅ SDP810 상태를 연결 활성중으로 설정 (데이터 수신)');
@@ -576,7 +579,7 @@ class SDP810SensorManager {
 
     // 센서 목록 반환
     getSensors() {
-        return this.dashboard.sensorGroups['pressure']?.sensors?.sdp810 || [];
+        return this.dashboard.sensorGroups['differential-pressure']?.sensors?.sdp810 || [];
     }
 }
 

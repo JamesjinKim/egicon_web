@@ -1765,21 +1765,21 @@ body {
     }
 }
 
-/* SDP810 Pressure Group 강제 표시 */
-.sensor-group[data-group="pressure"] {
+/* SDP810 Differential Pressure Group 강제 표시 */
+.sensor-group[data-group="differential-pressure"] {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
 }
 
-.sensor-group[data-group="pressure"] .chart-container {
+.sensor-group[data-group="differential-pressure"] .chart-container {
     display: block !important;
     height: 300px !important;
     width: 100% !important;
     min-height: 300px !important;
 }
 
-.sensor-group[data-group="pressure"] #differential-pressure-chart {
+.sensor-group[data-group="differential-pressure"] #differential-pressure-chart {
     display: block !important;
     width: 100% !important;
     height: 300px !important;
