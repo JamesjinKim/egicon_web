@@ -3572,8 +3572,8 @@ class EGIconDashboard {
             this.updateSHT40SummaryWidgets('humidity', humidityData);
         }
         
-        // 센서 상태 업데이트
-        this.updateSHT40GroupStatus(count, statistics);
+        // 센서 상태 업데이트 (실제 처리된 센서 수 전달)
+        this.updateSHT40GroupStatus(count, statistics, successfulSensors.length);
         
         console.log(`✅ SHT40 실시간 데이터 처리 완료: ${successfulSensors.length}/${count}개 센서`);
     }
@@ -3696,13 +3696,18 @@ class EGIconDashboard {
     }
     
     // SHT40 그룹 상태 업데이트
-    updateSHT40GroupStatus(sensorCount, statistics) {
+    updateSHT40GroupStatus(sensorCount, statistics, actualProcessedCount = null) {
         // 센서 상태 위젯 업데이트
         const statusElement = document.getElementById('sht40-sensor-status');
         if (statusElement) {
-            if (statistics) {
+            if (actualProcessedCount !== null) {
+                // 실제 처리된 센서 수 우선 사용
+                statusElement.textContent = `${actualProcessedCount}/${sensorCount} 활성`;
+            } else if (statistics) {
                 const { success, crc_skip, error } = statistics;
-                statusElement.textContent = `${success}/${sensorCount} 활성`;
+                // CRC 스킵도 활성 센서로 간주 (임시 테스트 데이터 제공)
+                const activeSensors = success + (crc_skip || 0);
+                statusElement.textContent = `${activeSensors}/${sensorCount} 활성`;
             } else {
                 // 통계 정보가 없을 때는 발견된 센서 수로 표시
                 statusElement.textContent = `${sensorCount}/${sensorCount} 활성`;
