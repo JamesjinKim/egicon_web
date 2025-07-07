@@ -13,6 +13,8 @@ class SDP810SensorManager {
         this.chartHandler = null; // SDP810ChartHandler 인스턴스
         this.latestData = []; // 각 센서의 최신 데이터 저장
         this.skipCount = 0; // CRC 실패로 skip한 데이터 개수
+        this.successCount = 0; // CRC 성공한 데이터 개수
+        this.totalRequests = 0; // 총 API 요청 수
         
         // SDP810 센서 배열 초기화 (새로고침 시 중복 방지)
         if (this.dashboard.sensorGroups && this.dashboard.sensorGroups['pressure']) {
@@ -141,6 +143,9 @@ class SDP810SensorManager {
                         };
                         
                         const sensorId = `sdp810_${sensor.bus}_${sensor.mux_channel}`;
+                        
+                        // 센서를 pressure 그룹에 추가
+                        this.addSensorToGroup(sensor, sensorId);
                         
                         // 각 센서마다 고유 인덱스로 폴링 시작
                         this.startDataPolling(sensorId, sensorInfo, index);
@@ -312,6 +317,7 @@ class SDP810SensorManager {
         try {
             console.log(`🔗 SDP810 API 호출 [${sensorIndex}]: ${apiUrl}`);
             
+            this.totalRequests++;
             const response = await fetch(apiUrl);
             const result = await response.json();
             
@@ -321,10 +327,11 @@ class SDP810SensorManager {
                 const timestamp = result.data.timestamp;
                 const crcValid = result.data.crc_valid;
                 
-                console.log(`✅ SDP810 실제 데이터 [${sensorIndex}]: ${pressure.toFixed(4)} Pa (CRC: ${crcValid ? '✅' : '❌'})`);
-                
                 // CRC 검증이 성공한 경우만 처리
                 if (crcValid) {
+                    this.successCount++;
+                    const successRate = ((this.successCount / this.totalRequests) * 100).toFixed(1);
+                    console.log(`✅ SDP810 실제 데이터 [${sensorIndex}]: ${pressure.toFixed(4)} Pa (성공률: ${successRate}%)`);
                     // 차트 핸들러를 통한 직접 차트 업데이트
                     if (this.chartHandler && this.chartHandler.isReady()) {
                         try {
@@ -349,13 +356,15 @@ class SDP810SensorManager {
                 } else {
                     // CRC 실패 시 데이터 skip
                     this.skipCount++;
-                    console.warn(`⚠️ SDP810 CRC 실패로 데이터 skip [${sensorIndex}] (총 ${this.skipCount}회 skip)`);
+                    const successRate = ((this.successCount / this.totalRequests) * 100).toFixed(1);
+                    console.warn(`⚠️ SDP810 CRC 실패로 데이터 skip [${sensorIndex}] (성공률: ${successRate}%, 성공: ${this.successCount}/${this.totalRequests})`);
                 }
                 
             } else if (result.crc_error) {
                 // ❌ CRC 검증 실패로 인한 API 에러
                 this.skipCount++;
-                console.warn(`⚠️ SDP810 CRC 검증 실패로 skip [${sensorIndex}] (총 ${this.skipCount}회 skip): ${result.error}`);
+                const successRate = ((this.successCount / this.totalRequests) * 100).toFixed(1);
+                console.warn(`⚠️ SDP810 CRC 검증 실패로 skip [${sensorIndex}] (성공률: ${successRate}%, 성공: ${this.successCount}/${this.totalRequests}): ${result.error}`);
             } else {
                 // ❌ 기타 API 오류
                 console.warn(`⚠️ SDP810 API 응답 오류 [${sensorIndex}]:`, result.error || result.message);
