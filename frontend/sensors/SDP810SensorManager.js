@@ -281,25 +281,16 @@ class SDP810SensorManager {
             console.log('✅ differential-pressure 그룹 표시 강제 설정');
         }
         
-        // 차압 위젯 초기값 설정
+        // 차압 위젯 초기값 확인 (실제 데이터가 올 때만 업데이트, 기존값 유지)
         const pressureValueElement = document.getElementById('differential-pressure-average');
         console.log('🔍 differential-pressure-average 요소:', pressureValueElement);
-        if (pressureValueElement) {
-            pressureValueElement.textContent = `연결됨 Pa`;
-            console.log('✅ differential-pressure-average 업데이트:', pressureValueElement.textContent);
-        } else {
-            console.error('❌ differential-pressure-average 요소를 찾을 수 없음');
-        }
+        console.log('📊 현재 차압값:', pressureValueElement ? pressureValueElement.textContent : 'null');
         
-        // 차압 범위 위젯 초기값 설정
         const pressureRangeElement = document.getElementById('differential-pressure-range');
         console.log('🔍 differential-pressure-range 요소:', pressureRangeElement);
-        if (pressureRangeElement) {
-            pressureRangeElement.textContent = `센서 대기 중`;
-            console.log('✅ differential-pressure-range 업데이트:', pressureRangeElement.textContent);
-        } else {
-            console.error('❌ differential-pressure-range 요소를 찾을 수 없음');
-        }
+        console.log('📊 현재 범위값:', pressureRangeElement ? pressureRangeElement.textContent : 'null');
+        
+        // 초기값 설정하지 않음 - 실제 데이터가 올 때만 updateWidgets()에서 업데이트
         
         // 최종 센서 개수 확인 및 업데이트 (3초 후)
         setTimeout(() => {
@@ -449,7 +440,7 @@ class SDP810SensorManager {
             let bus = sensor.bus;
             let mux_channel = sensor.mux_channel;
             
-            if (!bus || !mux_channel) {
+            if (typeof bus === 'undefined' || typeof mux_channel === 'undefined') {
                 // sensor_id에서 bus/channel 추출 시도
                 if (sensor.sensor_id && typeof sensor.sensor_id === 'string') {
                     const match = sensor.sensor_id.match(/(\d+)_(\d+)$/);
@@ -461,8 +452,20 @@ class SDP810SensorManager {
                         // 센서 객체에 추가
                         sensor.bus = bus;
                         sensor.mux_channel = mux_channel;
+                    } else {
+                        console.warn(`⚠️ SDP810 sensor_id에서 bus/channel 추출 실패: ${sensor.sensor_id}`);
+                        return; // 추출 실패시 처리 중단
                     }
+                } else {
+                    console.warn(`⚠️ SDP810 센서에 유효한 sensor_id가 없음:`, sensor);
+                    return; // sensor_id가 없으면 처리 중단
                 }
+            }
+            
+            // bus/channel이 여전히 유효하지 않으면 중단
+            if (typeof bus !== 'number' || typeof mux_channel !== 'number') {
+                console.warn(`⚠️ SDP810 센서 bus/channel 정보 부족:`, {bus, mux_channel, sensor});
+                return;
             }
             
             const sensorId = `sdp810_${bus}_${mux_channel}`;
