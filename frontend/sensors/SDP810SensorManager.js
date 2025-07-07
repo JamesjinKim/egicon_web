@@ -96,38 +96,38 @@ class SDP810SensorManager {
         try {
             console.log('🔍 SDP810 센서 검색 시작');
             
-            // 센서 그룹에서 SDP810 센서 찾기
-            const response = await fetch('/api/sensors/groups');
+            // 전체 시스템 스캔으로 SDP810 센서 직접 찾기
+            const response = await fetch('/api/sensors/scan-dual-mux', {
+                method: 'POST'
+            });
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            const groupsData = await response.json();
+            const scanData = await response.json();
+            console.log('📡 전체 시스템 스캔 완료:', scanData);
             
-            // pressure 그룹에서 SDP810 센서 찾기 (API에서 발견되지 않으면 하드코딩된 센서 사용)
-            const pressureGroup = groupsData.groups && groupsData.groups['pressure'];
+            // sdp810_devices 배열에서 직접 센서 찾기
             let sdp810Sensors = [];
             
-            if (pressureGroup && pressureGroup.sensors && pressureGroup.sensors.length > 0) {
-                // SDP810 센서만 필터링
-                sdp810Sensors = pressureGroup.sensors.filter(sensor => 
-                    sensor.sensor_type === 'SDP810'
-                );
-                console.log(`✅ API에서 SDP810 센서 ${sdp810Sensors.length}개 발견`);
+            if (scanData.sdp810_devices && Array.isArray(scanData.sdp810_devices)) {
+                sdp810Sensors = scanData.sdp810_devices.map(device => ({
+                    bus: device.bus,
+                    mux_channel: device.mux_channel,
+                    address: device.address,
+                    sensor_name: device.sensor_type,
+                    sensor_type: device.sensor_type,
+                    status: device.status || 'connected',
+                    sensor_id: device.sensor_id
+                }));
+                console.log(`✅ 시스템 스캔에서 SDP810 센서 ${sdp810Sensors.length}개 발견`);
             }
             
-            // API에서 SDP810이 발견되지 않으면 하드코딩된 센서 정보 사용 (Bus 1, Channel 4)
+            // SDP810이 발견되지 않으면 상세 로그
             if (sdp810Sensors.length === 0) {
-                console.log(`⚠️ API에서 SDP810 센서를 찾을 수 없음, 하드코딩된 센서 정보 사용`);
-                sdp810Sensors = [{
-                    bus: 1,
-                    mux_channel: 4,
-                    address: '0x25',
-                    sensor_name: 'SDP810',
-                    sensor_type: 'SDP810',
-                    status: 'connected'
-                }];
-                console.log(`🔧 하드코딩된 SDP810 센서 1개 추가됨: Bus 1, Channel 4`);
+                console.warn(`⚠️ 시스템 스캔에서 SDP810 센서를 찾을 수 없음`);
+                console.log(`🔍 스캔 응답 분석:`, scanData);
+                console.log(`🔍 sdp810_devices 내용:`, scanData.sdp810_devices);
             }
             
             if (sdp810Sensors.length > 0) {
@@ -165,15 +165,9 @@ class SDP810SensorManager {
                     // 센서가 없어도 기본 상태 설정
                     this.initializeStatusWidgets(0);
                 }
-                
-            } else {
-                console.warn('⚠️ pressure 그룹에서 SDP810 센서를 찾을 수 없음');
-                // pressure 그룹이 없어도 기본 상태 설정
-                this.initializeStatusWidgets(0);
-            }
             
         } catch (error) {
-            console.error('❌ SDP810 센서 검색 실패:', error);
+            console.error('❌ SDP810 센서 시스템 스캔 실패:', error);
             // API 오류 시에도 기본 상태 설정
             this.initializeStatusWidgets(0);
         }
