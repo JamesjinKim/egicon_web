@@ -448,13 +448,49 @@ class BH1750SensorManager {
         let dataPointCounter = 0;
         const sensorId = `bh1750_${sensor.bus}_${sensor.mux_channel}`;
         
-        // 실시간 데이터 생성 함수
+        // 실시간 데이터 생성 함수 (실제 센서 테스트 결과 기반)
         const generateRealtimeData = () => {
-            // 현실적인 조도 데이터 생성 (200-800 lux 범위)
-            const baseLight = 400;
-            const variation = 200;
-            const lightValue = baseLight + (Math.sin(dataPointCounter * 0.1) * variation) + (Math.random() * 50 - 25);
-            const clampedLight = Math.max(0, Math.min(10000, lightValue));
+            // 조명 상태 변화 시뮬레이션 (10-15초마다 급격한 변화)
+            const cyclePosition = (dataPointCounter * 2000) % 30000; // 30초 주기
+            let lightValue;
+            
+            if (cyclePosition < 8000) {
+                // 8초간: 밝은 상태 (200-1200 lux)
+                const baseLight = 700;
+                const variation = Math.sin(dataPointCounter * 0.05) * 200;
+                const randomFlicker = (Math.random() - 0.5) * 100;
+                lightValue = baseLight + variation + randomFlicker;
+                lightValue = Math.max(200, Math.min(1200, lightValue));
+            } else if (cyclePosition < 12000) {
+                // 4초간: 급격한 감소 (조명 끄기 시뮬레이션)
+                const progress = (cyclePosition - 8000) / 4000; // 0-1
+                const startValue = 700;
+                const endValue = 2;
+                lightValue = startValue * (1 - Math.pow(progress, 2)) + endValue;
+                lightValue = Math.max(0.8, lightValue);
+            } else if (cyclePosition < 20000) {
+                // 8초간: 어두운 상태 (0.8-5 lux)
+                const baseLight = 2;
+                const variation = Math.sin(dataPointCounter * 0.1) * 1.5;
+                const randomNoise = (Math.random() - 0.5) * 2;
+                lightValue = baseLight + variation + randomNoise;
+                lightValue = Math.max(0.8, Math.min(5, lightValue));
+            } else if (cyclePosition < 24000) {
+                // 4초간: 급격한 증가 (조명 켜기 시뮬레이션)
+                const progress = (cyclePosition - 20000) / 4000; // 0-1
+                const startValue = 2;
+                const endValue = 800;
+                lightValue = startValue + (endValue - startValue) * Math.pow(progress, 0.5);
+            } else {
+                // 6초간: 밝은 상태로 복귀 (500-1000+ lux)
+                const baseLight = 750;
+                const variation = Math.sin(dataPointCounter * 0.03) * 300;
+                const randomFlicker = (Math.random() - 0.5) * 150;
+                lightValue = baseLight + variation + randomFlicker;
+                lightValue = Math.max(300, Math.min(1500, lightValue));
+            }
+            
+            const clampedLight = Math.max(0.8, Math.min(2000, lightValue));
             
             console.log(`📊 BH1750 실시간 데이터 생성 #${dataPointCounter}: ${clampedLight.toFixed(1)} lux`);
             
