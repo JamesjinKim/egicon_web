@@ -1488,8 +1488,8 @@ class EGIconDashboard {
         // BME688 API 폴링 시작 (리팩토링된 매니저 사용)
         this.bme688SensorManager.startPollingForDiscoveredSensors();
         
-        // BH1750 API 폴링 시작 (리팩토링된 매니저 사용)
-        this.bh1750SensorManager.startPollingForDiscoveredSensors();
+        // BH1750 API 폴링 시작 (API 엔드포인트 구현 대기 중)
+        // this.bh1750SensorManager.startPollingForDiscoveredSensors();
         
         // SHT40 센서 스캔 및 초기화
         await this.initializeSHT40Sensors();
