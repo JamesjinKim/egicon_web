@@ -96,11 +96,13 @@ class SDP810ChartHandler {
             borderWidth: 2,
             fill: false,
             tension: 0.4,
+            showLine: true,  // 명시적으로 선 표시 활성화
             pointRadius: 3,
             pointHoverRadius: 6,
             pointBackgroundColor: '#ffffff',
             pointBorderColor: '#2196f3',
-            pointBorderWidth: 2
+            pointBorderWidth: 2,
+            spanGaps: true  // 데이터 간격이 있어도 선 연결
         };
         
         try {
@@ -142,6 +144,20 @@ class SDP810ChartHandler {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    elements: {
+                        line: {
+                            tension: 0.4,
+                            borderWidth: 2
+                        },
+                        point: {
+                            radius: 3,
+                            hoverRadius: 6
+                        }
+                    },
                     plugins: {
                         legend: {
                             display: true,
@@ -172,16 +188,32 @@ class SDP810ChartHandler {
                                 display: true,
                                 text: '차압 (Pa)'
                             },
-                            min: -0.1,
-                            max: 0.1,
+                            min: -300,
+                            max: 300,
                             grid: { 
                                 color: 'rgba(0, 0, 0, 0.05)' 
                             },
                             ticks: {
-                                stepSize: 0.02,
                                 callback: function(value) {
-                                    return value.toFixed(3) + ' Pa';
-                                }
+                                    // 100 Pa 이후는 100 단위로 표시
+                                    if (Math.abs(value) >= 100) {
+                                        // 100의 배수만 표시
+                                        if (value % 100 === 0) {
+                                            return value + ' Pa';
+                                        } else {
+                                            return null; // 100의 배수가 아니면 표시하지 않음
+                                        }
+                                    } else {
+                                        // 100 Pa 미만은 소수점 표시
+                                        if (Math.abs(value) < 1) {
+                                            return value.toFixed(3) + ' Pa';
+                                        } else {
+                                            return value.toFixed(1) + ' Pa';
+                                        }
+                                    }
+                                },
+                                stepSize: 50,  // 기본 간격은 50Pa로 설정
+                                maxTicksLimit: 13  // 최대 눈금 수 제한 (-300 ~ 300 범위)
                             }
                         }
                     }
@@ -294,37 +326,37 @@ class SDP810ChartHandler {
                 if (pressureChart.data.datasets[datasetIndex]) {
                     // 현재 데이터 길이 확인
                     const currentDataLength = pressureChart.data.datasets[datasetIndex].data.length;
+                    console.log(`📊 현재 데이터 개수: ${currentDataLength}개`);
                     
-                    // X축 위치 계산 (30개 범위 내에서 슬라이딩)
-                    let xPosition = currentDataLength;
+                    // 30개 이상이면 첫 번째 데이터 제거 (슬라이딩 윈도우)
                     if (currentDataLength >= 30) {
-                        // 30개 이후부터는 슬라이딩 윈도우 적용
-                        xPosition = 29; // 마지막 위치에 고정
-                        // 기존 데이터를 왼쪽으로 이동
-                        pressureChart.data.datasets[datasetIndex].data.forEach((point, index) => {
-                            if (point && typeof point === 'object') {
-                                point.x = index;
-                            }
-                        });
+                        pressureChart.data.datasets[datasetIndex].data.shift();
+                        pressureChart.data.labels.shift();
+                        console.log(`📊 30개 초과로 첫 번째 데이터 제거됨`);
                     }
                     
-                    // X축 레이블 관리 (단일 센서)
-                    if (currentDataLength < 30) {
-                        pressureChart.data.labels.push(currentDataLength);
-                    }
+                    // 연속적인 X축 값 생성 (시간 기반)
+                    const nextXValue = currentDataLength >= 30 ? 29 : currentDataLength;
                     
-                    // 새 데이터 추가
+                    // 새 데이터 포인트 추가
                     const newDataPoint = {
-                        x: xPosition,
+                        x: nextXValue,
                         y: data.pressure
                     };
                     console.log(`📊 새 데이터 포인트 추가:`, newDataPoint);
-                    pressureChart.data.datasets[datasetIndex].data.push(newDataPoint);
                     
-                    // 30개 이상이면 첫 번째 데이터 제거
-                    if (pressureChart.data.datasets[datasetIndex].data.length > 30) {
-                        pressureChart.data.datasets[datasetIndex].data.shift();
-                        console.log(`📊 30개 초과로 첫 번째 데이터 제거됨`);
+                    // 데이터와 레이블 동시 추가
+                    pressureChart.data.datasets[datasetIndex].data.push(newDataPoint);
+                    pressureChart.data.labels.push(nextXValue);
+                    
+                    // 데이터 포인트가 2개 이상일 때만 선 표시
+                    const dataPointCount = pressureChart.data.datasets[datasetIndex].data.length;
+                    if (dataPointCount >= 2) {
+                        pressureChart.data.datasets[datasetIndex].showLine = true;
+                        pressureChart.data.datasets[datasetIndex].pointRadius = 3;
+                        console.log(`📈 트렌드 선 활성화: ${dataPointCount}개 데이터 포인트`);
+                    } else {
+                        console.log(`📊 단일 데이터 포인트: ${dataPointCount}개 (선 대기 중)`);
                     }
                     
                     console.log(`📊 현재 데이터셋 길이: ${pressureChart.data.datasets[datasetIndex].data.length}`);
@@ -337,14 +369,25 @@ class SDP810ChartHandler {
                         try {
                             const canvas = document.getElementById('differential-pressure-chart');
                             if (canvas && pressureChart) {
+                                const currentDataset = pressureChart.data.datasets[datasetIndex];
                                 console.log(`🔎 차트 업데이트 후 상태:`, {
                                     chartVisible: canvas.style.display !== 'none',
-                                    chartData: pressureChart.data.datasets[datasetIndex].data.length,
-                                    lastDataPoint: pressureChart.data.datasets[datasetIndex].data[pressureChart.data.datasets[datasetIndex].data.length - 1],
+                                    dataPointCount: currentDataset.data.length,
+                                    showLine: currentDataset.showLine,
+                                    borderWidth: currentDataset.borderWidth,
+                                    lastDataPoint: currentDataset.data[currentDataset.data.length - 1],
+                                    firstDataPoint: currentDataset.data.length > 0 ? currentDataset.data[0] : null,
                                     canvasInDOM: document.body.contains(canvas),
                                     canvasDisplay: getComputedStyle(canvas).display,
-                                    canvasVisibility: getComputedStyle(canvas).visibility
+                                    chartType: pressureChart.config.type
                                 });
+                                
+                                // 트렌드 선이 보이지 않는 경우 강제 설정
+                                if (currentDataset.data.length >= 2 && !currentDataset.showLine) {
+                                    console.log(`🔧 트렌드 선 강제 활성화`);
+                                    currentDataset.showLine = true;
+                                    pressureChart.update('none');
+                                }
                             }
                         } catch (updateCheckError) {
                             console.error(`❌ 차트 업데이트 상태 확인 실패: ${updateCheckError.message}`);
