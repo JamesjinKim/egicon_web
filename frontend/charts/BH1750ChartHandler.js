@@ -187,62 +187,59 @@ class BH1750ChartHandler {
                 isVisible: getComputedStyle(ctx).display !== 'none'
             });
             
-            // 차트 렌더링 강제 수행 및 표시 상태 확인
-            setTimeout(() => {
-                console.log(`🔍 차트 렌더링 후 상태 확인 시작: ${canvasId}`);
-                if (this.dashboard.charts[canvasId]) {
-                    try {
-                        const canvas = document.getElementById(canvasId);
-                        const chartContainer = canvas ? canvas.closest('.chart-container') : null;
-                        const chartCard = canvas ? canvas.closest('.chart-card') : null;
-                        
-                        console.log(`🖼️ 차트 캔버스 표시 상태 확인:`, {
-                            canvasId: canvasId,
-                            canvasExists: !!canvas,
-                            canvasSize: canvas ? {width: canvas.width, height: canvas.height} : null,
-                            canvasStyle: canvas ? {
-                                display: getComputedStyle(canvas).display,
-                                visibility: getComputedStyle(canvas).visibility,
-                                width: getComputedStyle(canvas).width,
-                                height: getComputedStyle(canvas).height
-                            } : null,
-                            parentContainer: canvas ? {
-                                display: getComputedStyle(canvas.parentElement).display,
-                                visibility: getComputedStyle(canvas.parentElement).visibility
-                            } : null,
-                            chartContainer: chartContainer ? {
-                                display: getComputedStyle(chartContainer).display,
-                                height: getComputedStyle(chartContainer).height,
-                                overflow: getComputedStyle(chartContainer).overflow
-                            } : null,
-                            chartCard: chartCard ? {
-                                display: getComputedStyle(chartCard).display,
-                                visibility: getComputedStyle(chartCard).visibility
-                            } : null
-                        });
-                        
-                        this.dashboard.charts[canvasId].resize();
-                        this.dashboard.charts[canvasId].update();
-                        console.log(`🔄 BH1750 차트 강제 렌더링 완료: ${canvasId}`);
-                        
-                        // 데이터 포인트 수 확인
-                        const chart = this.dashboard.charts[canvasId];
-                        if (chart.data && chart.data.datasets) {
-                            console.log(`📊 차트 데이터 상태:`, {
-                                datasetCount: chart.data.datasets.length,
-                                datasets: chart.data.datasets.map((ds, i) => ({
-                                    index: i,
-                                    label: ds.label,
-                                    dataPoints: ds.data.length,
-                                    lastPoint: ds.data[ds.data.length - 1]
-                                }))
-                            });
-                        }
-                    } catch (renderError) {
-                        console.warn(`⚠️ BH1750 차트 강제 렌더링 실패: ${renderError.message}`);
-                    }
+            // 즉시 차트 표시 상태 확인 (setTimeout 제거)
+            console.log(`🔍 차트 렌더링 후 상태 확인 시작: ${canvasId}`);
+            try {
+                const canvas = document.getElementById(canvasId);
+                const chartContainer = canvas ? canvas.closest('.chart-container') : null;
+                const chartCard = canvas ? canvas.closest('.chart-card') : null;
+                
+                console.log(`🖼️ 차트 캔버스 표시 상태 확인:`, {
+                    canvasId: canvasId,
+                    canvasExists: !!canvas,
+                    canvasSize: canvas ? {width: canvas.width, height: canvas.height} : null,
+                    canvasStyle: canvas ? {
+                        display: getComputedStyle(canvas).display,
+                        visibility: getComputedStyle(canvas).visibility,
+                        width: getComputedStyle(canvas).width,
+                        height: getComputedStyle(canvas).height
+                    } : null,
+                    parentContainer: canvas ? {
+                        display: getComputedStyle(canvas.parentElement).display,
+                        visibility: getComputedStyle(canvas.parentElement).visibility
+                    } : null,
+                    chartContainer: chartContainer ? {
+                        display: getComputedStyle(chartContainer).display,
+                        height: getComputedStyle(chartContainer).height,
+                        overflow: getComputedStyle(chartContainer).overflow
+                    } : null,
+                    chartCard: chartCard ? {
+                        display: getComputedStyle(chartCard).display,
+                        visibility: getComputedStyle(chartCard).visibility
+                    } : null
+                });
+                
+                this.dashboard.charts[canvasId].resize();
+                this.dashboard.charts[canvasId].update();
+                console.log(`🔄 BH1750 차트 강제 렌더링 완료: ${canvasId}`);
+                
+                // 데이터 포인트 수 확인
+                const chart = this.dashboard.charts[canvasId];
+                if (chart.data && chart.data.datasets) {
+                    console.log(`📊 차트 데이터 상태:`, {
+                        datasetCount: chart.data.datasets.length,
+                        datasets: chart.data.datasets.map((ds, i) => ({
+                            index: i,
+                            label: ds.label,
+                            dataPoints: ds.data.length,
+                            lastPoint: ds.data[ds.data.length - 1]
+                        }))
+                    });
                 }
-            }, 100);
+            } catch (renderError) {
+                console.error(`❌ BH1750 차트 렌더링 확인 실패: ${renderError.message}`);
+                console.error(renderError.stack);
+            }
             
         } catch (chartError) {
             console.error(`❌ BH1750 차트 생성 실패: ${chartError.message}`);
@@ -385,18 +382,22 @@ class BH1750ChartHandler {
                         lightChart.update('none');
                         console.log(`✅ BH1750 조도 차트 업데이트 성공`);
                         
-                        // 업데이트 후 차트 실제 렌더링 상태 확인
-                        setTimeout(() => {
+                        // 업데이트 후 차트 실제 렌더링 상태 확인 (즉시 실행)
+                        try {
                             const canvas = document.getElementById('light-multi-chart');
                             if (canvas && lightChart) {
                                 console.log(`🔎 차트 업데이트 후 상태:`, {
                                     chartVisible: canvas.style.display !== 'none',
                                     chartData: lightChart.data.datasets[sensorIndex].data.length,
                                     lastDataPoint: lightChart.data.datasets[sensorIndex].data[lightChart.data.datasets[sensorIndex].data.length - 1],
-                                    canvasInDOM: document.body.contains(canvas)
+                                    canvasInDOM: document.body.contains(canvas),
+                                    canvasDisplay: getComputedStyle(canvas).display,
+                                    canvasVisibility: getComputedStyle(canvas).visibility
                                 });
                             }
-                        }, 100);
+                        } catch (updateCheckError) {
+                            console.error(`❌ 차트 업데이트 상태 확인 실패: ${updateCheckError.message}`);
+                        }
                         
                         this.errorCount = 0; // 성공 시 에러 카운트 리셋
                     } catch (updateError) {
