@@ -432,22 +432,58 @@ class BH1750SensorManager {
                     console.error('❌ BH1750 차트 핸들러가 없음');
                 }
                 
-                // 추가로 5초 후 테스트 데이터 시뮬레이션
+                // 2초 간격으로 실시간 테스트 데이터 시뮬레이션 시작
                 setTimeout(() => {
-                    console.log('🧪 BH1750 테스트 데이터 시뮬레이션');
-                    this.updateWidgets(350.5, 0); // 350.5 lux 테스트 데이터
-                    
-                    // 차트에도 테스트 데이터 추가
-                    if (this.chartHandler && this.chartHandler.isReady()) {
-                        const sensorId = `bh1750_${sensor.bus}_${sensor.mux_channel}`;
-                        console.log('📊 BH1750 차트 테스트 데이터 추가:', sensorId);
-                        this.chartHandler.updateChartsWithRealtimeData(sensorId, {
-                            light: 350.5
-                        }, Date.now() / 1000);
-                    }
-                }, 5000);
+                    console.log('🧪 BH1750 2초 간격 실시간 데이터 시뮬레이션 시작');
+                    this.startRealtimeDataSimulation(sensor);
+                }, 2000);
             }, 1000); // 1초 지연으로 DOM 완전 로딩 대기
         }
+    }
+
+    // 실시간 테스트 데이터 시뮬레이션 (2초 간격)
+    startRealtimeDataSimulation(sensor) {
+        console.log('📊 BH1750 실시간 데이터 시뮬레이션 시작: 2초 간격');
+        
+        let dataPointCounter = 0;
+        const sensorId = `bh1750_${sensor.bus}_${sensor.mux_channel}`;
+        
+        // 실시간 데이터 생성 함수
+        const generateRealtimeData = () => {
+            // 현실적인 조도 데이터 생성 (200-800 lux 범위)
+            const baseLight = 400;
+            const variation = 200;
+            const lightValue = baseLight + (Math.sin(dataPointCounter * 0.1) * variation) + (Math.random() * 50 - 25);
+            const clampedLight = Math.max(0, Math.min(10000, lightValue));
+            
+            console.log(`📊 BH1750 실시간 데이터 생성 #${dataPointCounter}: ${clampedLight.toFixed(1)} lux`);
+            
+            // 위젯 업데이트
+            this.updateWidgets(clampedLight, 0);
+            
+            // 차트 업데이트
+            if (this.chartHandler && this.chartHandler.isReady()) {
+                console.log('📊 BH1750 차트 업데이트 시작');
+                this.chartHandler.updateChartsWithRealtimeData(sensorId, {
+                    light: clampedLight
+                }, Date.now() / 1000);
+            } else {
+                console.warn('⚠️ BH1750 차트 핸들러가 준비되지 않음');
+            }
+            
+            dataPointCounter++;
+        };
+        
+        // 첫 번째 데이터 즉시 생성
+        generateRealtimeData();
+        
+        // 2초 간격으로 지속적인 데이터 업데이트
+        const realtimeInterval = setInterval(generateRealtimeData, 2000);
+        
+        // 인터벌 저장 (나중에 정리용)
+        this.pollingIntervals.push(realtimeInterval);
+        
+        console.log('✅ BH1750 2초 간격 실시간 데이터 시뮬레이션 설정 완료');
     }
 
     // 실시간 데이터 처리 (WebSocket에서 호출)

@@ -37,15 +37,14 @@ class BH1750ChartHandler {
             return;
         }
         
-        // 모든 센서에 대한 라벨 생성
-        const lightLabels = sensors.map(sensor => 
-            `BH1750-${sensor.bus}.${sensor.mux_channel} 조도`
-        );
+        // 단일 센서 1:1 차트 라벨 생성 (첫 번째 센서만 사용)
+        const primarySensor = sensors[0];
+        const lightLabel = `BH1750-${primarySensor.bus}.${primarySensor.mux_channel} 조도`;
         
-        console.log(`📊 BH1750 차트 라벨:`, lightLabels);
+        console.log(`📊 BH1750 단일 센서 차트 라벨:`, lightLabel);
         
-        // 멀티 센서 차트 생성
-        this.createMultiSensorChart('light-multi-chart', 'light', lightLabels);
+        // 단일 센서 차트 생성
+        this.createSingleSensorChart('light-multi-chart', 'light', lightLabel);
         
         console.log(`✅ BH1750 차트 생성 완료: ${sensors.length}개`);
         
@@ -63,7 +62,139 @@ class BH1750ChartHandler {
         }, 200); // 차트 완전 초기화 후 처리
     }
 
-    // 멀티 센서 차트 생성 (여러 데이터셋)
+    // 단일 센서 차트 생성 (1:1 방식)
+    createSingleSensorChart(canvasId, sensorType, label) {
+        console.log(`🔧 BH1750 단일 센서 차트 생성 시작: ${canvasId}`);
+        console.log(`📊 센서 타입: ${sensorType}, 라벨: ${label}`);
+        
+        const ctx = document.getElementById(canvasId);
+        console.log(`🔍 캔버스 요소 확인 (${canvasId}):`, ctx);
+        
+        if (!ctx) {
+            console.error(`❌ 캔버스 요소 없음: ${canvasId}`);
+            return;
+        }
+        
+        // 기존 차트 파괴
+        const existingChart = Chart.getChart(canvasId);
+        if (existingChart) {
+            console.log(`🗑️ 기존 차트 파괴: ${canvasId}`);
+            existingChart.destroy();
+        }
+        
+        if (this.dashboard.charts[canvasId]) {
+            delete this.dashboard.charts[canvasId];
+        }
+        
+        // 단일 데이터셋 설정 (노란색 계열)
+        const dataset = {
+            label: label,
+            data: [],
+            borderColor: '#ffd700',
+            backgroundColor: '#ffd70020',
+            borderWidth: 2,
+            fill: false,
+            tension: 0.4,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#ffd700',
+            pointBorderWidth: 2
+        };
+        
+        try {
+            console.log(`📊 Chart.js 단일 센서 차트 생성 시도 중...`);
+            
+            // 캔버스 및 컨테이너 강제 설정
+            const canvas = ctx;
+            const chartContainer = canvas.closest('.chart-container');
+            const chartCard = canvas.closest('.chart-card');
+            const sensorGroup = canvas.closest('.sensor-group');
+            
+            // 모든 부모 컨테이너 강제 표시
+            if (sensorGroup) {
+                sensorGroup.style.display = 'block';
+            }
+            if (chartCard) {
+                chartCard.style.display = 'block';
+                chartCard.style.visibility = 'visible';
+            }
+            if (chartContainer) {
+                chartContainer.style.display = 'block';
+                chartContainer.style.height = '300px';
+                chartContainer.style.minHeight = '300px';
+            }
+            
+            // 캔버스 자체 크기 강제 설정
+            canvas.style.display = 'block';
+            canvas.style.width = '100%';
+            canvas.style.height = '300px';
+            canvas.width = chartContainer ? chartContainer.clientWidth : 400;
+            canvas.height = 300;
+            
+            this.dashboard.charts[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [dataset]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '데이터 포인트'
+                            },
+                            min: 0,
+                            max: 30,
+                            grid: { 
+                                color: 'rgba(0, 0, 0, 0.05)' 
+                            },
+                            ticks: {
+                                maxTicksLimit: 10,
+                                stepSize: 5
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: '조도 (lux)'
+                            },
+                            min: 0,
+                            max: 10000,
+                            grid: { 
+                                color: 'rgba(0, 0, 0, 0.05)' 
+                            }
+                        }
+                    }
+                }
+            });
+            
+            console.log(`✅ BH1750 단일 센서 Chart.js 차트 객체 생성 성공: ${canvasId}`);
+            
+            // 차트 강제 렌더링
+            this.dashboard.charts[canvasId].resize();
+            this.dashboard.charts[canvasId].update('active');
+            
+            console.log(`🔄 BH1750 단일 센서 차트 강제 렌더링 완료: ${canvasId}`);
+            
+        } catch (chartError) {
+            console.error(`❌ BH1750 단일 센서 차트 생성 실패: ${chartError.message}`, chartError);
+        }
+    }
+
+    // 멀티 센서 차트 생성 (여러 데이터셋) - 레거시 지원
     createMultiSensorChart(canvasId, sensorType, labels) {
         console.log(`🔧 BH1750 멀티 센서 차트 생성 시작: ${canvasId}`);
         console.log(`📊 센서 타입: ${sensorType}, 라벨 개수: ${labels.length}`);
@@ -300,7 +431,7 @@ class BH1750ChartHandler {
         
         this.isUpdating = true;
         
-        // 조도 차트 업데이트
+        // 조도 차트 업데이트 (단일 센서 1:1 방식)
         if (data.light !== undefined) {
             console.log(`📊 조도 데이터 업데이트 시작: ${data.light} lux`);
             const lightChart = this.dashboard.charts['light-multi-chart'];
@@ -312,10 +443,12 @@ class BH1750ChartHandler {
             });
             
             if (lightChart && lightChart.data && lightChart.data.datasets) {
-                console.log(`📊 센서 인덱스 ${sensorIndex} 데이터셋 존재 여부:`, !!lightChart.data.datasets[sensorIndex]);
-                if (lightChart.data.datasets[sensorIndex]) {
+                // 단일 센서이므로 항상 인덱스 0 사용
+                const datasetIndex = 0;
+                console.log(`📊 단일 센서 데이터셋[${datasetIndex}] 존재 여부:`, !!lightChart.data.datasets[datasetIndex]);
+                if (lightChart.data.datasets[datasetIndex]) {
                     // 현재 데이터 길이 확인
-                    const currentDataLength = lightChart.data.datasets[sensorIndex].data.length;
+                    const currentDataLength = lightChart.data.datasets[datasetIndex].data.length;
                     
                     // X축 위치 계산 (30개 범위 내에서 슬라이딩)
                     let xPosition = currentDataLength;
@@ -323,18 +456,16 @@ class BH1750ChartHandler {
                         // 30개 이후부터는 슬라이딩 윈도우 적용
                         xPosition = 29; // 마지막 위치에 고정
                         // 기존 데이터를 왼쪽으로 이동
-                        lightChart.data.datasets[sensorIndex].data.forEach((point, index) => {
+                        lightChart.data.datasets[datasetIndex].data.forEach((point, index) => {
                             if (point && typeof point === 'object') {
                                 point.x = index;
                             }
                         });
                     }
                     
-                    // 첫 번째 센서만 X축 레이블 관리
-                    if (sensorIndex === 0) {
-                        if (currentDataLength < 30) {
-                            lightChart.data.labels.push(currentDataLength);
-                        }
+                    // X축 레이블 관리 (단일 센서)
+                    if (currentDataLength < 30) {
+                        lightChart.data.labels.push(currentDataLength);
                     }
                     
                     // 새 데이터 추가
@@ -343,15 +474,15 @@ class BH1750ChartHandler {
                         y: data.light
                     };
                     console.log(`📊 새 데이터 포인트 추가:`, newDataPoint);
-                    lightChart.data.datasets[sensorIndex].data.push(newDataPoint);
+                    lightChart.data.datasets[datasetIndex].data.push(newDataPoint);
                     
                     // 30개 이상이면 첫 번째 데이터 제거
-                    if (lightChart.data.datasets[sensorIndex].data.length > 30) {
-                        lightChart.data.datasets[sensorIndex].data.shift();
+                    if (lightChart.data.datasets[datasetIndex].data.length > 30) {
+                        lightChart.data.datasets[datasetIndex].data.shift();
                         console.log(`📊 30개 초과로 첫 번째 데이터 제거됨`);
                     }
                     
-                    console.log(`📊 현재 데이터셋 길이: ${lightChart.data.datasets[sensorIndex].data.length}`);
+                    console.log(`📊 현재 데이터셋 길이: ${lightChart.data.datasets[datasetIndex].data.length}`);
                     
                     try {
                         lightChart.update('none');
@@ -363,8 +494,8 @@ class BH1750ChartHandler {
                             if (canvas && lightChart) {
                                 console.log(`🔎 차트 업데이트 후 상태:`, {
                                     chartVisible: canvas.style.display !== 'none',
-                                    chartData: lightChart.data.datasets[sensorIndex].data.length,
-                                    lastDataPoint: lightChart.data.datasets[sensorIndex].data[lightChart.data.datasets[sensorIndex].data.length - 1],
+                                    chartData: lightChart.data.datasets[datasetIndex].data.length,
+                                    lastDataPoint: lightChart.data.datasets[datasetIndex].data[lightChart.data.datasets[datasetIndex].data.length - 1],
                                     canvasInDOM: document.body.contains(canvas),
                                     canvasDisplay: getComputedStyle(canvas).display,
                                     canvasVisibility: getComputedStyle(canvas).visibility
@@ -386,7 +517,7 @@ class BH1750ChartHandler {
                         }
                     }
                 } else {
-                    console.warn(`⚠️ 조도 차트 데이터셋[${sensorIndex}] 없음 (총 ${lightChart.data.datasets.length}개 데이터셋)`);
+                    console.warn(`⚠️ 조도 차트 데이터셋[${datasetIndex}] 없음 (총 ${lightChart.data.datasets.length}개 데이터셋)`);
                 }
             } else {
                 console.warn(`⚠️ 조도 차트 'light-multi-chart' 없음`);
