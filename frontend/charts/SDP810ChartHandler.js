@@ -172,15 +172,15 @@ class SDP810ChartHandler {
                                 display: true,
                                 text: '차압 (Pa)'
                             },
-                            min: -0.5,
-                            max: 0.5,
+                            min: -0.1,
+                            max: 0.1,
                             grid: { 
                                 color: 'rgba(0, 0, 0, 0.05)' 
                             },
                             ticks: {
-                                stepSize: 0.1,
+                                stepSize: 0.02,
                                 callback: function(value) {
-                                    return value.toFixed(1) + ' Pa';
+                                    return value.toFixed(3) + ' Pa';
                                 }
                             }
                         }

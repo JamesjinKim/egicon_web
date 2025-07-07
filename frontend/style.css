@@ -1764,3 +1764,23 @@ body {
         height: 250px;
     }
 }
+
+/* SDP810 Pressure Group 강제 표시 */
+.sensor-group[data-group="pressure"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.sensor-group[data-group="pressure"] .chart-container {
+    display: block !important;
+    height: 300px !important;
+    width: 100% !important;
+    min-height: 300px !important;
+}
+
+.sensor-group[data-group="pressure"] #pressure-multi-chart {
+    display: block !important;
+    width: 100% !important;
+    height: 300px !important;
+}
