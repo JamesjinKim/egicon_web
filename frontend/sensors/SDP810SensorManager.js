@@ -329,6 +329,17 @@ class SDP810SensorManager {
 
     // 센서 데이터 가져오기 (실제 API 호출 + CRC 검증)
     async fetchSensorData(sensor, sensorId, sensorIndex) {
+        // 센서 정보 유효성 검사
+        if (!sensor || typeof sensor.bus === 'undefined' || typeof sensor.mux_channel === 'undefined') {
+            console.warn(`⚠️ SDP810 센서 정보 불완전 [${sensorIndex}]:`, {
+                sensor: sensor,
+                sensorId: sensorId,
+                hasBus: sensor ? 'bus' in sensor : false,
+                hasChannel: sensor ? 'mux_channel' in sensor : false
+            });
+            return; // API 호출 중단
+        }
+        
         const apiUrl = `/api/sensors/sdp810/${sensor.bus}/${sensor.mux_channel}`;
         
         try {
@@ -471,6 +482,16 @@ class SDP810SensorManager {
 
     // 실제 센서 API 폴링 (2초 간격)
     startRealSensorPolling(sensor) {
+        // 센서 정보 유효성 검사
+        if (!sensor || typeof sensor.bus === 'undefined' || typeof sensor.mux_channel === 'undefined') {
+            console.warn(`⚠️ SDP810 실제 폴링 센서 정보 불완전:`, {
+                sensor: sensor,
+                hasBus: sensor ? 'bus' in sensor : false,
+                hasChannel: sensor ? 'mux_channel' in sensor : false
+            });
+            return; // 폴링 시작 중단
+        }
+        
         console.log('🔗 SDP810 실제 센서 API 폴링 시작: 2초 간격');
         
         const sensorId = `sdp810_${sensor.bus}_${sensor.mux_channel}`;

@@ -1765,6 +1765,16 @@ class EGIconDashboard {
 
     // SDP810 센서 데이터 가져오기 (라즈베리파이 실제 데이터)
     async fetchSDP810Data(sensor) {
+        // 센서 정보 유효성 검사
+        if (!sensor || typeof sensor.bus === 'undefined' || typeof sensor.mux_channel === 'undefined') {
+            console.warn(`⚠️ SDP810 센서 정보 불완전 (dashboard):`, {
+                sensor: sensor,
+                hasBus: sensor ? 'bus' in sensor : false,
+                hasChannel: sensor ? 'mux_channel' in sensor : false
+            });
+            return null; // API 호출 중단
+        }
+        
         const apiUrl = `/api/sensors/sdp810/${sensor.bus}/${sensor.mux_channel}`;
         console.log(`📡 SDP810 API 호출: ${apiUrl}`);
         
