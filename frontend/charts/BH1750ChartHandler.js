@@ -172,7 +172,7 @@ class BH1750ChartHandler {
                                 text: '조도 (lux)'
                             },
                             min: 0,
-                            max: 10000,
+                            max: 1000,
                             grid: { 
                                 color: 'rgba(0, 0, 0, 0.05)' 
                             }
@@ -329,7 +329,7 @@ class BH1750ChartHandler {
                                 text: '조도 (lux)'
                             },
                             min: 0,
-                            max: 10000,
+                            max: 1000,
                             grid: { 
                                 color: 'rgba(0, 0, 0, 0.05)' 
                             }
