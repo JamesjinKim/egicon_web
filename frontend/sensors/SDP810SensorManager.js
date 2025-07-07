@@ -470,17 +470,35 @@ class SDP810SensorManager {
             
             const sensorId = `sdp810_${bus}_${mux_channel}`;
             console.log(`🔍 SDP810 센서 ID 생성: ${sensorId}`);
+            
+            // 이미 추가된 센서인지 확인하여 중복 초기화 방지
+            const existingSensors = this.dashboard.sensorGroups['differential-pressure']?.sensors?.sdp810 || [];
+            const alreadyExists = existingSensors.some(s => 
+                s.bus === bus && s.mux_channel === mux_channel
+            );
+            
+            if (alreadyExists) {
+                console.log(`⚠️ SDP810 센서 이미 등록됨, 차트 재초기화 방지: ${sensorId}`);
+                return; // 이미 등록된 센서는 처리하지 않음
+            }
+            
             this.addSensorToGroup(sensor, sensorId);
+            
+            // 차트가 이미 초기화되었는지 확인
+            if (this.chartHandler && this.chartHandler.isReady()) {
+                console.log('✅ SDP810 차트 이미 초기화됨, 재초기화 건너뜀');
+                return;
+            }
             
             // 센서 발견 시 위젯 초기화 (지연 실행)
             console.log('⏱️ SDP810 위젯 초기화 지연 실행 (DOM 준비 대기)');
             setTimeout(() => {
                 this.initializeStatusWidgets(1);
                 
-                // 차트 초기화 직접 호출
+                // 차트 초기화 직접 호출 (한 번만)
                 console.log('📊 SDP810 차트 초기화 직접 호출');
                 
-                if (this.chartHandler) {
+                if (this.chartHandler && !this.chartHandler.isReady()) {
                     // 가상의 센서 정보로 차트 초기화
                     const testSensors = [{
                         bus: sensor.bus,
@@ -495,7 +513,7 @@ class SDP810SensorManager {
                         console.error('❌ SDP810 차트 초기화 실패:', initError);
                     }
                 } else {
-                    console.error('❌ SDP810 차트 핸들러가 없음');
+                    console.log('⚠️ SDP810 차트 이미 준비됨 또는 핸들러 없음');
                 }
                 
                 // 중복 폴링 방지 - startDataPolling으로 이미 폴링 중이므로 비활성화
