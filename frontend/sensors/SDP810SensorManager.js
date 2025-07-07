@@ -15,6 +15,7 @@ class SDP810SensorManager {
         this.skipCount = 0; // CRC 실패로 skip한 데이터 개수
         this.successCount = 0; // CRC 성공한 데이터 개수
         this.totalRequests = 0; // 총 API 요청 수
+        this.discoveredSensorCount = 0; // 실제 발견된 센서 개수
         
         // SDP810 센서 배열 초기화 (새로고침 시 중복 방지)
         if (this.dashboard.sensorGroups && this.dashboard.sensorGroups['pressure']) {
@@ -88,8 +89,10 @@ class SDP810SensorManager {
     updateSensorCount() {
         const summaryElement = document.querySelector('#pressure-group-summary');
         if (summaryElement) {
-            const sensorCount = this.dashboard.sensorGroups['pressure']?.sensors?.sdp810?.length || 0;
+            // 실제 발견된 센서 개수 사용 (더 안정적)
+            const sensorCount = this.discoveredSensorCount || 0;
             summaryElement.textContent = `SDP810×${sensorCount}`;
+            console.log(`📊 pressure-group-summary 업데이트: SDP810×${sensorCount}`);
         }
     }
     
@@ -134,6 +137,9 @@ class SDP810SensorManager {
             
             if (sdp810Sensors.length > 0) {
                 console.log(`🚀 SDP810 센서 ${sdp810Sensors.length}개 폴링 시작`);
+                
+                // 발견된 센서 개수 저장
+                this.discoveredSensorCount = sdp810Sensors.length;
                     
                     // 모든 SDP810 센서에 대해 폴링 시작
                     sdp810Sensors.forEach((sensor, index) => {
@@ -244,7 +250,7 @@ class SDP810SensorManager {
         // 헤더 요약을 구체적으로 업데이트
         const summaryElement = document.getElementById('pressure-group-summary');
         if (summaryElement) {
-            summaryElement.textContent = `SDP810 차압센서×${sensorCount}`;
+            summaryElement.textContent = `SDP810×${sensorCount}`;
             console.log(`✅ 헤더 요약 업데이트: ${summaryElement.textContent}`);
         }
     }
@@ -284,7 +290,7 @@ class SDP810SensorManager {
         
         // 최종 센서 개수 확인 및 업데이트 (3초 후)
         setTimeout(() => {
-            const finalCount = this.dashboard.sensorGroups['pressure']?.sensors?.sdp810?.length || 0;
+            const finalCount = this.discoveredSensorCount || 0;
             console.log(`🎯 SDP810 최종 센서 개수 확인: ${finalCount}개`);
             this.updateSensorCount();
         }, 3000);
@@ -394,16 +400,16 @@ class SDP810SensorManager {
         const minPressure = Math.min(...pressureValues);
         const maxPressure = Math.max(...pressureValues);
         
-        // 차압 위젯 업데이트
+        // 차압 위젯 업데이트 (소숫점 2자리)
         const pressureValueElement = document.getElementById('differential-pressure-average');
         if (pressureValueElement) {
-            pressureValueElement.textContent = `${avgPressure.toFixed(3)} Pa`;
+            pressureValueElement.textContent = `${avgPressure.toFixed(2)} Pa`;
         }
         
-        // 차압 범위 위젯 업데이트
+        // 차압 범위 위젯 업데이트 (소숫점 2자리)
         const pressureRangeElement = document.getElementById('differential-pressure-range');
         if (pressureRangeElement) {
-            pressureRangeElement.textContent = `${minPressure.toFixed(3)} ~ ${maxPressure.toFixed(3)} Pa`;
+            pressureRangeElement.textContent = `${minPressure.toFixed(2)} ~ ${maxPressure.toFixed(2)} Pa`;
         }
         
         // SDP810 위젯 업데이트 완료
