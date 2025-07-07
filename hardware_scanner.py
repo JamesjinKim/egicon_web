@@ -1072,8 +1072,8 @@ class HardwareScanner:
                     # 센서 목록 구성 (SHT40, SDP810 제외 - 전용 스캔에서 추가)
                     for channel, devices in channel_results.items():
                         for device in devices:
-                            # SHT40, SDP810은 전용 스캔에서 처리하므로 여기서 제외
-                            if device["sensor_type"] in ["SHT40", "SDP810"]:
+                            # SHT40, SDP810, BH1750은 전용 스캔에서 처리하므로 여기서 제외
+                            if device["sensor_type"] in ["SHT40", "SDP810", "BH1750"]:
                                 continue
                                 
                             sensor_data = {
@@ -1092,8 +1092,8 @@ class HardwareScanner:
                     bus_info["direct_devices"] = direct_devices
                     
                     for device in direct_devices:
-                        # SHT40, SDP810은 전용 스캔에서 처리하므로 여기서 제외
-                        if device["sensor_type"] in ["SHT40", "SDP810"]:
+                        # SHT40, SDP810, BH1750은 전용 스캔에서 처리하므로 여기서 제외
+                        if device["sensor_type"] in ["SHT40", "SDP810", "BH1750"]:
                             continue
                             
                         sensor_data = {
