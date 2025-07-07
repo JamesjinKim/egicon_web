@@ -297,11 +297,8 @@ class BME688ChartHandler {
     
     // 차트에 직접 데이터 업데이트 (BME688 전용)
     updateChartDataDirectly(sensorId, data, timestamp, sensorIndex) {
-        // BME688 차트 직접 업데이트
-        
         // 연속 에러가 너무 많으면 업데이트 중단
         if (this.errorCount >= this.maxErrors) {
-            console.warn(`⚠️ BME688 차트 에러 한계 도달 (${this.errorCount}/${this.maxErrors}), 업데이트 중단`);
             return;
         }
         
@@ -311,6 +308,8 @@ class BME688ChartHandler {
         }
         
         this.isUpdating = true;
+        
+        try {
         
         // 기압 차트 업데이트
         if (data.pressure !== undefined) {
@@ -351,19 +350,7 @@ class BME688ChartHandler {
                         pressureChart.data.datasets[sensorIndex].data.shift();
                     }
                     
-                    try {
-                        pressureChart.update('none');
-                        this.errorCount = 0; // 성공 시 에러 카운트 리셋
-                    } catch (updateError) {
-                        this.errorCount++;
-                        console.warn(`⚠️ BME688 기압 차트 에러 (${this.errorCount}/${this.maxErrors}): ${updateError.message}`);
-                        // 차트 재생성 시도
-                        if (this.errorCount < this.maxErrors) {
-                            setTimeout(() => {
-                                this.recreatePressureChart();
-                            }, 100);
-                        }
-                    }
+                    pressureChart.update('none');
                 } else {
                     console.warn(`⚠️ 기압 차트 데이터셋[${sensorIndex}] 없음 (총 ${pressureChart.data.datasets.length}개 데이터셋)`);
                 }
@@ -411,19 +398,7 @@ class BME688ChartHandler {
                         gasChart.data.datasets[sensorIndex].data.shift();
                     }
                     
-                    try {
-                        gasChart.update('none');
-                        this.errorCount = 0; // 성공 시 에러 카운트 리셋
-                    } catch (updateError) {
-                        this.errorCount++;
-                        console.warn(`⚠️ BME688 가스저항 차트 에러 (${this.errorCount}/${this.maxErrors}): ${updateError.message}`);
-                        // 차트 재생성 시도
-                        if (this.errorCount < this.maxErrors) {
-                            setTimeout(() => {
-                                this.recreateGasChart();
-                            }, 100);
-                        }
-                    }
+                    gasChart.update('none');
                 } else {
                     console.warn(`⚠️ 가스저항 차트 데이터셋[${sensorIndex}] 없음 (총 ${gasChart.data.datasets.length}개 데이터셋)`);
                 }
@@ -432,8 +407,20 @@ class BME688ChartHandler {
             }
         }
         
-        // 업데이트 완료 플래그 해제
-        this.isUpdating = false;
+        } catch (chartError) {
+            // 모든 Chart.js 에러를 여기서 캐치 (로그 없이 무시)
+            this.errorCount++;
+            if (this.errorCount < this.maxErrors) {
+                // 에러 발생 시 차트 재생성 시도 (조용히)
+                setTimeout(() => {
+                    this.recreatePressureChart();
+                    this.recreateGasChart();
+                }, 100);
+            }
+        } finally {
+            // 업데이트 완료 플래그 해제
+            this.isUpdating = false;
+        }
     }
 
     // 대기 중인 데이터 버퍼에 추가

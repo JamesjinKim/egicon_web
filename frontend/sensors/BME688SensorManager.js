@@ -209,7 +209,7 @@ class BME688SensorManager {
                 
                 // BME688 데이터 수신
                 
-                // 차트 핸들러를 통한 직접 차트 업데이트 (에러 처리 추가)
+                // 차트 핸들러를 통한 직접 차트 업데이트 (조용한 에러 처리)
                 if (this.chartHandler && this.chartHandler.isReady()) {
                     try {
                         this.chartHandler.updateChartsWithRealtimeData(sensorId, {
@@ -217,16 +217,15 @@ class BME688SensorManager {
                             gas_resistance: gasResistance
                         }, timestamp);
                     } catch (chartError) {
-                        console.warn(`⚠️ BME688 차트 업데이트 에러: ${chartError.message}`);
-                        // 에러 발생으로 데이터 버퍼링으로 전환
-                        // 에러 발생 시 버퍼링으로 전환
-                        this.chartHandler.bufferData(sensorId, {
-                            pressure: pressure,
-                            gas_resistance: gasResistance
-                        }, timestamp);
+                        // 차트 에러는 조용히 처리 (에러 로그 제거)
+                        if (this.chartHandler) {
+                            this.chartHandler.bufferData(sensorId, {
+                                pressure: pressure,
+                                gas_resistance: gasResistance
+                            }, timestamp);
+                        }
                     }
                 } else {
-                    // BME688ChartHandler 준비되지 않음, 데이터 버퍼링
                     // 차트 핸들러가 준비되지 않은 경우 데이터를 버퍼에 저장
                     if (this.chartHandler) {
                         this.chartHandler.bufferData(sensorId, {
