@@ -496,15 +496,15 @@ async def read_sht40_data(sensor_info: Dict[str, Any]) -> Dict[str, Any]:
     try:
         scanner = get_scanner()
         
-        # 라즈베리파이 환경이 아니면 Mock 데이터 반환
+        # 라즈베리파이 환경이 아니면 센서 사용 불가 상태 반환
         if not scanner.is_raspberry_pi:
             return {
-                "sensor_id": sensor_info.get("sensor_id", "sht40_mock"),
+                "sensor_id": sensor_info.get("sensor_id", "sht40_unavailable"),
                 "sensor_type": "SHT40",
-                "location": sensor_info.get("location", "Mock 환경"),
-                "temperature": 23.5 + random.uniform(-1, 1),
-                "humidity": 65.0 + random.uniform(-5, 5),
-                "status": "success",
+                "location": sensor_info.get("location", "Non-RPi 환경"),
+                "temperature": None,
+                "humidity": None,
+                "status": "hardware_unavailable",
                 "timestamp": time.time()
             }
         

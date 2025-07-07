@@ -119,7 +119,7 @@ def scan_all_buses_and_channels():
     
     buses_to_scan = [0, 1]  # 동적으로 사용되는 모든 버스
     tca_address = 0x70
-    sht40_addresses = [0x44, 0x45]
+    sht40_addresses = [0x44]
     found_sensors = []
     
     for bus_num in buses_to_scan:

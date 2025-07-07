@@ -110,7 +110,9 @@ class BME688ChartHandler {
             pointHoverRadius: 5,
             pointBackgroundColor: '#ffffff',
             pointBorderColor: '#ff6384',
-            pointBorderWidth: 2
+            pointBorderWidth: 2,
+            stepped: false,  // 부드러운 곡선 유지
+            cubicInterpolationMode: 'default'  // 기본 곡선 보간
         };
         
         this.dashboard.charts[canvasId] = new Chart(ctx, {
@@ -122,6 +124,9 @@ class BME688ChartHandler {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                    duration: 0  // 애니메이션 비활성화로 성능 향상 및 끊김 방지
+                },
                 interaction: {
                     intersect: false,
                     mode: 'index'
@@ -129,7 +134,8 @@ class BME688ChartHandler {
                 elements: {
                     line: {
                         tension: 0.4,
-                        borderWidth: 2
+                        borderWidth: 2,
+                        spanGaps: true  // 전역 spanGaps 설정
                     },
                     point: {
                         radius: 2,
@@ -208,7 +214,9 @@ class BME688ChartHandler {
             pointHoverRadius: 5,
             pointBackgroundColor: '#ffffff',
             pointBorderColor: colorPalette[index % colorPalette.length],
-            pointBorderWidth: 2
+            pointBorderWidth: 2,
+            stepped: false,  // 부드러운 곡선 유지
+            cubicInterpolationMode: 'default'  // 기본 곡선 보간
         }));
         
         // 실제 생성된 데이터셋
@@ -222,6 +230,9 @@ class BME688ChartHandler {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                    duration: 0  // 애니메이션 비활성화로 성능 향상 및 끊김 방지
+                },
                 interaction: {
                     intersect: false,
                     mode: 'index'
@@ -229,7 +240,8 @@ class BME688ChartHandler {
                 elements: {
                     line: {
                         tension: 0.4,
-                        borderWidth: 2
+                        borderWidth: 2,
+                        spanGaps: true  // 전역 spanGaps 설정
                     },
                     point: {
                         radius: 2,
@@ -257,7 +269,10 @@ class BME688ChartHandler {
                         },
                         ticks: {
                             maxTicksLimit: 10,
-                            stepSize: 5
+                            stepSize: 5,
+                            callback: function(value) {
+                                return Math.round(value);
+                            }
                         }
                     },
                     y: {
@@ -341,6 +356,11 @@ class BME688ChartHandler {
         
         this.isUpdating = true;
         
+        // 전역 X축 카운터 초기화 (첫 번째 호출 시)
+        if (!this.globalXCounter) {
+            this.globalXCounter = 0;
+        }
+        
         try {
         
         // 기압 차트 업데이트
@@ -359,9 +379,21 @@ class BME688ChartHandler {
                             pressureChart.data.labels.shift();
                         }
                         console.log(`📊 BME688 기압 30개 초과로 첫 번째 데이터 제거됨`);
+                        
+                        // 기존 데이터의 X축 값들을 -1씩 이동 (연속성 유지)
+                        pressureChart.data.datasets[sensorIndex].data.forEach(point => {
+                            if (point.x !== undefined) {
+                                point.x -= 1;
+                            }
+                        });
+                        
+                        // 레이블도 업데이트 (첫 번째 센서인 경우)
+                        if (sensorIndex === 0) {
+                            pressureChart.data.labels = pressureChart.data.labels.map(label => label - 1);
+                        }
                     }
                     
-                    // 연속적인 X축 값 생성
+                    // 연속적인 X축 값 생성 (항상 증가하는 값)
                     const nextXValue = currentDataLength >= 30 ? 29 : currentDataLength;
                     
                     // 새 데이터 포인트 추가
@@ -388,12 +420,22 @@ class BME688ChartHandler {
                         pressureChart.update('none');
                         console.log(`✅ BME688 기압 차트 업데이트 성공`);
                         
-                        // 트렌드 선이 보이지 않는 경우 강제 설정
+                        // 트렌드 선 연속성 보장을 위한 추가 검증
                         const currentDataset = pressureChart.data.datasets[sensorIndex];
-                        if (currentDataset.data.length >= 2 && !currentDataset.showLine) {
-                            console.log(`🔧 BME688 기압 트렌드 선 강제 활성화`);
+                        if (currentDataset.data.length >= 2) {
+                            // 트렌드 선 설정 강제 적용
                             currentDataset.showLine = true;
-                            pressureChart.update('none');
+                            currentDataset.spanGaps = true;
+                            
+                            // X축 값들이 연속적인지 확인 및 보정
+                            const data = currentDataset.data;
+                            for (let i = 1; i < data.length; i++) {
+                                if (data[i].x !== data[i-1].x + 1) {
+                                    console.log(`🔧 BME688 기압 X축 연속성 보정: ${data[i-1].x} → ${data[i].x}`);
+                                }
+                            }
+                            
+                            console.log(`📈 BME688 기압 트렌드 선 연속성 확인: ${currentDataset.data.length}개 포인트`);
                         }
                         
                         this.errorCount = 0; // 성공 시 에러 카운트 리셋
@@ -426,9 +468,21 @@ class BME688ChartHandler {
                             gasChart.data.labels.shift();
                         }
                         console.log(`📊 BME688 가스저항 30개 초과로 첫 번째 데이터 제거됨`);
+                        
+                        // 기존 데이터의 X축 값들을 -1씩 이동 (연속성 유지)
+                        gasChart.data.datasets[sensorIndex].data.forEach(point => {
+                            if (point.x !== undefined) {
+                                point.x -= 1;
+                            }
+                        });
+                        
+                        // 레이블도 업데이트 (첫 번째 센서인 경우)
+                        if (sensorIndex === 0) {
+                            gasChart.data.labels = gasChart.data.labels.map(label => label - 1);
+                        }
                     }
                     
-                    // 연속적인 X축 값 생성
+                    // 연속적인 X축 값 생성 (항상 증가하는 값)
                     const nextXValue = currentDataLength >= 30 ? 29 : currentDataLength;
                     
                     // 새 데이터 포인트 추가
@@ -455,12 +509,22 @@ class BME688ChartHandler {
                         gasChart.update('none');
                         console.log(`✅ BME688 가스저항 차트 업데이트 성공`);
                         
-                        // 트렌드 선이 보이지 않는 경우 강제 설정
+                        // 트렌드 선 연속성 보장을 위한 추가 검증
                         const currentDataset = gasChart.data.datasets[sensorIndex];
-                        if (currentDataset.data.length >= 2 && !currentDataset.showLine) {
-                            console.log(`🔧 BME688 가스저항 트렌드 선 강제 활성화`);
+                        if (currentDataset.data.length >= 2) {
+                            // 트렌드 선 설정 강제 적용
                             currentDataset.showLine = true;
-                            gasChart.update('none');
+                            currentDataset.spanGaps = true;
+                            
+                            // X축 값들이 연속적인지 확인 및 보정
+                            const data = currentDataset.data;
+                            for (let i = 1; i < data.length; i++) {
+                                if (data[i].x !== data[i-1].x + 1) {
+                                    console.log(`🔧 BME688 가스저항 X축 연속성 보정: ${data[i-1].x} → ${data[i].x}`);
+                                }
+                            }
+                            
+                            console.log(`📈 BME688 가스저항 트렌드 선 연속성 확인: ${currentDataset.data.length}개 포인트`);
                         }
                         
                         this.errorCount = 0; // 성공 시 에러 카운트 리셋

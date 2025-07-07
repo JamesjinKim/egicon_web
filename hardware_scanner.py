@@ -367,19 +367,8 @@ class HardwareScanner:
         uart_devices = []
         
         if not self.is_raspberry_pi:
-            # Mock 데이터 반환 (개발 환경)
-            mock_uart = {
-                "port": "/dev/ttyUSB0",
-                "sensor_type": "SPS30",
-                "sensor_name": "SPS30", 
-                "serial_number": "MOCK_SPS30_12345",
-                "status": "connected",
-                "interface": "UART",
-                "measurements": ["PM1.0", "PM2.5", "PM4.0", "PM10"],
-                "units": "μg/m³"
-            }
-            uart_devices.append(mock_uart)
-            print("🔧 Mock 모드: SPS30 UART 센서 시뮬레이션")
+            # 라즈베리파이 환경이 아니면 빈 목록 반환
+            print("⚠️ SPS30 UART 센서 사용 불가: 라즈베리파이 환경에서만 사용 가능")
             return uart_devices
         
         print("🔗 라즈베리파이 환경: 실제 UART 센서 검색")
@@ -412,24 +401,8 @@ class HardwareScanner:
         sdp810_devices = []
         
         if not self.is_raspberry_pi or not I2C_AVAILABLE:
-            # Mock 데이터 반환 (개발 환경)
-            mock_sdp810_devices = [
-                {
-                    "sensor_type": "SDP810",
-                    "sensor_id": "sdp810_1_0_25",
-                    "bus": 1,
-                    "address": "0x25",
-                    "mux_channel": 0,
-                    "mux_address": "0x70",
-                    "interface": "I2C",
-                    "status": "connected",
-                    "measurements": ["differential_pressure"],
-                    "units": {"differential_pressure": "Pa"},
-                    "test_result": "차압: -0.08 Pa"
-                }
-            ]
-            sdp810_devices.extend(mock_sdp810_devices)
-            print("🔧 Mock 모드: SDP810 센서 시뮬레이션")
+            # 라즈베리파이 환경이 아니면 빈 목록 반환
+            print("⚠️ SDP810 센서 사용 불가: 라즈베리파이 환경에서만 사용 가능")
             return sdp810_devices
         
         print("🔗 라즈베리파이 환경: 실제 SDP810 센서 검색")
@@ -542,27 +515,8 @@ class HardwareScanner:
         bh1750_devices = []
         
         if not self.is_raspberry_pi or not I2C_AVAILABLE:
-            # Mock 데이터 반환 (개발 환경)
-            mock_bh1750_devices = [
-                {
-                    "sensor_type": "BH1750",
-                    "sensor_id": "bh1750_1_4_23",
-                    "bus": 1,
-                    "address": "0x23",
-                    "mux_channel": 4,
-                    "mux_address": "0x70",
-                    "display_channel": 12,
-                    "location": "Bus 1, CH 12",
-                    "interface": "I2C",
-                    "status": "connected",
-                    "measurements": ["light"],
-                    "units": {"light": "lux"},
-                    "test_result": "조도: 345.0 lux",
-                    "discovered_at": time.time()
-                }
-            ]
-            bh1750_devices.extend(mock_bh1750_devices)
-            print("🔧 Mock 모드: BH1750 센서 시뮬레이션")
+            # 라즈베리파이 환경이 아니면 빈 목록 반환
+            print("⚠️ BH1750 센서 사용 불가: 라즈베리파이 환경에서만 사용 가능")
             return bh1750_devices
         
         print("🔗 라즈베리파이 환경: 실제 BH1750 센서 동적 검색")
@@ -735,27 +689,8 @@ class HardwareScanner:
         sht40_devices = []
         
         if not self.is_raspberry_pi or not SHT40_AVAILABLE:
-            # Mock 데이터 반환 (개발 환경 또는 SHT40 모듈 없음)
-            mock_sht40_devices = [
-                {
-                    "sensor_type": "SHT40",
-                    "sensor_id": "sht40_1_1_44",
-                    "bus": 1,
-                    "address": "0x44",
-                    "mux_channel": 1,
-                    "mux_address": "0x70",
-                    "display_channel": 9,
-                    "location": "Bus 1, CH 9",
-                    "interface": "I2C",
-                    "status": "connected",
-                    "measurements": ["temperature", "humidity"],
-                    "units": {"temperature": "°C", "humidity": "%RH"},
-                    "test_result": "온도: 23.5°C, 습도: 45.2%RH",
-                    "discovered_at": time.time()
-                }
-            ]
-            sht40_devices.extend(mock_sht40_devices)
-            print("🔧 Mock 모드: SHT40 센서 시뮬레이션")
+            # 라즈베리파이 환경이 아니거나 SHT40 모듈이 없으면 빈 목록 반환
+            print("⚠️ SHT40 센서 사용 불가: 라즈베리파이 환경에서만 사용 가능")
             return sht40_devices
         
         print("🔗 라즈베리파이 환경: 실제 SHT40 센서 동적 검색")
