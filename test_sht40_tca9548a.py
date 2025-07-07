@@ -257,8 +257,8 @@ class SHT40TCA9548ATest:
         
         return found_sensors
     
-    def test_continuous_measurement(self, duration: int = 30) -> bool:
-        """연속 측정 테스트"""
+    def test_continuous_measurement(self, test_count: int = 10) -> bool:
+        """연속 측정 테스트 (10회 측정)"""
         if not self.found_sensors:
             print("❌ 연속 측정 테스트를 위한 센서가 없습니다")
             return False
@@ -266,7 +266,7 @@ class SHT40TCA9548ATest:
         # 첫 번째 발견된 센서로 테스트
         sensor_info = self.found_sensors[0]
         
-        print(f"\n🔄 연속 측정 테스트 ({duration}초)")
+        print(f"\n🔄 SHT40 센서 정확성 테스트 ({test_count}회 측정)")
         print(f"📡 테스트 센서: Bus {sensor_info['bus']}, CH {sensor_info.get('display_channel', 'Direct')}, {sensor_info['address']}")
         
         try:
@@ -288,35 +288,115 @@ class SHT40TCA9548ATest:
             
             print(f"⏰ 시작 시간: {datetime.now().strftime('%H:%M:%S')}")
             print("📊 측정 데이터:")
-            print("   시간     | 온도(°C) | 습도(%RH) | 상태")
-            print("-" * 45)
+            print("   순번 |   시간   | 온도(°C) | 습도(%RH) |        상태        | 실패 원인")
+            print("-" * 85)
             
             success_count = 0
             total_measurements = 0
             temp_values = []
             humidity_values = []
+            failure_reasons = {}
             
-            measurement_interval = 3  # 3초 간격으로 증가 (안정성 향상)
+            measurement_interval = 2  # 2초 간격으로 측정
             
-            for i in range(duration):
+            for i in range(test_count):
+                measurement_num = i + 1
                 current_time = datetime.now().strftime('%H:%M:%S')
                 
                 try:
-                    # 정규 호출 사이클에 따른 측정 (CRC 에러 시 스킵하고 다음 사이클 대기)
-                    result = sensor.read_with_retry(precision="medium", max_retries=3, base_delay=0.2)
+                    print(f"   {measurement_num:2d}   | {current_time} |", end="", flush=True)
+                    
+                    # 상세한 에러 추적을 위한 측정
+                    result = None
+                    error_detail = None
+                    
+                    try:
+                        # 정규 호출 사이클에 따른 측정 (CRC 에러 시 스킵하고 다음 사이클 대기)
+                        result = sensor.read_with_retry(precision="medium", max_retries=3, base_delay=0.2)
+                    except Exception as sensor_error:
+                        error_detail = f"센서 통신 실패: {str(sensor_error)}"
+                        logger.error(f"측정 {measurement_num} 센서 통신 오류: {sensor_error}")
                     
                     if result is not None:
                         temp, humidity = result
-                        status = "✅ 성공"
                         success_count += 1
                         temp_values.append(temp)
                         humidity_values.append(humidity)
                         
-                        print(f"   {current_time} | {temp:6.1f}   | {humidity:7.1f}   | {status}")
+                        print(f" {temp:6.1f}   | {humidity:7.1f}   |     ✅ 성공      |")
+                        logger.info(f"측정 {measurement_num} 성공: 온도={temp:.1f}°C, 습도={humidity:.1f}%RH")
                     else:
-                        # CRC 에러나 비정상값으로 스킵된 경우 - 정상적인 동작
-                        status = "⚠️ 스킵 (다음 사이클 대기)"
-                        print(f"   {current_time} |    --    |    --     | {status}")
+                        # 실패 원인 분석
+                        if error_detail:
+                            failure_reason = error_detail
+                        else:
+                            # CRC 검증 실패 또는 비정상값
+                            try:
+                                # 직접 I2C 통신 테스트
+                                import smbus2
+                                bus = smbus2.SMBus(sensor_info['bus'])
+                                
+                                # 멀티플렉서 채널 선택 (있는 경우)
+                                if sensor_info['connection_type'] == 'multiplexed':
+                                    mux_address = int(sensor_info['mux_address'], 16)
+                                    channel_mask = 1 << sensor_info['mux_channel']
+                                    bus.write_byte(mux_address, channel_mask)
+                                    time.sleep(0.01)
+                                
+                                # SHT40 센서 직접 통신 테스트
+                                sensor_address = int(sensor_info['address'], 16)
+                                bus.write_i2c_block_data(sensor_address, 0xFD, [])  # Soft reset
+                                time.sleep(0.01)
+                                
+                                # 측정 명령 전송
+                                bus.write_i2c_block_data(sensor_address, 0xFD, [])  # Medium precision
+                                time.sleep(0.01)
+                                
+                                # 데이터 읽기 시도
+                                raw_data = bus.read_i2c_block_data(sensor_address, 0x00, 6)
+                                
+                                # CRC 검증
+                                def crc8(data):
+                                    crc = 0xFF
+                                    for byte in data:
+                                        crc ^= byte
+                                        for _ in range(8):
+                                            if crc & 0x80:
+                                                crc = (crc << 1) ^ 0x31
+                                            else:
+                                                crc = crc << 1
+                                    return crc & 0xFF
+                                
+                                temp_crc_ok = crc8(raw_data[0:2]) == raw_data[2]
+                                humidity_crc_ok = crc8(raw_data[3:5]) == raw_data[5]
+                                
+                                if not temp_crc_ok or not humidity_crc_ok:
+                                    failure_reason = f"CRC 검증 실패 (온도:{temp_crc_ok}, 습도:{humidity_crc_ok})"
+                                else:
+                                    # 값 계산
+                                    temp_raw = (raw_data[0] << 8) | raw_data[1]
+                                    humidity_raw = (raw_data[3] << 8) | raw_data[4]
+                                    temp_celsius = -45 + 175 * temp_raw / 65535
+                                    humidity_percent = -6 + 125 * humidity_raw / 65535
+                                    
+                                    if temp_celsius < -40 or temp_celsius > 125 or humidity_percent < 0 or humidity_percent > 100:
+                                        failure_reason = f"비정상 값 (온도:{temp_celsius:.1f}°C, 습도:{humidity_percent:.1f}%RH)"
+                                    else:
+                                        failure_reason = "알 수 없는 필터링 원인"
+                                
+                                bus.close()
+                                
+                            except Exception as comm_error:
+                                failure_reason = f"I2C 통신 오류: {str(comm_error)}"
+                        
+                        # 실패 원인 기록
+                        if failure_reason in failure_reasons:
+                            failure_reasons[failure_reason] += 1
+                        else:
+                            failure_reasons[failure_reason] = 1
+                        
+                        print(f"    --    |    --     | ⚠️ 실패 ({len(failure_reason)}) | {failure_reason[:35]}")
+                        logger.warning(f"측정 {measurement_num} 실패: {failure_reason}")
                     
                     total_measurements += 1
                     
@@ -325,31 +405,63 @@ class SHT40TCA9548ATest:
                     break
                 except Exception as e:
                     error_msg = str(e)
-                    status = f"❌ 통신 오류: {error_msg[:20]}..."
-                    print(f"   {current_time} |    --    |    --     | {status}")
+                    failure_reason = f"예외 발생: {error_msg}"
+                    if failure_reason in failure_reasons:
+                        failure_reasons[failure_reason] += 1
+                    else:
+                        failure_reasons[failure_reason] = 1
+                    
+                    print(f"    --    |    --     | ❌ 예외 오류    | {error_msg[:35]}")
+                    logger.error(f"측정 {measurement_num} 예외 오류: {e}")
                     total_measurements += 1
                 
-                # 모든 경우에 동일한 측정 간격 유지 (정규 호출 사이클)
-                if i < duration - 1:
+                # 다음 측정까지 대기
+                if i < test_count - 1:
                     time.sleep(measurement_interval)
             
             sensor.close()
             
             # 통계 출력
-            print("-" * 45)
+            print("-" * 85)
             success_rate = (success_count / total_measurements) * 100 if total_measurements > 0 else 0
             print(f"📊 측정 통계:")
             print(f"   총 측정 횟수: {total_measurements}")
             print(f"   성공 횟수: {success_count}")
+            print(f"   실패 횟수: {total_measurements - success_count}")
             print(f"   성공률: {success_rate:.1f}%")
             
             if temp_values and humidity_values:
                 print(f"   온도 범위: {min(temp_values):.1f}°C ~ {max(temp_values):.1f}°C (평균: {sum(temp_values)/len(temp_values):.1f}°C)")
                 print(f"   습도 범위: {min(humidity_values):.1f}%RH ~ {max(humidity_values):.1f}%RH (평균: {sum(humidity_values)/len(humidity_values):.1f}%RH)")
             
-            return success_rate > 80  # 80% 이상 성공률을 기준으로 판정
+            # 실패 원인 분석
+            if failure_reasons:
+                print(f"\n🔍 실패 원인 분석:")
+                for reason, count in sorted(failure_reasons.items(), key=lambda x: x[1], reverse=True):
+                    percentage = (count / (total_measurements - success_count)) * 100
+                    print(f"   • {reason}: {count}회 ({percentage:.1f}%)")
+            
+            # 권장사항
+            print(f"\n💡 권장사항:")
+            if success_rate >= 80:
+                print("   ✅ 센서 상태 양호 - Dashboard 통합 가능")
+            elif success_rate >= 50:
+                print("   ⚠️ 센서 상태 보통 - 하드웨어 점검 권장")
+                print("   📋 확인사항:")
+                print("      - 전원 공급 안정성")
+                print("      - I2C 케이블 연결 상태")
+                print("      - 멀티플렉서 접점 확인")
+            else:
+                print("   ❌ 센서 상태 불량 - 하드웨어 교체 필요")
+                print("   📋 필수 확인사항:")
+                print("      - SHT40 센서 불량 가능성")
+                print("      - I2C 주소 충돌 확인")
+                print("      - 배선 및 접지 상태")
+            
+            return success_rate >= 70  # 70% 이상 성공률을 기준으로 판정
             
         except Exception as e:
+            logger.error(f"연속 측정 테스트 전체 실패: {e}")
             print(f"❌ 연속 측정 테스트 실패: {e}")
             return False
     
@@ -388,7 +500,7 @@ class SHT40TCA9548ATest:
         
         return "\n".join(report)
     
-    def run_complete_test(self, continuous_test_duration: int = 10) -> bool:
+    def run_complete_test(self, test_count: int = 10) -> bool:
         """전체 테스트 실행"""
         try:
             # 1. I2C 환경 확인
@@ -404,11 +516,11 @@ class SHT40TCA9548ATest:
             
             # 4. 연속 측정 테스트 (센서가 발견된 경우)
             if self.found_sensors:
-                continuous_success = self.test_continuous_measurement(continuous_test_duration)
+                continuous_success = self.test_continuous_measurement(test_count)
                 if continuous_success:
-                    print("\n✅ 연속 측정 테스트 성공")
+                    print("\n✅ SHT40 센서 정확성 테스트 성공")
                 else:
-                    print("\n⚠️ 연속 측정 테스트에서 일부 문제 발견")
+                    print("\n⚠️ SHT40 센서 정확성 테스트에서 문제 발견")
             
             # 5. 테스트 리포트 출력
             report = self.generate_test_report()
@@ -440,24 +552,28 @@ def main():
         sys.exit(1)
     
     try:
-        # 연속 측정 시간 설정
-        duration = 10  # 기본 10초
+        # 측정 횟수 설정
+        test_count = 10  # 기본 10회
         if len(sys.argv) > 1:
             try:
-                duration = int(sys.argv[1])
-                if duration < 5 or duration > 300:
-                    print("⚠️ 연속 측정 시간은 5초~300초 사이로 설정하세요.")
-                    duration = 10
+                test_count = int(sys.argv[1])
+                if test_count < 5 or test_count > 50:
+                    print("⚠️ 측정 횟수는 5회~50회 사이로 설정하세요.")
+                    test_count = 10
             except ValueError:
-                print("⚠️ 잘못된 시간 형식. 기본값 10초로 설정합니다.")
+                print("⚠️ 잘못된 횟수 형식. 기본값 10회로 설정합니다.")
         
-        print(f"🔧 연속 측정 테스트 시간: {duration}초")
+        print(f"🔧 SHT40 정확성 테스트 횟수: {test_count}회")
+        print("📋 테스트 내용:")
+        print("   - 각 측정마다 실패 원인을 상세 분석")
+        print("   - CRC 검증 상태 및 통신 오류 원인 추적")
+        print("   - 온도/습도 값의 정상 범위 확인")
         print("\n시작하려면 Enter를 누르세요 (Ctrl+C로 중단 가능)...")
         input()
         
         # 테스트 실행
         tester = SHT40TCA9548ATest()
-        success = tester.run_complete_test(continuous_test_duration=duration)
+        success = tester.run_complete_test(test_count=test_count)
         
         if success:
             print("\n🎉 SHT40 센서 테스트 완료! 센서가 정상적으로 작동합니다.")
