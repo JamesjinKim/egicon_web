@@ -967,7 +967,7 @@ class HardwareScanner:
                             "address": device["address"],
                             "sensor_name": device["sensor_type"],
                             "sensor_type": device["sensor_type"],
-                            "status": device["status"]
+                            "status": device.get("status", "connected")
                         }
                         scan_result["sensors"].append(sensor_data)
                         scan_result["i2c_devices"].append(sensor_data)
@@ -983,7 +983,7 @@ class HardwareScanner:
                         "address": device["address"],
                         "sensor_name": device["sensor_type"],
                         "sensor_type": device["sensor_type"],
-                        "status": device["status"]
+                        "status": device.get("status", "connected")
                     }
                     scan_result["sensors"].append(sensor_data)
                     scan_result["i2c_devices"].append(sensor_data)
@@ -1005,7 +1005,7 @@ class HardwareScanner:
                         "port": uart_device["port"],
                         "sensor_name": uart_device["sensor_name"],
                         "sensor_type": uart_device["sensor_type"],
-                        "status": uart_device["status"],
+                        "status": uart_device.get("status", "connected"),
                         "interface": "UART",
                         "serial_number": uart_device.get("serial_number"),
                         "measurements": uart_device.get("measurements", []),
@@ -1082,7 +1082,7 @@ class HardwareScanner:
                                 "address": device["address"],
                                 "sensor_name": device["sensor_type"],
                                 "sensor_type": device["sensor_type"],
-                                "status": device["status"]
+                                "status": device.get("status", "connected")
                             }
                             scan_result["sensors"].append(sensor_data)
                             scan_result["i2c_devices"].append(sensor_data)
@@ -1102,7 +1102,7 @@ class HardwareScanner:
                             "address": device["address"],
                             "sensor_name": device["sensor_type"],
                             "sensor_type": device["sensor_type"],
-                            "status": device["status"]
+                            "status": device.get("status", "connected")
                         }
                         scan_result["sensors"].append(sensor_data)
                         scan_result["i2c_devices"].append(sensor_data)
@@ -1162,7 +1162,7 @@ class HardwareScanner:
                     "sensor_name": sht40_device["sensor_type"],
                     "sensor_type": sht40_device["sensor_type"],
                     "sensor_id": sht40_device.get("sensor_id"),
-                    "status": sht40_device["status"],
+                    "status": sht40_device.get("status", "connected"),
                     "interface": "I2C",
                     "measurements": sht40_device.get("measurements", []),
                     "units": sht40_device.get("units", {}),
@@ -1180,7 +1180,7 @@ class HardwareScanner:
                     "sensor_name": sdp810_device["sensor_type"],
                     "sensor_type": sdp810_device["sensor_type"],
                     "sensor_id": sdp810_device.get("sensor_id"),
-                    "status": sdp810_device["status"],
+                    "status": sdp810_device.get("status", "connected"),
                     "interface": "I2C",
                     "measurements": sdp810_device.get("measurements", []),
                     "units": sdp810_device.get("units", {}),
@@ -1198,7 +1198,7 @@ class HardwareScanner:
                     "sensor_name": bh1750_device["sensor_type"],
                     "sensor_type": bh1750_device["sensor_type"],
                     "sensor_id": bh1750_device.get("sensor_id"),
-                    "status": bh1750_device["status"],
+                    "status": bh1750_device.get("status", "connected"),
                     "interface": "I2C",
                     "measurements": bh1750_device.get("measurements", []),
                     "units": bh1750_device.get("units", {}),
@@ -1216,7 +1216,7 @@ class HardwareScanner:
                     "port": uart_device["port"],
                     "sensor_name": uart_device["sensor_name"],
                     "sensor_type": uart_device["sensor_type"],
-                    "status": uart_device["status"],
+                    "status": uart_device.get("status", "connected"),
                     "interface": "UART",
                     "serial_number": uart_device.get("serial_number"),
                     "measurements": uart_device.get("measurements", []),
