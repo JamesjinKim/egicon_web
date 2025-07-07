@@ -191,10 +191,13 @@ class EGIconDashboard {
         this.bme688SensorManager = new BME688SensorManager(this);
         this.sps30ChartHandler = new SPS30ChartHandler(this);
         this.sps30SensorManager = new SPS30SensorManager(this);
+        this.bh1750ChartHandler = new BH1750ChartHandler(this);
+        this.bh1750SensorManager = new BH1750SensorManager(this);
         
         // 차트 핸들러와 센서 매니저 연결
         this.bme688SensorManager.setChartHandler(this.bme688ChartHandler);
         this.sps30SensorManager.setChartHandler(this.sps30ChartHandler);
+        this.bh1750SensorManager.setChartHandler(this.bh1750ChartHandler);
         
         // 실제 센서 데이터만 사용
 
@@ -391,6 +394,7 @@ class EGIconDashboard {
             // 조도 센서 그룹 요약 업데이트
             const summaryElement = document.getElementById('light-group-summary');
             if (summaryElement) {
+                // BH1750 센서 개수 업데이트는 BH1750SensorManager로 이동됨
                 if (actualSensorCount > 0) {
                     summaryElement.textContent = `BH1750×${actualSensorCount}`;
                 } else {
@@ -1377,6 +1381,12 @@ class EGIconDashboard {
                 return;
             }
             
+            // BH1750 센서 데이터 처리
+            if (data.sensor_type === 'BH1750') {
+                this.bh1750SensorManager.updateData(data);
+                return;
+            }
+            
             // SHT40 센서 데이터 처리
             if (data.sensor_type === 'SHT40') {
                 this.updateSHT40Data(data);
@@ -1477,6 +1487,9 @@ class EGIconDashboard {
         
         // BME688 API 폴링 시작 (리팩토링된 매니저 사용)
         this.bme688SensorManager.startPollingForDiscoveredSensors();
+        
+        // BH1750 API 폴링 시작 (리팩토링된 매니저 사용)
+        this.bh1750SensorManager.startPollingForDiscoveredSensors();
         
         // SHT40 센서 스캔 및 초기화
         await this.initializeSHT40Sensors();
@@ -1643,25 +1656,7 @@ class EGIconDashboard {
         }
         
         sensors.forEach((sensor) => {
-            // BH1750 조도 센서의 경우 light_1 위젯 교체
-            if (sensor.sensor_type === 'BH1750') {
-                const sensorId = `${sensor.sensor_type.toLowerCase()}_${sensor.bus}_${sensor.mux_channel || 0}`;
-                
-                // 실제 센서로 대체 (현재는 스킵)
-                // this.replaceWithRealSensor('light_1', sensorId, sensor);
-                
-                // 위젯 제목 업데이트
-                const widget = document.querySelector('[data-sensor="light_1"]');
-                if (widget) {
-                    const titleElement = widget.querySelector('.widget-title');
-                    if (titleElement) {
-                        titleElement.textContent = `BH1750 조도 (Bus${sensor.bus}:Ch${sensor.mux_channel})`;
-                    }
-                    // 실제 센서 ID로 data 속성 변경
-                    widget.setAttribute('data-sensor', sensorId);
-                    widget.setAttribute('data-real-sensor', 'true');
-                }
-            }
+            // BH1750 조도 센서 처리는 BH1750SensorManager로 이동됨
             
             // SDP810 차압 센서 처리
             if (sensor.sensor_type === 'SDP810') {
@@ -1685,6 +1680,12 @@ class EGIconDashboard {
             if (sensor.sensor_type === 'SPS30' && sensor.interface === 'UART') {
                 console.log('📊 SPS30 공기질 센서 발견:', sensor);
                 this.sps30SensorManager.processSensorFromWebSocket(sensor);
+            }
+            
+            // BH1750 조도 센서 처리
+            if (sensor.sensor_type === 'BH1750') {
+                console.log('📊 BH1750 조도 센서 발견:', sensor);
+                this.bh1750SensorManager.processSensorFromWebSocket(sensor);
             }
         });
     }
