@@ -122,7 +122,7 @@ class SPS30SensorManager {
             if (values.pm25 !== undefined) {
                 const pm25Element = document.getElementById('pm25-value');
                 if (pm25Element) {
-                    pm25Element.textContent = `${values.pm25} μg/m³`;
+                    pm25Element.textContent = `${values.pm25.toFixed(1)} μg/m³`;
                 }
                 
                 // PM2.5 공기질 등급 판정
@@ -138,7 +138,7 @@ class SPS30SensorManager {
             if (values.pm10 !== undefined) {
                 const pm10Element = document.getElementById('pm10-value');
                 if (pm10Element) {
-                    pm10Element.textContent = `${values.pm10} μg/m³`;
+                    pm10Element.textContent = `${values.pm10.toFixed(1)} μg/m³`;
                 }
                 
                 // PM10 공기질 등급 판정

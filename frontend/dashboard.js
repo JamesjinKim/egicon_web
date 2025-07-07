@@ -1681,7 +1681,11 @@ class EGIconDashboard {
                 this.bme688SensorManager.addSensorToGroup(sensor, sensorId);
             }
             
-            // SPS30 공기질 센서 처리는 SPS30SensorManager로 이동됨
+            // SPS30 공기질 센서 처리
+            if (sensor.sensor_type === 'SPS30' && sensor.interface === 'UART') {
+                console.log('📊 SPS30 공기질 센서 발견:', sensor);
+                this.sps30SensorManager.processSensorFromWebSocket(sensor);
+            }
         });
     }
 
