@@ -264,7 +264,7 @@ class BH1750ChartHandler {
     
     // 차트에 직접 데이터 업데이트 (BH1750 전용)
     updateChartDataDirectly(sensorId, data, timestamp, sensorIndex) {
-        // BH1750 차트 직접 업데이트
+        console.log(`🔄 BH1750 차트 직접 업데이트 시작: sensorIndex=${sensorIndex}`, data);
         
         // 연속 에러가 너무 많으면 업데이트 중단
         if (this.errorCount >= this.maxErrors) {
@@ -281,8 +281,17 @@ class BH1750ChartHandler {
         
         // 조도 차트 업데이트
         if (data.light !== undefined) {
+            console.log(`📊 조도 데이터 업데이트 시작: ${data.light} lux`);
             const lightChart = this.dashboard.charts['light-multi-chart'];
+            console.log(`📊 조도 차트 객체 확인:`, {
+                exists: !!lightChart,
+                hasData: !!(lightChart && lightChart.data),
+                hasDatasets: !!(lightChart && lightChart.data && lightChart.data.datasets),
+                datasetCount: lightChart && lightChart.data && lightChart.data.datasets ? lightChart.data.datasets.length : 0
+            });
+            
             if (lightChart && lightChart.data && lightChart.data.datasets) {
+                console.log(`📊 센서 인덱스 ${sensorIndex} 데이터셋 존재 여부:`, !!lightChart.data.datasets[sensorIndex]);
                 if (lightChart.data.datasets[sensorIndex]) {
                     // 현재 데이터 길이 확인
                     const currentDataLength = lightChart.data.datasets[sensorIndex].data.length;
@@ -308,18 +317,24 @@ class BH1750ChartHandler {
                     }
                     
                     // 새 데이터 추가
-                    lightChart.data.datasets[sensorIndex].data.push({
+                    const newDataPoint = {
                         x: xPosition,
                         y: data.light
-                    });
+                    };
+                    console.log(`📊 새 데이터 포인트 추가:`, newDataPoint);
+                    lightChart.data.datasets[sensorIndex].data.push(newDataPoint);
                     
                     // 30개 이상이면 첫 번째 데이터 제거
                     if (lightChart.data.datasets[sensorIndex].data.length > 30) {
                         lightChart.data.datasets[sensorIndex].data.shift();
+                        console.log(`📊 30개 초과로 첫 번째 데이터 제거됨`);
                     }
+                    
+                    console.log(`📊 현재 데이터셋 길이: ${lightChart.data.datasets[sensorIndex].data.length}`);
                     
                     try {
                         lightChart.update('none');
+                        console.log(`✅ BH1750 조도 차트 업데이트 성공`);
                         this.errorCount = 0; // 성공 시 에러 카운트 리셋
                     } catch (updateError) {
                         this.errorCount++;

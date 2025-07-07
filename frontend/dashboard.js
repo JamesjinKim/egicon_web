@@ -862,6 +862,12 @@ class EGIconDashboard {
             return;
         }
         
+        // BH1750 차트는 전용 핸들러에서만 처리 (중복 생성 방지)
+        if (canvasId === 'light-multi-chart') {
+            console.log(`⚠️ BH1750 차트 ${canvasId}는 BH1750ChartHandler에서 처리됨, dashboard.js에서 중복 생성 방지`);
+            return;
+        }
+        
         // DOM 로드 확인
         if (document.readyState !== 'complete') {
             console.log(`⏳ DOM 로드 대기 중... readyState: ${document.readyState}`);
