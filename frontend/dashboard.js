@@ -653,6 +653,12 @@ class EGIconDashboard {
                     const chartId = `${normalizedMetric}-multi-chart`;
                     const sensorLabels = this.generateSensorLabels(group, metric);
                     
+                    // BH1750 light 차트는 전용 핸들러에서 처리
+                    if (chartId === 'light-multi-chart' || metric === 'light') {
+                        console.log(`🚫 BH1750 light 차트는 BH1750ChartHandler에서 처리, dashboard.js에서 건너뜀`);
+                        return;
+                    }
+                    
                     if (sensorLabels.length > 1) {
                         // 멀티 센서 차트
                         this.createMultiSensorChart(chartId, metric, sensorLabels);
