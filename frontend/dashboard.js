@@ -155,7 +155,7 @@ class EGIconDashboard {
                 unit: 'lux',
                 color: '#ffce56',
                 min: 0,
-                max: 2000
+                max: 3000
             },
             vibration: {
                 label: '진동',
