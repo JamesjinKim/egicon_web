@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📸 포토공정 - OLED 제조공장 디지털 트윈</title>
+    <title>📸 라미공정 - 디스플레이 제조공장 디지털 트윈</title>
     <style>
         * {
             margin: 0;
@@ -97,6 +97,20 @@
             background: #d4edda;
             color: #155724;
         }
+        
+        .sensor-card.warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        
+        .sensor-value.warning {
+            color: #856404;
+        }
+        
+        .sensor-status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
     </style>
 </head>
 <body>
@@ -104,14 +118,15 @@
         <a href="/" class="back-button">← 메인 대시보드로 돌아가기</a>
         
         <div class="header">
-            <h1>📸 포토공정 모니터링</h1>
-            <p>포토레지스트 코팅 및 노광 공정 실시간 센서 데이터</p>
+            <h1>📸 라미공정 모니터링</h1>
+            <p>라미 공정 실시간 센서 데이터</p>
         </div>
         
         <div class="process-info">
             <h2>공정 상태 요약</h2>
-            <p><strong>상태:</strong> <span style="color: #28a745;">🟢 정상</span></p>
+            <p><strong>상태:</strong> <span style="color: #ffc107;">🟡 주의</span></p>
             <p><strong>연결된 센서:</strong> 4개</p>
+            <p><strong>경고 건수:</strong> <span style="color: #ffc107;">1건</span></p>
             <p><strong>마지막 업데이트:</strong> <span id="last-update">로딩 중...</span></p>
             
             <div class="sensor-grid">
@@ -129,11 +144,11 @@
                     <p>위치: 포토부스 하부</p>
                 </div>
                 
-                <div class="sensor-card">
+                <div class="sensor-card warning">
                     <h3>🌡️ 온도 센서</h3>
-                    <div class="sensor-value" id="temperature">--°C</div>
-                    <div class="sensor-status">정상 범위</div>
-                    <p>위치: 포토부스 중앙</p>
+                    <div class="sensor-value warning" id="temperature">--°C</div>
+                    <div class="sensor-status warning">⚠️ 온도변화</div>
+                    <p>위치: 라미부스 중앙</p>
                 </div>
                 
                 <div class="sensor-card">
@@ -157,7 +172,7 @@
         function updateSensorData() {
             document.getElementById('light-upper').textContent = (Math.random() * 100 + 800).toFixed(0) + ' lux';
             document.getElementById('light-lower').textContent = (Math.random() * 100 + 800).toFixed(0) + ' lux';
-            document.getElementById('temperature').textContent = (Math.random() * 3 + 22).toFixed(1) + '°C';
+            document.getElementById('temperature').textContent = (Math.random() * 5 + 26).toFixed(1) + '°C'; // 높은 온도값
             document.getElementById('dust').textContent = (Math.random() * 10 + 5).toFixed(1) + ' µg/m³';
         }
         

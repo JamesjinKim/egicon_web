@@ -712,6 +712,33 @@ V2는 기존 V1.1의 센서 모니터링에서 발전하여 **OLED 제조공장 
 
 ---
 
+
+다른 컴퓨터에서 V2 디지털 트윈 대시보드를 사용하려면:
+
+  # 방법 1: 전체 클론
+  git clone https://github.com/JamesjinKim/egicon_web.git
+  cd egicon_web
+  git checkout v2
+  cd v2
+  pip install -r requirements_prototype.txt
+  python main_prototype.py
+
+  # 방법 2: V2만 클론 (용량 절약)
+  git clone --no-checkout https://github.com/JamesjinKim/egicon_web.git
+  cd egicon_web
+  git checkout v2
+  git config core.sparseCheckout true
+  echo "v2/*" > .git/info/sparse-checkout
+  git checkout
+  cd v2
+  pip install -r requirements_prototype.txt
+  python main_prototype.py
+
+  📍 접속 주소
+
+  - V2 디지털 트윈: http://localhost:8002
+  - V1.1 안정 버전: http://localhost:8001
+
 **개발자**: ShinHoTechnology  
 **업데이트**: 2025년 7월 8일  
 **버전**: V2 디지털 트윈 프로토타입 완성 (V1.1 안정 버전 병행 관리)

@@ -116,43 +116,23 @@
             border: 3px solid #d6d6d6;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
             width: 100%;
-            height: 1000px;
+            height: 420px;
             overflow: hidden;
         }
         
-        .process-flow-line {
-            position: absolute;
-            top: 50%;
-            left: 8%;
-            right: 8%;
-            height: 6px;
-            background: linear-gradient(to right, #667eea, #764ba2);
-            border-radius: 3px;
-            z-index: 1;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
         
         .process-flow-upper {
             display: flex;
             justify-content: space-between;
             align-items: center;
             position: absolute;
-            top: 96px;
+            top: 50%;
             left: 48px;
             right: 48px;
+            transform: translateY(-50%);
             z-index: 2;
         }
         
-        .process-flow-lower {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: absolute;
-            bottom: 96px;
-            left: 48px;
-            right: 48px;
-            z-index: 2;
-        }
         
         .process-station {
             display: flex;
@@ -177,21 +157,26 @@
             background: #fff8e1;
         }
         
+        .process-station.danger {
+            border-color: #dc3545;
+            background: #f8d7da;
+            animation: dangerBlink 1.5s infinite;
+        }
+        
         .process-station:hover {
             transform: translateY(-8px);
             box-shadow: 0 12px 24px rgba(0,0,0,0.2);
         }
         
         .process-icon {
-            font-size: 4.86em;
-            margin-bottom: 18px;
+            display: none;
         }
         
         .process-name {
             font-weight: bold;
             margin-bottom: 16px;
             color: #333;
-            font-size: 1.33em;
+            font-size: 2.0em;
             text-align: center;
             line-height: 1.2;
         }
@@ -252,6 +237,7 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
         }
         
         .prediction-panel h3 {
@@ -270,6 +256,27 @@
             padding: 10px;
             background: #f8f9fa;
             border-radius: 5px;
+        }
+        
+        .prediction-item.danger {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            animation: dangerBlink 1.5s infinite;
+        }
+        
+        @keyframes dangerBlink {
+            0% { 
+                background-color: #f8d7da;
+                color: #721c24;
+            }
+            50% { 
+                background-color: #dc3545;
+                color: #ffffff;
+            }
+            100% { 
+                background-color: #f8d7da;
+                color: #721c24;
+            }
         }
         
         .loading {
@@ -313,19 +320,16 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏭 OLED 제조공장 디지털 트윈</h1>
+            <h1>🏭 디스플레이 제조공장 디지털 트윈</h1>
             <p>실시간 공정 모니터링 및 예지 보전 시스템 V2.0</p>
         </div>
         
         <div class="navbar">
             <a href="/" class="active">🏠 메인 대시보드</a>
-            <a href="/process/deposition">🏭 증착공정</a>
-            <a href="/process/photo">📸 포토공정</a>
-            <a href="/process/etch">⚗️ 식각공정</a>
-            <a href="/process/encapsulation">📦 봉지공정</a>
-            <a href="/process/inspection">🔍 검사공정</a>
-            <a href="/process/packaging">📦 패키징공정</a>
-            <a href="/process/shipping">🚚 출하공정</a>
+            <a href="/process/deposition">🏭 실장공정</a>
+            <a href="/process/photo">📸 라미공정</a>
+            <a href="/process/etch">⚗️ 조립공정</a>
+            <a href="/process/encapsulation">📦 검사공정</a>
         </div>
         
         <div class="kpi-grid" id="kpi-grid">
@@ -356,97 +360,69 @@
             </div>
         </div>
         
+        <div class="prediction-panel">
+            <h3>🔮 예지 보전 종합 상황판</h3>
+            <div class="prediction-stats" id="prediction-stats">
+                <div class="prediction-item danger">
+                    <h4>🚨 위험 예측</h4>
+                    <div style="font-size: 2em;">1건</div>
+                    <div style="font-size: 0.8em; margin-top: 5px;">조립-미세먼지 위험</div>
+                </div>
+                <div class="prediction-item">
+                    <h4>⚠️ 주의 예측</h4>
+                    <div style="font-size: 2em; color: #ffc107;">3건</div>
+                    <div style="font-size: 0.8em; margin-top: 5px;">조립-온도상승<br>조립-진동불안정<br>라미-온도변화</div>
+                </div>
+                <div class="prediction-item">
+                    <h4>📅 계획 예측</h4>
+                    <div style="font-size: 2em; color: #17a2b8;">5건</div>
+                    <div style="font-size: 0.8em; margin-top: 5px;">실장-진동증가<br>라미-필터교체</div>
+                </div>
+                <div class="prediction-item">
+                    <h4>📊 예측 정확도</h4>
+                    <div style="font-size: 2em; color: #28a745;" id="prediction-accuracy">87.2%</div>
+                </div>
+            </div>
+        </div>
+        
         <div class="factory-layout">
-            <h2>🗺️ OLED 제조공정 플로우 (실시간 상태)</h2>
+            <h2>🗺️ 디스플레이 제조공정 플로우 (실시간 상태 모니터링)</h2>
             <div class="process-flow-container">
                 <!-- 상단 공정 플로우 -->
                 <div class="process-flow-upper">
                     <div class="process-station" onclick="goToProcess('deposition')">
                         <div class="process-icon">🏭</div>
-                        <div class="process-name">증착공정</div>
+                        <div class="process-name">실장공정</div>
                         <div class="process-status">🟢</div>
                         <div class="process-sensors">센서 10개</div>
                         <div class="process-indicators">🌡️💧📳💨</div>
                     </div>
                     
-                    <div class="process-station" onclick="goToProcess('photo')">
+                    <div class="process-station warning" onclick="goToProcess('photo')">
                         <div class="process-icon">📸</div>
-                        <div class="process-name">포토공정</div>
-                        <div class="process-status">🟢</div>
+                        <div class="process-name">라미공정</div>
+                        <div class="process-status">🟡</div>
                         <div class="process-sensors">센서 40개</div>
                         <div class="process-indicators">☀️🌡️💨</div>
+                        <div class="process-alert">⚠️ 온도변화</div>
                     </div>
                     
-                    <div class="process-station warning" onclick="goToProcess('etch')">
+                    <div class="process-station danger" onclick="goToProcess('etch')">
                         <div class="process-icon">⚗️</div>
-                        <div class="process-name">식각공정</div>
-                        <div class="process-status">🟡</div>
+                        <div class="process-name">조립공정</div>
+                        <div class="process-status">🔴</div>
                         <div class="process-sensors">센서 80개</div>
                         <div class="process-indicators">🌡️💨🛡️🔥</div>
-                        <div class="process-alert">⚠️ 온도상승</div>
+                        <div class="process-alert">⚠️ 미세먼지 위험</div>
                     </div>
                     
                     <div class="process-station" onclick="goToProcess('encapsulation')">
                         <div class="process-icon">📦</div>
-                        <div class="process-name">봉지공정</div>
+                        <div class="process-name">검사공정</div>
                         <div class="process-status">🟢</div>
                         <div class="process-sensors">센서 30개</div>
                         <div class="process-indicators">💧🌡️📏</div>
                     </div>
-                </div>
-                
-                <!-- 하단 공정 플로우 -->
-                <div class="process-flow-lower">
-                    <div class="process-station" onclick="goToProcess('inspection')">
-                        <div class="process-icon">🔍</div>
-                        <div class="process-name">검사공정</div>
-                        <div class="process-status">🟢</div>
-                        <div class="process-sensors">센서 50개</div>
-                        <div class="process-indicators">☀️📳🌡️</div>
-                    </div>
-                    
-                    <div class="process-station" onclick="goToProcess('packaging')">
-                        <div class="process-icon">📦</div>
-                        <div class="process-name">패키징</div>
-                        <div class="process-status">🟢</div>
-                        <div class="process-sensors">센서 20개</div>
-                        <div class="process-indicators">📦🏷️⚖️</div>
-                    </div>
-                    
-                    <div class="process-station" onclick="goToProcess('shipping')">
-                        <div class="process-icon">🚚</div>
-                        <div class="process-name">출하공정</div>
-                        <div class="process-status">🟢</div>
-                        <div class="process-sensors">센서 10개</div>
-                        <div class="process-indicators">📊🌡️💨</div>
-                    </div>
-                </div>
-                
-                <!-- 공정 플로우 연결선 -->
-                <div class="process-flow-line"></div>
-            </div>
-        </div>
-        
-        <div class="prediction-panel">
-            <h3>🔮 예지 보전 종합 상황판</h3>
-            <div class="prediction-stats" id="prediction-stats">
-                <div class="prediction-item">
-                    <h4>🚨 긴급 예측</h4>
-                    <div style="font-size: 2em; color: #28a745;">0건</div>
-                </div>
-                <div class="prediction-item">
-                    <h4>⚠️ 주의 예측</h4>
-                    <div style="font-size: 2em; color: #ffc107;">2건</div>
-                    <div style="font-size: 0.8em; margin-top: 5px;">식각-온도상승<br>검사-조도변화</div>
-                </div>
-                <div class="prediction-item">
-                    <h4>📅 계획 예측</h4>
-                    <div style="font-size: 2em; color: #17a2b8;">5건</div>
-                    <div style="font-size: 0.8em; margin-top: 5px;">증착-진동증가<br>포토-필터교체</div>
-                </div>
-                <div class="prediction-item">
-                    <h4>📊 예측 정확도</h4>
-                    <div style="font-size: 2em; color: #28a745;" id="prediction-accuracy">87.2%</div>
                 </div>
             </div>
         </div>

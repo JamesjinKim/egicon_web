@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚗️ 식각공정 - OLED 제조공장 디지털 트윈</title>
+    <title>⚗️ 조립공정 - 디스플레이 제조공장 디지털 트윈</title>
     <style>
         * {
             margin: 0;
@@ -97,6 +97,18 @@
             background: #fff3cd;
         }
         
+        .sensor-card.danger {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+            animation: dangerBlink 1.5s infinite;
+        }
+        
+        @keyframes dangerBlink {
+            0% { background-color: #f8d7da; }
+            50% { background-color: #dc3545; }
+            100% { background-color: #f8d7da; }
+        }
+        
         .sensor-card h3 {
             margin-bottom: 10px;
             color: #333;
@@ -113,6 +125,10 @@
             color: #856404;
         }
         
+        .sensor-value.danger {
+            color: #721c24;
+        }
+        
         .sensor-status {
             padding: 5px 10px;
             border-radius: 5px;
@@ -125,6 +141,11 @@
             background: #fff3cd;
             color: #856404;
         }
+        
+        .sensor-status.danger {
+            background: #f5c6cb;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
@@ -132,21 +153,23 @@
         <a href="/" class="back-button">← 메인 대시보드로 돌아가기</a>
         
         <div class="header">
-            <h1>⚗️ 식각공정 모니터링</h1>
-            <p>화학적 식각 공정 실시간 센서 데이터</p>
+            <h1>⚗️ 조립공정 모니터링</h1>
+            <p>조립공정 실시간 센서 데이터</p>
         </div>
         
         <div class="process-info">
             <div class="alert-banner">
                 <h3>⚠️ 주의 상황 감지</h3>
                 <p>• 챔버 #2 온도 상승 감지 (현재: 185°C, 목표: 180°C)</p>
-                <p>• 플라즈마 안정성 변동 감지 (현재: 91.8%, 목표: 95%)</p>
+                <p>• 진동 수준 불안정 감지 (현재: 9.2 mm/s, 목표: 5.0 mm/s)</p>
+                <p>• 미세먼지 농도 위험 수준 (현재: 95 µg/m³, 안전기준: 50 µg/m³)</p>
             </div>
             
             <h2>공정 상태 요약</h2>
             <p><strong>상태:</strong> <span style="color: #ffc107;">🟡 주의</span></p>
             <p><strong>연결된 센서:</strong> 8개</p>
-            <p><strong>경고 건수:</strong> <span style="color: #dc3545;">2건</span></p>
+            <p><strong>경고 건수:</strong> <span style="color: #ffc107;">2건</span></p>
+            <p><strong>위험 건수:</strong> <span style="color: #dc3545;">1건</span></p>
             <p><strong>마지막 업데이트:</strong> <span id="last-update">로딩 중...</span></p>
             
             <div class="sensor-grid">
@@ -192,16 +215,16 @@
                     <p>위치: 가스 공급라인 B</p>
                 </div>
                 
-                <div class="sensor-card">
-                    <h3>🛡️ 안전 센서</h3>
-                    <div class="sensor-value" id="safety">-- ppm</div>
-                    <div class="sensor-status">정상 범위</div>
-                    <p>위치: 안전 모니터링</p>
+                <div class="sensor-card danger">
+                    <h3>💨 미세먼지 센서</h3>
+                    <div class="sensor-value danger" id="dust">-- µg/m³</div>
+                    <div class="sensor-status danger">🚨 위험 수준</div>
+                    <p>위치: 조립 작업대</p>
                 </div>
                 
                 <div class="sensor-card warning">
-                    <h3>🔥 플라즈마 제어기</h3>
-                    <div class="sensor-value warning" id="plasma">--%</div>
+                    <h3>📳 진동 센서</h3>
+                    <div class="sensor-value warning" id="vibration">-- mm/s</div>
                     <div class="sensor-status warning">⚠️ 불안정</div>
                     <p>위치: 플라즈마 제어기</p>
                 </div>
@@ -224,8 +247,8 @@
             document.getElementById('temp-4').textContent = (Math.random() * 5 + 175).toFixed(1) + '°C';
             document.getElementById('gas-1').textContent = (Math.random() * 50 + 200).toFixed(0) + ' ppm';
             document.getElementById('gas-2').textContent = (Math.random() * 50 + 200).toFixed(0) + ' ppm';
-            document.getElementById('safety').textContent = (Math.random() * 10 + 5).toFixed(1) + ' ppm';
-            document.getElementById('plasma').textContent = (Math.random() * 10 + 85).toFixed(1) + '%'; // 낮은 안정성
+            document.getElementById('dust').textContent = (Math.random() * 20 + 80).toFixed(1) + ' µg/m³'; // 높은 미세먼지 농도
+            document.getElementById('vibration').textContent = (Math.random() * 2 + 8).toFixed(2) + ' mm/s'; // 높은 진동값
         }
         
         // 페이지 로드 시 실행
