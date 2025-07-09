@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏭 OLED 제조공장 디지털 트윈 V2.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: white;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.2em;
+        }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .kpi-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .kpi-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .kpi-card h3 {
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .kpi-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .kpi-status {
+            margin-top: 10px;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        
+        .status-normal {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .factory-layout {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .factory-layout h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        
+        .process-flow {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .process-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 3px solid #28a745;
+            transition: all 0.3s;
+        }
+        
+        .process-card.warning {
+            border-color: #ffc107;
+            background: #fff3cd;
+        }
+        
+        .process-card:hover {
+            transform: scale(1.05);
+            cursor: pointer;
+        }
+        
+        .process-name {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .process-sensors {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .status-indicator {
+            font-size: 2em;
+            margin: 10px 0;
+        }
+        
+        .prediction-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .prediction-panel h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .prediction-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }
+        
+        .prediction-item {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .navbar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            padding: 8px 15px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .navbar a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .navbar a.active {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏭 OLED 제조공장 디지털 트윈</h1>
+            <p>실시간 공정 모니터링 및 예지 보전 시스템 V2.0</p>
+        </div>
+        
+        <div class="navbar">
+            <a href="/" class="active">🏠 메인 대시보드</a>
+            <a href="/process/deposition">🏭 증착공정</a>
+            <a href="/process/photo">📸 포토공정</a>
+            <a href="/process/etch">⚗️ 식각공정</a>
+            <a href="/process/encapsulation">📦 봉지공정</a>
+            <a href="/process/inspection">🔍 검사공정</a>
+        </div>
+        
+        <div class="kpi-grid" id="kpi-grid">
+            <div class="kpi-card">
+                <h3>📈 생산효율</h3>
+                <div class="kpi-value" id="production-efficiency">--</div>
+                <div class="kpi-status status-normal" id="production-status">로딩중...</div>
+            </div>
+            <div class="kpi-card">
+                <h3>⚙️ 장비가동률</h3>
+                <div class="kpi-value" id="equipment-utilization">--</div>
+                <div class="kpi-status status-normal" id="equipment-status">로딩중...</div>
+            </div>
+            <div class="kpi-card">
+                <h3>💎 품질지표</h3>
+                <div class="kpi-value" id="quality-index">--</div>
+                <div class="kpi-status status-normal" id="quality-status">로딩중...</div>
+            </div>
+            <div class="kpi-card">
+                <h3>⚡ 에너지</h3>
+                <div class="kpi-value" id="energy-consumption">--</div>
+                <div class="kpi-status status-normal" id="energy-status">로딩중...</div>
+            </div>
+            <div class="kpi-card">
+                <h3>🧠 AI 예측</h3>
+                <div class="kpi-value" id="ai-prediction">--</div>
+                <div class="kpi-status status-normal" id="ai-status">로딩중...</div>
+            </div>
+        </div>
+        
+        <div class="factory-layout">
+            <h2>🗺️ 공장 평면도 (실시간 상태)</h2>
+            <div class="process-flow" id="process-flow">
+                <div class="process-card" onclick="goToProcess('deposition')">
+                    <div class="process-name">증착실</div>
+                    <div class="status-indicator">🟢</div>
+                    <div class="process-sensors">센서 6개</div>
+                    <div>🌡️💧📳💨</div>
+                </div>
+                <div class="process-card" onclick="goToProcess('photo')">
+                    <div class="process-name">포토실</div>
+                    <div class="status-indicator">🟢</div>
+                    <div class="process-sensors">센서 4개</div>
+                    <div>☀️🌡️💨</div>
+                </div>
+                <div class="process-card warning" onclick="goToProcess('etch')">
+                    <div class="process-name">식각실</div>
+                    <div class="status-indicator">🟡</div>
+                    <div class="process-sensors">센서 8개</div>
+                    <div>🌡️💨🛡️🔥</div>
+                    <div style="color: #856404; font-size: 0.8em; margin-top: 5px;">⚠️ 온도상승</div>
+                </div>
+                <div class="process-card" onclick="goToProcess('encapsulation')">
+                    <div class="process-name">봉지실</div>
+                    <div class="status-indicator">🟢</div>
+                    <div class="process-sensors">센서 3개</div>
+                    <div>💧🌡️📏</div>
+                </div>
+                <div class="process-card" onclick="goToProcess('inspection')">
+                    <div class="process-name">검사실</div>
+                    <div class="status-indicator">🟢</div>
+                    <div class="process-sensors">센서 5개</div>
+                    <div>☀️📳🌡️</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="prediction-panel">
+            <h3>🔮 예지 보전 종합 상황판</h3>
+            <div class="prediction-stats" id="prediction-stats">
+                <div class="prediction-item">
+                    <h4>🚨 긴급 예측</h4>
+                    <div style="font-size: 2em; color: #28a745;">0건</div>
+                </div>
+                <div class="prediction-item">
+                    <h4>⚠️ 주의 예측</h4>
+                    <div style="font-size: 2em; color: #ffc107;">2건</div>
+                    <div style="font-size: 0.8em; margin-top: 5px;">식각-온도상승<br>검사-조도변화</div>
+                </div>
+                <div class="prediction-item">
+                    <h4>📅 계획 예측</h4>
+                    <div style="font-size: 2em; color: #17a2b8;">5건</div>
+                    <div style="font-size: 0.8em; margin-top: 5px;">증착-진동증가<br>포토-필터교체</div>
+                </div>
+                <div class="prediction-item">
+                    <h4>📊 예측 정확도</h4>
+                    <div style="font-size: 2em; color: #28a745;" id="prediction-accuracy">87.2%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket 연결
+        let ws = null;
+        
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket('ws://localhost:8002/ws/realtime');
+                
+                ws.onopen = function() {
+                    console.log('🔌 WebSocket 연결됨');
+                    
+                    // 주기적으로 ping 전송
+                    setInterval(() => {
+                        if (ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({ type: 'ping' }));
+                        }
+                    }, 30000);
+                };
+                
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'realtime_update') {
+                        updateKPI(data.data.factory_kpi);
+                        updateFactoryLayout(data.data.factory_layout);
+                    } else if (data.type === 'alert') {
+                        showAlert(data);
+                    }
+                };
+                
+                ws.onclose = function() {
+                    console.log('🔌 WebSocket 연결 끊김');
+                    setTimeout(connectWebSocket, 3000); // 재연결 시도
+                };
+                
+                ws.onerror = function(error) {
+                    console.error('WebSocket 오류:', error);
+                };
+                
+            } catch (error) {
+                console.error('WebSocket 연결 실패:', error);
+                setTimeout(connectWebSocket, 3000);
+            }
+        }
+        
+        function updateKPI(kpiData) {
+            if (!kpiData || !kpiData.factory_kpi) return;
+            
+            const kpi = kpiData.factory_kpi;
+            
+            // 생산효율
+            document.getElementById('production-efficiency').textContent = kpi.production_efficiency.value + '%';
+            document.getElementById('production-status').textContent = 
+                kpi.production_efficiency.trend === 'up' ? '▲' + kpi.production_efficiency.change + '%' : 
+                kpi.production_efficiency.trend === 'down' ? '▼' + kpi.production_efficiency.change + '%' : '정상';
+            
+            // 장비가동률
+            document.getElementById('equipment-utilization').textContent = kpi.equipment_utilization.value + '%';
+            document.getElementById('equipment-status').textContent = 
+                kpi.equipment_utilization.trend === 'up' ? '▲' + kpi.equipment_utilization.change + '%' : 
+                kpi.equipment_utilization.trend === 'down' ? '▼' + kpi.equipment_utilization.change + '%' : '정상';
+            
+            // 품질지표
+            document.getElementById('quality-index').textContent = kpi.quality_index.value + '%';
+            document.getElementById('quality-status').textContent = 
+                kpi.quality_index.trend === 'up' ? '▲' + kpi.quality_index.change + '%' : 
+                kpi.quality_index.trend === 'down' ? '▼' + kpi.quality_index.change + '%' : '정상';
+            
+            // 에너지
+            document.getElementById('energy-consumption').textContent = kpi.energy_consumption.value + 'kW';
+            document.getElementById('energy-status').textContent = 
+                kpi.energy_consumption.trend === 'up' ? '▲' + kpi.energy_consumption.change + '%' : 
+                kpi.energy_consumption.trend === 'down' ? '▼' + kpi.energy_consumption.change + '%' : '정상';
+            
+            // AI 예측
+            document.getElementById('ai-prediction').textContent = kpi.ai_prediction_accuracy.value + '%';
+            document.getElementById('ai-status').textContent = '정상';
+        }
+        
+        function updateFactoryLayout(layoutData) {
+            // 공장 평면도 업데이트 (필요시 구현)
+            console.log('공장 평면도 업데이트:', layoutData);
+        }
+        
+        function showAlert(alertData) {
+            // 알림 표시
+            console.log('알림:', alertData);
+        }
+        
+        function goToProcess(processName) {
+            window.location.href = `/process/${processName}`;
+        }
+        
+        // 초기 데이터 로드
+        async function loadInitialData() {
+            try {
+                const response = await fetch('/api/factory/kpi');
+                const data = await response.json();
+                updateKPI(data);
+            } catch (error) {
+                console.error('초기 데이터 로드 실패:', error);
+            }
+        }
+        
+        // 페이지 로드 시 실행
+        window.onload = function() {
+            loadInitialData();
+            connectWebSocket();
+        };
+    </script>
+</body>
+</html>

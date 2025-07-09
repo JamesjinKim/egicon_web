@@ -36,14 +36,91 @@ Raspberry Pi I2C Master
 - TCA9548A 멀티플렉서 2개
 - 지원 센서: SHT40, BME688, BH1750, SDP810 등
 
+### 🔄 Git 브랜치 버전 관리
+
+#### 브랜치 구조
+```
+egicon_web (저장소)
+├── master - 메인 브랜치 (기존)
+├── v1.1 - 안정 버전 (현재 기능 고정)
+└── v2 - 새로운 개발 브랜치 (OLED 제조공장 디지털 트윈)
+```
+
+#### 브랜치별 폴더 구조
+```
+egicon_web/
+├── v1.1/                     # V1.1 안정 버전
+│   ├── main.py               # V1.1 메인 서버
+│   ├── frontend/             # V1.1 프론트엔드
+│   └── requirements.txt      # V1.1 의존성
+├── v2/                       # V2 디지털 트윈 프로토타입
+│   ├── main_prototype.py     # V2 프로토타입 서버
+│   ├── frontend/             # V2 프론트엔드
+│   └── requirements_prototype.txt  # V2 의존성
+└── docs/                     # 문서 모음
+    ├── README.md
+    ├── CLAUDE.md
+    └── PRD_V2.md
+```
+
+#### V1.1 (안정 버전) 설치 및 실행
+```bash
+# 저장소 클론
+git clone <repository-url>
+cd egicon_web
+
+# v2 브랜치로 전환
+git checkout v2
+
+# V1.1 실행
+cd v1.1
+pip install -r requirements.txt
+python main.py
+# → http://localhost:8001
+```
+
+#### V2 (디지털 트윈 프로토타입) 설치 및 실행
+```bash
+# 저장소 클론
+git clone <repository-url>
+cd egicon_web
+
+# v2 브랜치로 전환
+git checkout v2
+
+# V2 실행
+cd v2
+pip install -r requirements_prototype.txt
+python main_prototype.py
+# → http://localhost:8002
+```
+
+#### 다른 컴퓨터에서 V2만 사용하기
+```bash
+# 방법 1: 전체 클론 후 V2 사용
+git clone <repository-url>
+cd egicon_web
+git checkout v2
+cd v2
+pip install -r requirements_prototype.txt
+python main_prototype.py
+
+# 방법 2: V2 폴더만 Sparse Checkout
+git clone --no-checkout <repository-url>
+cd egicon_web
+git checkout v2
+git config core.sparseCheckout true
+echo "v2/*" > .git/info/sparse-checkout
+git checkout
+cd v2
+pip install -r requirements_prototype.txt
+python main_prototype.py
+```
+
 ### 설치 방법
 
 #### 라즈베리파이 (프로덕션)
 ```bash
-# 프로젝트 클론
-git clone <repository-url>
-cd egicon_web
-
 # 의존성 설치
 pip install -r requirements.txt
 
@@ -57,10 +134,6 @@ python main.py
 
 #### Mac/Windows (개발환경)
 ```bash
-# 프로젝트 클론
-git clone <repository-url>
-cd egicon_web
-
 # 가상환경 생성 (권장)
 python -m venv mvenv
 source mvenv/bin/activate  # Mac/Linux
@@ -599,6 +672,46 @@ MIT License - 자세한 내용은 LICENSE 파일 참조
 
 ---
 
+---
+
+## 🆕 V2 디지털 트윈 대시보드 (2025-07-08)
+
+### 🏭 OLED 제조공장 디지털 트윈 시스템
+
+V2는 기존 V1.1의 센서 모니터링에서 발전하여 **OLED 제조공장 디지털 트윈**을 구현합니다.
+
+#### 핵심 기능
+- **🏠 메인 대시보드**: 공장 전체 KPI 및 평면도 시각화
+- **🏭 공정별 모니터링**: 5개 공정 (증착, 포토, 식각, 봉지, 검사)
+- **🧠 오감 신경망**: 센서를 5감으로 분류한 직관적 시스템
+- **🔮 예지 보전**: AI 기반 장애 예측 및 권장 조치
+
+#### 접속 URL (V2 실행 시)
+- **메인 대시보드**: http://localhost:8002/
+- **증착 공정**: http://localhost:8002/process/deposition
+- **포토 공정**: http://localhost:8002/process/photo
+- **식각 공정**: http://localhost:8002/process/etch (주의 상태 시뮬레이션)
+- **봉지 공정**: http://localhost:8002/process/encapsulation
+- **검사 공정**: http://localhost:8002/process/inspection
+
+#### V2 특징
+- **Mock 데이터 기반**: Mac PC에서 실행 가능
+- **실시간 시뮬레이션**: 2초마다 데이터 업데이트
+- **반응형 UI**: 모바일/태블릿/데스크톱 지원
+- **WebSocket 연결**: 실시간 데이터 스트리밍
+
+#### V1.1 vs V2 비교
+| 항목 | V1.1 | V2 |
+|------|------|-----|
+| **관점** | 센서 중심 모니터링 | 공정 중심 디지털 트윈 |
+| **메뉴** | 센서 타입별 | 공정별 |
+| **메인 화면** | 센서 그룹 나열 | 공장 평면도 + KPI |
+| **데이터** | 실시간 센서 데이터 | Mock 데이터 + 예측 |
+| **포트** | 8001 | 8002 |
+| **환경** | 라즈베리파이 필요 | Mac PC 실행 가능 |
+
+---
+
 **개발자**: ShinHoTechnology  
-**업데이트**: 2025년 7월 5일  
-**버전**: 1.1.0
+**업데이트**: 2025년 7월 8일  
+**버전**: V2 디지털 트윈 프로토타입 완성 (V1.1 안정 버전 병행 관리)

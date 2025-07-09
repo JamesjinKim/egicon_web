@@ -1,0 +1,26 @@
+# EG-ICON V2 Digital Twin Prototype Requirements
+# 프로토타입 전용 의존성 파일
+
+# FastAPI 및 웹 프레임워크
+fastapi==0.104.1
+uvicorn==0.24.0
+jinja2==3.1.2
+python-multipart==0.0.6
+
+# WebSocket 지원
+websockets==12.0
+
+# 데이터 처리
+pydantic==2.5.0
+python-json-logger==2.0.7
+
+# 개발 도구
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
+# 프로토타입 전용 (실제 센서 라이브러리 없음)
+# 실제 환경에서는 추가 필요:
+# - smbus2 (I2C 통신)
+# - shdlc_sps30 (SPS30 센서)
+# - influxdb-client (InfluxDB 연동)
+# - tensorflow (AI 모델)
