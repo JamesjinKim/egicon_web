@@ -70,6 +70,16 @@ async def process_inspection(request: Request):
     """검사 공정 페이지"""
     return templates.TemplateResponse("process_inspection.html", {"request": request})
 
+@app.get("/process/packaging", response_class=HTMLResponse)
+async def process_packaging(request: Request):
+    """패키징 공정 페이지"""
+    return templates.TemplateResponse("process_packaging.html", {"request": request})
+
+@app.get("/process/shipping", response_class=HTMLResponse)
+async def process_shipping(request: Request):
+    """출하 공정 페이지"""
+    return templates.TemplateResponse("process_shipping.html", {"request": request})
+
 # API 엔드포인트
 @app.get("/api/factory/kpi")
 async def get_factory_kpi():
@@ -131,6 +141,8 @@ if __name__ == "__main__":
     print("⚗️ 식각 공정: http://localhost:8002/process/etch")
     print("📦 봉지 공정: http://localhost:8002/process/encapsulation")
     print("🔍 검사 공정: http://localhost:8002/process/inspection")
+    print("📦 패키징 공정: http://localhost:8002/process/packaging")
+    print("🚚 출하 공정: http://localhost:8002/process/shipping")
     print("=" * 50)
     
     uvicorn.run(app, host="0.0.0.0", port=8002)

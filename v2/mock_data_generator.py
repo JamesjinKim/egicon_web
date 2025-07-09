@@ -31,7 +31,9 @@ class MockDataGenerator:
             "photo": 4,
             "etch": 8,
             "encapsulation": 3,
-            "inspection": 5
+            "inspection": 5,
+            "packaging": 20,
+            "shipping": 10
         }
         
         # 상태 시뮬레이션 (정상, 주의, 위험)
@@ -40,7 +42,9 @@ class MockDataGenerator:
             "photo": "normal",
             "etch": "warning",  # 식각 공정은 주의 상태로 설정
             "encapsulation": "normal",
-            "inspection": "normal"
+            "inspection": "normal",
+            "packaging": "normal",
+            "shipping": "normal"
         }
         
         # 트렌드 시뮬레이션
@@ -138,6 +142,20 @@ class MockDataGenerator:
                         "sensor_count": self.process_sensors["inspection"],
                         "sensors": ["☀️", "📳", "🌡️"],
                         "alert_message": None
+                    },
+                    "packaging": {
+                        "name": "패키징실",
+                        "status": self.process_status["packaging"],
+                        "sensor_count": self.process_sensors["packaging"],
+                        "sensors": ["📦", "🏷️", "⚖️"],
+                        "alert_message": None
+                    },
+                    "shipping": {
+                        "name": "출하실",
+                        "status": self.process_status["shipping"],
+                        "sensor_count": self.process_sensors["shipping"],
+                        "sensors": ["📊", "🌡️", "💨"],
+                        "alert_message": None
                     }
                 }
             }
@@ -153,6 +171,10 @@ class MockDataGenerator:
             return self._generate_photo_sensors(status)
         elif process_name == "etch":
             return self._generate_etch_sensors(status)
+        elif process_name == "packaging":
+            return self._generate_packaging_sensors(status)
+        elif process_name == "shipping":
+            return self._generate_shipping_sensors(status)
         else:
             return self._generate_generic_sensors(process_name, sensor_count, status)
     
@@ -404,3 +426,133 @@ class MockDataGenerator:
                 self.process_status[process_name] = "critical"
             elif alert_type == "normal":
                 self.process_status[process_name] = "normal"
+    
+    def _generate_packaging_sensors(self, status: str) -> Dict[str, Any]:
+        """패키징 공정 센서 데이터 생성"""
+        return {
+            "timestamp": self.current_time.isoformat(),
+            "process": "packaging",
+            "process_status": status,
+            "sensor_count": 20,
+            "sensors": {
+                "sealing_pressure": [
+                    {
+                        "id": "sealing_pressure_01",
+                        "channel": "Ch1",
+                        "value": round(random.uniform(45, 55), 1),
+                        "unit": "kPa",
+                        "status": "normal",
+                        "location": "포장 유닛 1",
+                        "trend": "stable",
+                        "target": 50
+                    }
+                ],
+                "labeling_position": [
+                    {
+                        "id": "labeling_position_01",
+                        "channel": "Ch2",
+                        "value": round(random.uniform(0.1, 0.6), 2),
+                        "unit": "mm",
+                        "status": "normal",
+                        "location": "라벨링 스테이션",
+                        "trend": "stable",
+                        "target": 0.2
+                    }
+                ],
+                "weight": [
+                    {
+                        "id": "weight_01",
+                        "channel": "Ch3",
+                        "value": round(random.uniform(155, 160), 1),
+                        "unit": "g",
+                        "status": "normal",
+                        "location": "무게 측정대",
+                        "trend": "stable",
+                        "target": 157
+                    }
+                ],
+                "temperature": [
+                    {
+                        "id": "temp_packaging_01",
+                        "channel": "Ch4",
+                        "value": round(random.uniform(23, 26), 1),
+                        "unit": "°C",
+                        "status": "normal",
+                        "location": "포장 챔버",
+                        "trend": "stable",
+                        "target": 24
+                    }
+                ],
+                "ventilation": [
+                    {
+                        "id": "ventilation_01",
+                        "channel": "Ch5",
+                        "value": round(random.uniform(180, 200), 0),
+                        "unit": "CFM",
+                        "status": "normal",
+                        "location": "환기 시스템",
+                        "trend": "stable",
+                        "target": 190
+                    }
+                ]
+            }
+        }
+    
+    def _generate_shipping_sensors(self, status: str) -> Dict[str, Any]:
+        """출하 공정 센서 데이터 생성"""
+        return {
+            "timestamp": self.current_time.isoformat(),
+            "process": "shipping",
+            "process_status": status,
+            "sensor_count": 10,
+            "sensors": {
+                "loading_capacity": [
+                    {
+                        "id": "loading_capacity_01",
+                        "channel": "Ch1",
+                        "value": round(random.uniform(70, 90), 0),
+                        "unit": "%",
+                        "status": "normal",
+                        "location": "출하 적재대",
+                        "trend": "stable",
+                        "target": 85
+                    }
+                ],
+                "storage_temperature": [
+                    {
+                        "id": "storage_temp_01",
+                        "channel": "Ch2",
+                        "value": round(random.uniform(18, 22), 1),
+                        "unit": "°C",
+                        "status": "normal",
+                        "location": "출하 대기실",
+                        "trend": "stable",
+                        "target": 20
+                    }
+                ],
+                "ventilation_flow": [
+                    {
+                        "id": "ventilation_flow_01",
+                        "channel": "Ch3",
+                        "value": round(random.uniform(150, 180), 0),
+                        "unit": "CFM",
+                        "status": "normal",
+                        "location": "출하 대기실",
+                        "trend": "stable",
+                        "target": 165
+                    }
+                ],
+                "security_status": [
+                    {
+                        "id": "security_01",
+                        "channel": "Ch4",
+                        "value": "정상",
+                        "unit": "",
+                        "status": "normal",
+                        "location": "출하 게이트",
+                        "trend": "stable",
+                        "target": "정상"
+                    }
+                ]
+            }
+        }
