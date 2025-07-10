@@ -379,3 +379,37 @@ V2 Main Dashboard UI 개선 요청 사항
 │              |
 └──────────────┘ 
 
+ Raspberry Pi에서 v2 브랜치를 클론하고 실행하는 방법을 알려드리겠습니다:
+
+  1. 저장소 클론
+
+  git clone https://github.com/JamesjinKim/egicon_web.git
+  cd egicon_web
+  git checkout v2
+
+  2. Python 환경 설정
+
+  # Python 가상환경 생성
+  python3 -m venv venv
+  source venv/bin/activate
+
+  # 필요한 패키지 설치
+  pip install flask flask-cors adafruit-circuitpython-sht4x adafruit-circuitpython-bme680
+
+  3. 하드웨어 연결 확인
+
+  - SHT40 센서가 I2C에 연결되어 있는지 확인
+  - BME688 센서가 I2C에 연결되어 있는지 확인
+  # I2C 장치 확인
+  i2cdetect -y 1
+
+  4. 애플리케이션 실행
+
+  cd v2
+  python main_prototype.py
+
+  5. 웹 브라우저에서 접속
+
+  - http://라즈베리파이IP:5000 또는 http://localhost:5000
+
+  센서가 연결되지 않은 경우 mock 데이터로 실행됩니다.

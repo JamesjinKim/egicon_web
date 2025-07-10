@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏭 디스플레이 제조공장 Digital Twin Control Center</title>
+    <link rel="stylesheet" href="css/modern-dashboard.css">
+    <style>
+        /* Additional custom styles */
+        .factory-icon {
+            width: 2rem;
+            height: 2rem;
+            color: var(--color-blue-600);
+        }
+        
+        .notification-dot {
+            background-color: var(--color-red-600);
+            color: white;
+            border-radius: 50%;
+            padding: 0.125rem 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* Real-time update animation */
+        .updating {
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="header-left">
+                    <svg class="factory-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                    </svg>
+                    <div>
+                        <h1 class="header-title">디스플레이 제조공장</h1>
+                        <p class="header-subtitle">Digital Twin Control Center</p>
+                    </div>
+                </div>
+
+                <div class="header-right">
+                    <div class="header-time">
+                        <p class="date" id="current-date">2025년 1월 10일</p>
+                        <p class="time" id="current-time">오후 2:30:45</p>
+                    </div>
+                    <button class="btn btn-sm" id="alert-btn">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5v-5zM10.1 4.1L9 7H5a2 2 0 00-2 2v8a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-4l-1.1-2.9A2 2 0 0012.1 3h-.2a2 2 0 00-1.8 1.1z"/>
+                        </svg>
+                        알림
+                        <span class="notification-dot" id="alert-count">0</span>
+                    </button>
+                    <button class="btn btn-sm">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
+        <!-- Alert Summary (hidden by default) -->
+        <div class="alert-card hidden" id="alert-summary">
+            <div class="card-content">
+                <div class="alert-header">
+                    <svg class="icon" style="color: var(--color-red-600);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                    <h3 class="alert-title">시스템 알림</h3>
+                </div>
+                <div class="alert-grid">
+                    <div class="alert-item">
+                        <div class="alert-value" id="critical-count">0</div>
+                        <div class="alert-label">위험 상태</div>
+                    </div>
+                    <div class="alert-item">
+                        <div class="alert-value" id="warning-count" style="color: var(--color-yellow-600);">0</div>
+                        <div class="alert-label" style="color: var(--color-yellow-700);">주의 상태</div>
+                    </div>
+                    <div class="alert-item">
+                        <div class="alert-value" id="total-alerts" style="color: var(--color-blue-600);">0</div>
+                        <div class="alert-label" style="color: var(--color-blue-700);">총 알림</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+            <!-- 생산효율 -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <h3 class="kpi-title">생산효율</h3>
+                    <svg class="icon" style="color: var(--color-blue-600);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-value" id="production-efficiency">94.2%</div>
+                    <div class="kpi-trend trend-up" id="production-trend">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                        <span>2.1%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" id="production-progress" style="width: 94.2%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 장비가동률 -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <h3 class="kpi-title">장비가동률</h3>
+                    <svg class="icon" style="color: var(--color-green-600);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-value" id="equipment-utilization">87.8%</div>
+                    <div class="kpi-trend trend-up" id="equipment-trend">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                        <span>1.5%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" id="equipment-progress" style="width: 87.8%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 품질지표 -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <h3 class="kpi-title">품질지표</h3>
+                    <svg class="icon" style="color: var(--color-purple-600);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-value" id="quality-index">98.7%</div>
+                    <div class="kpi-trend" id="quality-trend">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
+                        </svg>
+                        <span>0.2%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" id="quality-progress" style="width: 98.7%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 에너지 소비 -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <h3 class="kpi-title">에너지 소비</h3>
+                    <svg class="icon" style="color: var(--color-yellow-600);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-value" id="energy-consumption">2,847kW</div>
+                    <div class="kpi-trend trend-down" id="energy-trend">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5-5-5m5 5V6"/>
+                        </svg>
+                        <span>3.2%</span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--color-gray-500); margin-top: 0.25rem;">목표 대비 효율적</div>
+                </div>
+            </div>
+
+            <!-- AI 예측정확도 -->
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <h3 class="kpi-title">AI 예측정확도</h3>
+                    <svg class="icon" style="color: var(--color-indigo-600);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div class="kpi-content">
+                    <div class="kpi-value" id="ai-prediction">91.4%</div>
+                    <div class="kpi-trend trend-up" id="ai-trend">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                        <span>4.1%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" id="ai-progress" style="width: 91.4%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="main-grid">
+            <!-- Process Overview -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                        </svg>
+                        공정 현황
+                    </h2>
+                    <p class="card-description">실시간 제조공정 모니터링</p>
+                </div>
+                <div class="card-content">
+                    <div class="process-list" id="process-list">
+                        <!-- Processes will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Predictive Maintenance -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        예지보전 현황
+                    </h2>
+                    <p class="card-description">AI 기반 설비 상태 예측</p>
+                </div>
+                <div class="card-content">
+                    <div class="prediction-grid">
+                        <div class="prediction-item danger">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--color-red-600);" id="danger-predictions">1</div>
+                            <div style="font-size: 0.875rem; color: var(--color-red-700);">위험 예측</div>
+                            <div style="font-size: 0.75rem; color: var(--color-red-600); margin-top: 0.25rem;">조립-미세먼지</div>
+                        </div>
+                        <div class="prediction-item warning">
+                            <div style="font-size: 1.5rem; font-weight: bold; color: var(--color-yellow-600);" id="warning-predictions">3</div>
+                            <div style="font-size: 0.875rem; color: var(--color-yellow-700);">주의 예측</div>
+                            <div style="font-size: 0.75rem; color: var(--color-yellow-600); margin-top: 0.25rem;">온도/진동 이상</div>
+                        </div>
+                    </div>
+
+                    <div class="separator"></div>
+
+                    <div class="prediction-stats">
+                        <div class="prediction-stat">
+                            <span class="prediction-stat-label">예측 정확도</span>
+                            <span class="prediction-stat-value" id="prediction-accuracy">91.4%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar" style="width: 91.4%;"></div>
+                        </div>
+
+                        <div class="prediction-stat">
+                            <span class="prediction-stat-label">다음 점검 예정</span>
+                            <span class="prediction-stat-value">3일 후</span>
+                        </div>
+
+                        <div class="prediction-stat">
+                            <span class="prediction-stat-label">예방 조치 완료</span>
+                            <span class="prediction-stat-value">12건</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card" style="margin-top: 2rem;">
+            <div class="card-header">
+                <h2 class="card-title">빠른 작업</h2>
+                <p class="card-description">자주 사용하는 기능에 빠르게 접근</p>
+            </div>
+            <div class="card-content">
+                <div class="actions-grid">
+                    <button class="action-btn" onclick="window.location.href='/analytics'">
+                        <svg class="icon-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <span>상세 분석</span>
+                    </button>
+                    <button class="action-btn" onclick="window.location.href='/settings'">
+                        <svg class="icon-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        <span>설정 관리</span>
+                    </button>
+                    <button class="action-btn" onclick="window.location.href='/users'">
+                        <svg class="icon-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                        </svg>
+                        <span>사용자 관리</span>
+                    </button>
+                    <button class="action-btn" onclick="window.location.href='/logs'">
+                        <svg class="icon-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <span>로그 검색</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

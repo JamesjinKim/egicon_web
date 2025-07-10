@@ -45,6 +45,11 @@ async def main_dashboard(request: Request):
     """메인 대시보드 - 공장 전체 현황"""
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/dashboard", response_class=HTMLResponse)
+async def modern_dashboard(request: Request):
+    """새로운 모던 대시보드"""
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
 @app.get("/process/deposition", response_class=HTMLResponse)
 async def process_deposition(request: Request):
     """증착 공정 페이지"""
