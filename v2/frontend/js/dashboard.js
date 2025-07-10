@@ -167,7 +167,7 @@ class FactoryDashboard {
             kpi.quality_index.value, kpi.quality_index.trend, kpi.quality_index.change, '%');
         
         // Energy Consumption
-        document.getElementById('energy-consumption').textContent = `${kpi.energy_consumption.value.toLocaleString()}kW`;
+        document.getElementById('energy-consumption').textContent = `${Math.floor(kpi.energy_consumption.value).toLocaleString()}kW`;
         this.updateTrend('energy-trend', kpi.energy_consumption.trend, kpi.energy_consumption.change);
         
         // AI Prediction
