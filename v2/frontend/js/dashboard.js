@@ -117,13 +117,23 @@ class FactoryDashboard {
         
         // Show/hide alert summary
         const alertSummary = document.getElementById('alert-summary');
+        const emergencyLight = document.getElementById('emergency-light');
+        
         if (totalAlerts > 0) {
             alertSummary.classList.remove('hidden');
             document.getElementById('critical-count').textContent = criticalProcesses;
             document.getElementById('warning-count').textContent = warningProcesses;
             document.getElementById('total-alerts').textContent = totalAlerts;
+            
+            // Show emergency light if there are critical processes
+            if (criticalProcesses > 0) {
+                emergencyLight.classList.remove('hidden');
+            } else {
+                emergencyLight.classList.add('hidden');
+            }
         } else {
             alertSummary.classList.add('hidden');
+            emergencyLight.classList.add('hidden');
         }
     }
 

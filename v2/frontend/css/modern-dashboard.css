@@ -582,6 +582,41 @@ body {
     animation: fadeIn 0.3s ease-in-out;
 }
 
+/* Emergency Light Animation */
+@keyframes emergencyBlink {
+    0% { 
+        background: radial-gradient(circle, #ff4444, #cc0000);
+        transform: scale(1);
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.7);
+    }
+    50% { 
+        background: radial-gradient(circle, #ff8888, #ff4444);
+        transform: scale(1.1);
+        box-shadow: 0 0 20px rgba(255, 68, 68, 0.9);
+    }
+    100% { 
+        background: radial-gradient(circle, #ff4444, #cc0000);
+        transform: scale(1);
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.7);
+    }
+}
+
+.emergency-light {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ff4444, #cc0000);
+    display: inline-block;
+    margin-right: 0.5rem;
+    animation: emergencyBlink 1s infinite;
+    box-shadow: 0 0 10px rgba(255, 68, 68, 0.7);
+    border: 2px solid #ffffff;
+}
+
+.emergency-light.hidden {
+    display: none;
+}
+
 /* Focus styles for accessibility */
 .btn:focus,
 .action-btn:focus {
