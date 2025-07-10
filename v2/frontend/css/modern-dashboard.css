@@ -72,7 +72,7 @@ body {
 
 /* Utility Classes */
 .container {
-    max-width: 80rem; /* max-w-7xl */
+    width: 90%; /* Use 90% of viewport width instead of max-width */
     margin: 0 auto;
     padding: 0 var(--space-4);
 }
