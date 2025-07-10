@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👥 사용자 관리 - 디스플레이 제조공장</title>
+    <link rel="stylesheet" href="/static/css/modern-dashboard.css">
+    <style>
+        .work-in-progress {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .work-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .work-title {
+            font-size: 2rem;
+            color: var(--color-gray-800);
+            margin-bottom: 1rem;
+        }
+        
+        .work-description {
+            font-size: 1.125rem;
+            color: var(--color-gray-600);
+            margin-bottom: 2rem;
+            max-width: 600px;
+        }
+        
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--color-blue-600);
+            color: white;
+            text-decoration: none;
+            border-radius: var(--rounded-lg);
+            font-weight: 500;
+            transition: background-color 0.15s ease;
+        }
+        
+        .back-button:hover {
+            background-color: #1d4ed8;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="header-left">
+                    <svg class="factory-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 2rem; height: 2rem; color: var(--color-blue-600);">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
+                    </svg>
+                    <div>
+                        <h1 class="header-title">사용자 관리</h1>
+                        <p class="header-subtitle">User Management</p>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="header-time">
+                        <p class="date" id="current-date">2025년 1월 10일</p>
+                        <p class="time" id="current-time">오후 2:30:45</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
+        <div class="work-in-progress">
+            <div class="work-icon">👥</div>
+            <h2 class="work-title">사용자 관리 기능</h2>
+            <p class="work-description">
+                사용자 계정 생성/수정/삭제, 권한 관리, 
+                접근 로그 확인 등 종합적인 사용자 관리 기능을 개발 중입니다.
+                <br><br>
+                곧 안전하고 효율적인 사용자 관리 시스템을 
+                제공할 예정입니다.
+            </p>
+            <a href="/dashboard" class="back-button">
+                <svg class="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                대시보드로 돌아가기
+            </a>
+        </div>
+    </main>
+
+    <script>
+        // Update time
+        function updateTime() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            const timeStr = now.toLocaleTimeString('ko-KR');
+            
+            document.getElementById('current-date').textContent = dateStr;
+            document.getElementById('current-time').textContent = timeStr;
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>

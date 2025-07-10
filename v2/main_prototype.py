@@ -50,6 +50,26 @@ async def modern_dashboard(request: Request):
     """새로운 모던 대시보드"""
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_page(request: Request):
+    """상세 분석 페이지"""
+    return templates.TemplateResponse("analytics.html", {"request": request})
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    """설정 관리 페이지"""
+    return templates.TemplateResponse("settings.html", {"request": request})
+
+@app.get("/users", response_class=HTMLResponse)
+async def users_page(request: Request):
+    """사용자 관리 페이지"""
+    return templates.TemplateResponse("users.html", {"request": request})
+
+@app.get("/logs", response_class=HTMLResponse)
+async def logs_page(request: Request):
+    """로그 검색 페이지"""
+    return templates.TemplateResponse("logs.html", {"request": request})
+
 @app.get("/process/deposition", response_class=HTMLResponse)
 async def process_deposition(request: Request):
     """증착 공정 페이지"""
