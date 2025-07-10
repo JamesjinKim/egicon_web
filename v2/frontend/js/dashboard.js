@@ -3,10 +3,10 @@ class FactoryDashboard {
     constructor() {
         this.ws = null;
         this.processes = [
-            { id: "deposition", name: "실장공정", status: "normal", sensors: 10, alerts: 0, icon: "" },
-            { id: "photo", name: "라미공정", status: "warning", sensors: 40, alerts: 1, icon: "" },
-            { id: "etch", name: "조립공정", status: "danger", sensors: 80, alerts: 3, icon: "" },
-            { id: "encapsulation", name: "검사공정", status: "normal", sensors: 30, alerts: 0, icon: "" },
+            { id: "deposition", name: "실장공정", status: "normal", sensors: 10, alerts: 0, warningAlerts: 0, dangerAlerts: 0, icon: "" },
+            { id: "photo", name: "라미공정", status: "warning", sensors: 40, alerts: 1, warningAlerts: 1, dangerAlerts: 0, icon: "" },
+            { id: "etch", name: "조립공정", status: "danger", sensors: 80, alerts: 3, warningAlerts: 2, dangerAlerts: 1, icon: "" },
+            { id: "encapsulation", name: "검사공정", status: "normal", sensors: 30, alerts: 0, warningAlerts: 0, dangerAlerts: 0, icon: "" },
         ];
         
         this.kpiData = {
@@ -65,11 +65,8 @@ class FactoryDashboard {
                     </div>
                 </div>
                 <div class="process-right">
-                    ${process.alerts > 0 ? `<span class="badge badge-destructive">${process.alerts}건</span>` : ''}
-                    <span class="badge badge-${process.status}">
-                        ${this.getStatusIcon(process.status)}
-                        <span>${this.getStatusText(process.status)}</span>
-                    </span>
+                    ${this.getAlertBadges(process)}
+                    ${this.getStatusBadges(process)}
                 </div>
             `;
             
@@ -107,10 +104,56 @@ class FactoryDashboard {
         }
     }
 
+    getAlertBadges(process) {
+        let badges = '';
+        
+        if (process.dangerAlerts > 0) {
+            badges += `<span class="badge badge-destructive">${process.dangerAlerts}건 위험</span>`;
+        }
+        
+        if (process.warningAlerts > 0) {
+            badges += `<span class="badge badge-warning">${process.warningAlerts}건 주의</span>`;
+        }
+        
+        return badges;
+    }
+
+    getStatusBadges(process) {
+        // Show individual status badges based on alert types
+        let badges = '';
+        
+        if (process.dangerAlerts > 0) {
+            badges += `<span class="badge badge-danger">
+                ${this.getStatusIcon("danger")}
+                <span>위험</span>
+            </span>`;
+        }
+        
+        if (process.warningAlerts > 0) {
+            badges += `<span class="badge badge-warning">
+                ${this.getStatusIcon("warning")}
+                <span>주의</span>
+            </span>`;
+        }
+        
+        // If no alerts, show normal status
+        if (process.warningAlerts === 0 && process.dangerAlerts === 0) {
+            badges = `<span class="badge badge-normal">
+                ${this.getStatusIcon("normal")}
+                <span>정상</span>
+            </span>`;
+        }
+        
+        return badges;
+    }
+
     updateAlertSummary() {
         const totalAlerts = this.processes.reduce((sum, process) => sum + process.alerts, 0);
         const criticalProcesses = this.processes.filter(p => p.status === "danger").length;
         const warningProcesses = this.processes.filter(p => p.status === "warning").length;
+        
+        // Get warning predictions count from the predictive maintenance section
+        const warningPredictions = parseInt(document.getElementById('warning-predictions').textContent) || 0;
         
         // Update alert count in header
         document.getElementById('alert-count').textContent = totalAlerts;
@@ -122,7 +165,7 @@ class FactoryDashboard {
         if (totalAlerts > 0) {
             alertSummary.classList.remove('hidden');
             document.getElementById('critical-count').textContent = criticalProcesses;
-            document.getElementById('warning-count').textContent = warningProcesses;
+            document.getElementById('warning-count').textContent = warningPredictions; // Use prediction warnings
             document.getElementById('total-alerts').textContent = totalAlerts;
             
             // Show emergency light if there are critical processes
