@@ -24,6 +24,7 @@ class FactoryDashboard {
         this.updateTime();
         this.renderProcesses();
         this.updateAlertSummary();
+        this.updatePredictionAlerts();
         this.connectWebSocket();
         
         // Update time every second
@@ -137,6 +138,19 @@ class FactoryDashboard {
         }
     }
 
+    updatePredictionAlerts() {
+        // Get danger predictions count
+        const dangerPredictions = parseInt(document.getElementById('danger-predictions').textContent) || 0;
+        const predictionEmergencyLight = document.getElementById('prediction-emergency-light');
+        
+        // Show/hide prediction emergency light based on danger predictions
+        if (dangerPredictions > 0) {
+            predictionEmergencyLight.classList.remove('hidden');
+        } else {
+            predictionEmergencyLight.classList.add('hidden');
+        }
+    }
+
     updateKPI(data = null) {
         const kpi = data || this.kpiData;
         
@@ -216,6 +230,7 @@ class FactoryDashboard {
         
         // Update the UI
         this.updateKPI();
+        this.updatePredictionAlerts();
     }
 
     addUpdateAnimation() {
