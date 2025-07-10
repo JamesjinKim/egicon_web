@@ -3,10 +3,10 @@ class FactoryDashboard {
     constructor() {
         this.ws = null;
         this.processes = [
-            { id: "deposition", name: "실장공정", status: "normal", sensors: 10, alerts: 0, icon: "🏭" },
-            { id: "photo", name: "라미공정", status: "warning", sensors: 40, alerts: 1, icon: "📸" },
-            { id: "etch", name: "조립공정", status: "danger", sensors: 80, alerts: 3, icon: "⚗️" },
-            { id: "encapsulation", name: "검사공정", status: "normal", sensors: 30, alerts: 0, icon: "📦" },
+            { id: "deposition", name: "실장공정", status: "normal", sensors: 10, alerts: 0, icon: "" },
+            { id: "photo", name: "라미공정", status: "warning", sensors: 40, alerts: 1, icon: "" },
+            { id: "etch", name: "조립공정", status: "danger", sensors: 80, alerts: 3, icon: "" },
+            { id: "encapsulation", name: "검사공정", status: "normal", sensors: 30, alerts: 0, icon: "" },
         ];
         
         this.kpiData = {
@@ -59,7 +59,6 @@ class FactoryDashboard {
             
             processItem.innerHTML = `
                 <div class="process-left">
-                    <div class="process-icon">${process.icon}</div>
                     <div>
                         <div class="process-name">${process.name}</div>
                         <div class="process-sensors">센서 ${process.sensors}개</div>
