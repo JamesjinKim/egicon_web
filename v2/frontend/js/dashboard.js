@@ -7,9 +7,6 @@ class FactoryDashboard {
             { id: "photo", name: "라미공정", status: "warning", sensors: 40, alerts: 1, icon: "📸" },
             { id: "etch", name: "조립공정", status: "danger", sensors: 80, alerts: 3, icon: "⚗️" },
             { id: "encapsulation", name: "검사공정", status: "normal", sensors: 30, alerts: 0, icon: "📦" },
-            { id: "inspection", name: "품질검사", status: "normal", sensors: 25, alerts: 0, icon: "🔍" },
-            { id: "packaging", name: "패키징", status: "normal", sensors: 20, alerts: 0, icon: "📦" },
-            { id: "shipping", name: "출하공정", status: "normal", sensors: 15, alerts: 0, icon: "🚚" },
         ];
         
         this.kpiData = {
