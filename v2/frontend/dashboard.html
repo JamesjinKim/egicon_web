@@ -77,35 +77,6 @@
     </header>
 
     <main class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
-        <!-- Alert Summary (hidden by default) -->
-        <div class="alert-card hidden" id="alert-summary">
-            <div class="card-content">
-                <div class="alert-header">
-                    <svg class="icon" style="color: var(--color-red-600);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                    </svg>
-                    <h3 class="alert-title">시스템 알림</h3>
-                </div>
-                <div class="alert-grid">
-                    <div class="alert-item">
-                        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 0.5rem;">
-                            <div class="emergency-light hidden" id="emergency-light">🚨</div>
-                            <div class="alert-value" id="critical-count">0</div>
-                        </div>
-                        <div class="alert-label">위험 상태</div>
-                    </div>
-                    <div class="alert-item">
-                        <div class="alert-value" id="warning-count" style="color: var(--color-yellow-600);">0</div>
-                        <div class="alert-label" style="color: var(--color-yellow-700);">주의 상태</div>
-                    </div>
-                    <div class="alert-item">
-                        <div class="alert-value" id="total-alerts" style="color: var(--color-blue-600);">0</div>
-                        <div class="alert-label" style="color: var(--color-blue-700);">총 알림</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- KPI Cards -->
         <div class="kpi-grid">
             <!-- 생산효율 -->
@@ -212,6 +183,35 @@
                     </div>
                     <div class="progress">
                         <div class="progress-bar" id="ai-progress" style="width: 91.4%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Summary (hidden by default) -->
+        <div class="alert-card hidden" id="alert-summary">
+            <div class="card-content">
+                <div class="alert-header">
+                    <svg class="icon" style="color: var(--color-red-600);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                    <h3 class="alert-title">시스템 알림</h3>
+                </div>
+                <div class="alert-grid">
+                    <div class="alert-item">
+                        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 0.5rem;">
+                            <div class="emergency-light hidden" id="emergency-light">🚨</div>
+                            <div class="alert-value" id="critical-count">0</div>
+                        </div>
+                        <div class="alert-label">위험 상태</div>
+                    </div>
+                    <div class="alert-item">
+                        <div class="alert-value" id="warning-count" style="color: var(--color-yellow-600);">0</div>
+                        <div class="alert-label" style="color: var(--color-yellow-700);">주의 상태</div>
+                    </div>
+                    <div class="alert-item">
+                        <div class="alert-value" id="total-alerts" style="color: var(--color-blue-600);">0</div>
+                        <div class="alert-label" style="color: var(--color-blue-700);">총 알림</div>
                     </div>
                 </div>
             </div>
