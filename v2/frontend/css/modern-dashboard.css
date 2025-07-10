@@ -585,32 +585,28 @@ body {
 /* Emergency Light Animation */
 @keyframes emergencyBlink {
     0% { 
-        background: radial-gradient(circle, #ff4444, #cc0000);
+        opacity: 1;
         transform: scale(1);
-        box-shadow: 0 0 10px rgba(255, 68, 68, 0.7);
+        filter: brightness(1) drop-shadow(0 0 8px rgba(255, 0, 0, 0.8));
     }
     50% { 
-        background: radial-gradient(circle, #ff8888, #ff4444);
+        opacity: 0.3;
         transform: scale(1.1);
-        box-shadow: 0 0 20px rgba(255, 68, 68, 0.9);
+        filter: brightness(1.5) drop-shadow(0 0 15px rgba(255, 0, 0, 1));
     }
     100% { 
-        background: radial-gradient(circle, #ff4444, #cc0000);
+        opacity: 1;
         transform: scale(1);
-        box-shadow: 0 0 10px rgba(255, 68, 68, 0.7);
+        filter: brightness(1) drop-shadow(0 0 8px rgba(255, 0, 0, 0.8));
     }
 }
 
 .emergency-light {
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: 50%;
-    background: radial-gradient(circle, #ff4444, #cc0000);
+    font-size: 1.5rem;
     display: inline-block;
     margin-right: 0.5rem;
-    animation: emergencyBlink 1s infinite;
-    box-shadow: 0 0 10px rgba(255, 68, 68, 0.7);
-    border: 2px solid #ffffff;
+    animation: emergencyBlink 0.8s infinite;
+    line-height: 1;
 }
 
 .emergency-light.hidden {
