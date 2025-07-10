@@ -91,7 +91,7 @@ body {
 
 /* Header */
 .header {
-    background-color: white;
+    background: linear-gradient(135deg, #e0f2fe 0%, #bbdefb 50%, #90caf9 100%);
     border-bottom: 1px solid var(--color-gray-200);
     box-shadow: var(--shadow-sm);
 }
@@ -199,6 +199,8 @@ body {
 .card-header {
     padding: var(--space-6);
     border-bottom: 1px solid var(--color-gray-200);
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #bae6fd 100%);
+    border-radius: var(--rounded-lg) var(--rounded-lg) 0 0;
 }
 
 .card-title {
