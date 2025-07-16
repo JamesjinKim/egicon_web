@@ -439,415 +439,9 @@ class EGIconDashboard {
         }
     }
 
-    // 차트 초기화 (동적 센서 그룹 지원)
-    initCharts() {
-        // 동적 센서 그룹이 로드된 후 차트 생성
-        this.createChartsFromSensorGroups();
-        
-        // SHT40 전용 차트 생성
-        this.createSHT40Charts();
-        
-        // SDP810 차트는 SDP810ChartHandler에서 처리
-        
-        // BME688 pressure-gas 그룹 차트는 센서 발견 후 동적 생성
-        console.log('📊 BME688 차트는 센서 발견 후 동적으로 생성됩니다');
-    }
 
-    // 센서 그룹 기반 차트 생성
-    createChartsFromSensorGroups() {
-        Object.entries(this.sensorGroups).forEach(([groupName, group]) => {
-            // 비활성화된 그룹은 건너뛰기
-            if (group.disabled) {
-                console.log(`📊 그룹 ${groupName}은 비활성화되어 차트 생성 스킵`);
-                return;
-            }
-            
-            if (group.totalSensors > 0) {
-                // 각 메트릭별로 차트 생성
-                group.metrics.forEach(metric => {
-                    const normalizedMetric = metric.replace(/_/g, '-');
-                    const chartId = `${normalizedMetric}-multi-chart`;
-                    const sensorLabels = this.generateSensorLabels(group, metric);
-                    
-                    // BH1750 light 차트는 전용 핸들러에서 처리
-                    if (chartId === 'light-multi-chart' || metric === 'light') {
-                        console.log(`🚫 BH1750 light 차트는 BH1750ChartHandler에서 처리, dashboard.js에서 건너뜀`);
-                        return;
-                    }
-                    
-                    if (sensorLabels.length > 1) {
-                        // 멀티 센서 차트
-                        this.createMultiSensorChart(chartId, metric, sensorLabels);
-                        console.log(`📊 멀티 센서 차트 생성: ${chartId} (${sensorLabels.length}개 센서)`);
-                    } else if (sensorLabels.length === 1) {
-                        // 단일 센서 차트
-                        this.createMultiSensorChart(chartId, metric, sensorLabels); // 단일 센서도 멀티 차트로 처리
-                        console.log(`📊 단일 센서 차트 생성: ${chartId} (1개 센서)`);
-                    } else {
-                        console.log(`⚠️ ${metric} 센서가 없어 차트 생성 스킵: ${chartId}`);
-                    }
-                });
-            } else {
-                console.log(`📊 그룹 ${groupName}은 센서가 없어 차트 생성 스킵 (${group.totalSensors}개)`);
-            }
-        });
-    }
 
-    // 센서 그룹에서 라벨 생성
-    generateSensorLabels(group, metric) {
-        const labels = [];
-        
-        // 동적 구성이 있으면 사용
-        if (group.dynamicConfig && group.sensors) {
-            Object.values(group.sensors).forEach(sensorList => {
-                if (Array.isArray(sensorList)) {
-                    sensorList.forEach((sensorId, index) => {
-                        // 센서 ID에서 타입과 채널 정보 추출
-                        const parts = sensorId.split('_');
-                        if (parts.length >= 3) {
-                            const sensorType = parts[0].toUpperCase();
-                            const { bus, channel } = parseSensorId(sensorId);
-                            const busLabel = bus === 0 ? 'CH1' : 'CH2';
-                            labels.push(`${sensorType} ${busLabel}-Ch${channel}`);
-                        } else {
-                            // 폴백: 기본 라벨
-                            labels.push(`${group.title} ${index + 1}`);
-                        }
-                    });
-                }
-            });
-        } else {
-            // 기존 하드코딩 방식 (폴백)
-            return this.generateFallbackLabels(group, metric);
-        }
-        
-        return labels;
-    }
 
-    // 폴백 라벨 생성 (동적 센서 구성 기반)
-    generateFallbackLabels(group, metric) {
-        const labels = [];
-        
-        // 동적 센서 구성이 있으면 사용
-        if (group.sensors && typeof group.sensors === 'object') {
-            // 센서 타입별로 분류된 경우
-            Object.entries(group.sensors).forEach(([sensorType, sensorList]) => {
-                if (Array.isArray(sensorList)) {
-                    sensorList.forEach((sensorId) => {
-                        // 센서 ID에서 라벨 생성 (예: bme688_1_0 -> BME688 CH2-Ch0)
-                        const parts = sensorId.split('_');
-                        if (parts.length >= 3) {
-                            const type = parts[0].toUpperCase();
-                            const { bus, channel } = parseSensorId(sensorId);
-                            const busLabel = bus === 0 ? 'CH1' : 'CH2';
-                            labels.push(`${type} ${busLabel}-Ch${channel}`);
-                        } else {
-                            labels.push(`${sensorType.toUpperCase()} 센서`);
-                        }
-                    });
-                }
-            });
-        }
-        
-        // 동적 구성이 없거나 비어있으면 기본 라벨
-        if (labels.length === 0) {
-            switch (metric) {
-                case 'temperature':
-                case 'humidity':
-                    return ['온습도 센서 1', '온습도 센서 2', '온습도 센서 3'];
-                case 'pressure':
-                case 'airquality':
-                    return ['압력 센서 1', '압력 센서 2'];
-                case 'light':
-                    return ['조도 센서 1', '조도 센서 2'];
-                case 'vibration':
-                    return ['진동 센서'];
-                default:
-                    return [`${group.title} 센서`];
-            }
-        }
-        
-        return labels;
-    }
-
-    // 그룹 차트 생성
-    createGroupChart(canvasId, sensorType, title) {
-        const ctx = document.getElementById(canvasId);
-        if (!ctx) return;
-
-        // 기존 차트가 있으면 파괴
-        const existingChart = Chart.getChart(canvasId);
-        if (existingChart) {
-            console.log(`🗑️ 기존 차트 파괴: ${canvasId}`);
-            existingChart.destroy();
-        }
-
-        const sensorConfig = this.sensorTypes[sensorType];
-        
-        // 그라데이션 생성
-        const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 200);
-        gradient.addColorStop(0, sensorConfig.color + '40');
-        gradient.addColorStop(1, sensorConfig.color + '10');
-
-        this.charts[canvasId] = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: title,
-                    data: [],
-                    borderColor: sensorConfig.color,
-                    backgroundColor: gradient,
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 3,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: '#ffffff',
-                    pointBorderColor: sensorConfig.color,
-                    pointBorderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        titleColor: '#333',
-                        bodyColor: '#666',
-                        borderColor: sensorConfig.color,
-                        borderWidth: 1,
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: function(context) {
-                                return `${title}: ${context.parsed.y.toFixed(1)}${sensorConfig.unit}`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        display: true,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            maxTicksLimit: 6,
-                            color: '#666',
-                            font: {
-                                size: 10
-                            }
-                        }
-                    },
-                    y: {
-                        display: true,
-                        min: sensorConfig.min,
-                        max: sensorConfig.max,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            color: '#666',
-                            font: {
-                                size: 10
-                            },
-                            callback: function(value) {
-                                return value.toFixed(0) + sensorConfig.unit;
-                            }
-                        }
-                    }
-                },
-                animation: {
-                    duration: 500
-                }
-            }
-        });
-    }
-
-    // Multi-line 차트 생성 (복수 센서 통합)
-    createMultiSensorChart(canvasId, sensorType, sensorLabels) {
-        console.log(`🚨 createMultiSensorChart 호출됨!`);
-        console.log(`📊 다중 센서 차트 생성 시작: ${canvasId}, 타입: ${sensorType}, 라벨: ${sensorLabels.length}개`);
-        console.log(`📊 라벨 상세:`, sensorLabels);
-        
-        // BME688 차트 중복 생성 방지
-        if ((canvasId === 'pressure-multi-chart' || canvasId === 'gas-resistance-multi-chart') && 
-            this.charts[canvasId] && 
-            this.charts[canvasId].data.datasets.length === 5) {
-            console.log(`⚠️ BME688 차트 ${canvasId} 이미 5개 데이터셋으로 생성됨, 중복 생성 방지`);
-            return;
-        }
-        
-        // BH1750 차트는 전용 핸들러에서만 처리 (중복 생성 방지)
-        if (canvasId === 'light-multi-chart') {
-            console.log(`⚠️ BH1750 차트 ${canvasId}는 BH1750ChartHandler에서 처리됨, dashboard.js에서 중복 생성 방지`);
-            return;
-        }
-        
-        // DOM 로드 확인
-        if (document.readyState !== 'complete') {
-            console.log(`⏳ DOM 로드 대기 중... readyState: ${document.readyState}`);
-            setTimeout(() => {
-                this.createMultiSensorChart(canvasId, sensorType, sensorLabels);
-            }, 100);
-            return;
-        }
-        
-        const ctx = document.getElementById(canvasId);
-        console.log(`🔍 캔버스 검색 결과: ${canvasId} → ${!!ctx}`);
-        if (!ctx) {
-            console.error(`❌ 차트 캔버스를 찾을 수 없음: ${canvasId}`);
-            console.log(`🔍 DOM 상태: readyState=${document.readyState}, 모든 캔버스:`, 
-                Array.from(document.querySelectorAll('canvas')).map(c => c.id));
-            return;
-        }
-
-        // 기존 차트가 있으면 파괴
-        const existingChart = Chart.getChart(canvasId);
-        if (existingChart) {
-            console.log(`🗑️ 기존 차트 파괴: ${canvasId}`);
-            existingChart.destroy();
-        }
-        
-        // this.charts에서도 제거
-        if (this.charts[canvasId]) {
-            console.log(`🗑️ this.charts에서 기존 차트 제거: ${canvasId}`);
-            delete this.charts[canvasId];
-        }
-
-        const sensorConfig = this.sensorTypes[sensorType];
-        console.log(`🔍 센서 설정 검색: ${sensorType} → ${!!sensorConfig}`);
-        console.log(`📊 사용 가능한 센서 타입들:`, Object.keys(this.sensorTypes));
-        if (!sensorConfig) {
-            console.error(`❌ 센서 타입 설정을 찾을 수 없음: ${sensorType}`);
-            return;
-        }
-        console.log(`✅ 센서 설정 찾음:`, sensorConfig);
-        
-        // 색상 팔레트 정의 (센서별 구분)
-        const colorPalette = [
-            '#ff6384', '#36a2eb', '#4bc0c0', '#ff9f40', 
-            '#9966ff', '#ffcd56', '#c9cbcf', '#ff6384'
-        ];
-        
-        // 각 센서별 데이터셋 생성
-        const datasets = sensorLabels.map((label, index) => {
-            const color = colorPalette[index % colorPalette.length];
-            return {
-                label: label,
-                data: [],
-                borderColor: color,
-                backgroundColor: color + '20',
-                borderWidth: 2,
-                fill: false,
-                tension: 0.4,
-                pointRadius: 2,
-                pointHoverRadius: 5,
-                pointBackgroundColor: '#ffffff',
-                pointBorderColor: color,
-                pointBorderWidth: 2
-            };
-        });
-
-        console.log(`💾 차트 저장: 키="${canvasId}", 센서타입="${sensorType}"`);
-        console.log(`📊 데이터셋 개수: ${datasets.length}개`);
-        console.log(`📊 Chart.js 생성 시도 중...`);
-        this.charts[canvasId] = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: datasets
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: {
-                            boxWidth: 20,
-                            padding: 15,
-                            font: {
-                                size: 11
-                            }
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        titleColor: '#333',
-                        bodyColor: '#666',
-                        borderColor: '#ddd',
-                        borderWidth: 1,
-                        cornerRadius: 8,
-                        callbacks: {
-                            label: function(context) {
-                                return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}${sensorConfig.unit}`;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        display: true,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            maxTicksLimit: 8,
-                            color: '#666',
-                            font: {
-                                size: 10
-                            }
-                        }
-                    },
-                    y: {
-                        display: true,
-                        min: sensorConfig.min,
-                        max: sensorConfig.max,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        ticks: {
-                            color: '#666',
-                            font: {
-                                size: 10
-                            },
-                            callback: function(value) {
-                                return value.toFixed(0) + sensorConfig.unit;
-                            }
-                        }
-                    }
-                },
-                animation: {
-                    duration: 300
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                }
-            }
-        });
-        
-        console.log(`✅ 다중 센서 차트 생성 완료: ${canvasId} (${datasets.length}개 데이터셋)`);
-        console.log(`🔗 차트 저장 키: ${canvasId}, 실제 캔버스 ID: ${canvasId}`);
-        console.log(`📊 실제 생성된 데이터셋:`, this.charts[canvasId].data.datasets.map((d, i) => `${i}: ${d.label}`));
-    }
-
-    // SHT40 전용 차트 생성
-    createSHT40Charts() {
-        // SHT40 온도 차트 생성
-        this.createSHT40Chart('sht40-temperature-chart', 'temperature', 'SHT40 온도', '°C', '#ff6384', -10, 50);
-        
-        // SHT40 습도 차트 생성
-        this.createSHT40Chart('sht40-humidity-chart', 'humidity', 'SHT40 습도', '%', '#36a2eb', 0, 100);
-        
-        console.log('📊 SHT40 전용 차트 생성 완료');
-    }
 
     // SHT40 개별 차트 생성
     createSHT40Chart(canvasId, metric, title, unit, color, min, max) {
@@ -865,7 +459,8 @@ class EGIconDashboard {
             existingChart.destroy();
         }
 
-        this.charts[canvasId] = new Chart(ctx, {
+        // 차트 생성은 ChartManager에서 처리
+        // this.chartManager.createChart(canvasId, config);
             type: 'line',
             data: {
                 datasets: [] // 동적으로 추가됨
@@ -948,7 +543,8 @@ class EGIconDashboard {
             existingChart.destroy();
         }
 
-        this.charts[canvasId] = new Chart(ctx, {
+        // 차트 생성은 ChartManager에서 처리
+        // this.chartManager.createChart(canvasId, config);
             type: 'line',
             data: {
                 datasets: [] // 동적으로 추가됨
@@ -1030,7 +626,8 @@ class EGIconDashboard {
             existingChart.destroy();
         }
 
-        this.charts[canvasId] = new Chart(ctx, {
+        // 차트 생성은 ChartManager에서 처리
+        // this.chartManager.createChart(canvasId, config);
             type: 'line',
             data: {
                 datasets: [] // 동적으로 추가됨
@@ -1756,7 +1353,8 @@ class EGIconDashboard {
             pointBorderWidth: 2
         };
         
-        this.charts[canvasId] = new Chart(ctx, {
+        // 차트 생성은 ChartManager에서 처리
+        // this.chartManager.createChart(canvasId, config);
             type: 'line',
             data: {
                 labels: [],
@@ -1793,7 +1391,7 @@ class EGIconDashboard {
     addDatasetToChart(canvasId, label, index) {
         console.log(`➕ 데이터셋 추가: ${canvasId}, 라벨: ${label}, 인덱스: ${index}`);
         
-        const chart = this.charts[canvasId];
+        const chart = this.chartManager.getChart(canvasId);
         if (!chart) {
             console.error(`❌ 차트 없음: ${canvasId}`);
             return;
@@ -1828,8 +1426,8 @@ class EGIconDashboard {
     verifyBME688Charts() {
         console.log(`🔍 BME688 차트 최종 확인`);
         
-        const pressureChart = this.charts['pressure-multi-chart'];
-        const gasChart = this.charts['gas-resistance-multi-chart'];
+        const pressureChart = this.chartManager.getChart('pressure-multi-chart');
+        const gasChart = this.chartManager.getChart('gas-resistance-multi-chart');
         
         console.log(`📊 최종 차트 상태:`, {
             'pressure-multi-chart': !!pressureChart,
@@ -1995,7 +1593,7 @@ class EGIconDashboard {
     // BME688 차트 업데이트 (기압/가스저항)
     updateBME688Charts(pressure, gasResistance, timestamp) {
         // 기압 차트 업데이트
-        const pressureChart = this.charts['pressure-multi-chart'];
+        const pressureChart = this.chartManager.getChart('pressure-multi-chart');
         if (pressureChart) {
             this.updateSingleChart(pressureChart, pressure, timestamp, 'BME688 기압');
         } else {
@@ -2004,7 +1602,7 @@ class EGIconDashboard {
         }
         
         // 가스저항 차트 업데이트
-        const gasChart = this.charts['gas-resistance-multi-chart'];
+        const gasChart = this.chartManager.getChart('gas-resistance-multi-chart');
         if (gasChart) {
             this.updateSingleChart(gasChart, gasResistance, timestamp, 'BME688 가스저항');
         } else {
