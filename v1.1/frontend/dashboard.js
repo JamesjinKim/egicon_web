@@ -5,6 +5,12 @@
  * 성능 최적화: 메모리 > 실시간성 > 응답속도
  */
 
+import { getColorPalette, getSensorColor, parseSensorId, safeParseInt, safeParseFloat } from './utils/helpers.js';
+import { sensorGroups } from './config/sensor-groups.js';
+import { sensorTypes } from './config/sensor-types.js';
+import { dashboardConfig } from './config/dashboard-config.js';
+import { ChartManager } from './managers/chart-manager.js';
+
 /**
  * EG-ICON Dashboard - 리팩토링된 메인 클래스
  * ==========================================
@@ -13,185 +19,19 @@
 
 class EGIconDashboard {
     constructor() {
-        // 성능 최적화 설정
-        this.config = {
-            maxDataPoints: 100,       // 메모리 최적화: 차트 데이터 포인트 제한 확대 (450Pa 급변 감지용)
-            updateInterval: 2000,     // 안정성 우선: 2초 간격 업데이트 (CRC 오류 최소화, 75% 성공률)
-            batchSize: 4,            // 응답속도: 배치 처리 크기
-            enableAnimations: true,   // 모던 차트 애니메이션
-        };
-
-        // 센서 그룹 정의 (통합보기 기준)
-        this.sensorGroups = {
-            "pressure-gas": {
-                title: "기압/가스저항 센서",
-                icon: "📏🔬", 
-                metrics: ["pressure", "gas_resistance"],
-                sensors: [],  // API 구조에 맞게 배열로 변경
-                totalSensors: 0,  // 동적으로 업데이트됨
-                containerId: "pressure-gas-widgets"
-            },
-            "temp-humidity": {
-                title: "온습도 센서",
-                icon: "🌡️💧", 
-                metrics: ["temperature", "humidity"],
-                sensors: {
-                    // SHT40 센서만 사용 (BME688 온습도 제거)
-                    sht40: []  // 동적으로 발견됨
-                },
-                totalSensors: 0,  // 동적으로 업데이트됨
-                containerId: "temp-humidity-widgets"
-            },
-            "sht40": {
-                title: "SHT40 온습도 센서",
-                icon: "🌡️💧",
-                metrics: ["temperature", "humidity"],
-                sensors: {
-                    // SHT40 센서 (Bus 0 CH1, Bus 1 CH2)
-                    sht40: []  // 동적으로 발견됨
-                },
-                totalSensors: 2,
-                containerId: "sht40-widgets"
-            },
-            "sdp810": {
-                title: "SDP810 차압센서",
-                icon: "🌬️",
-                metrics: ["pressure"],
-                sensors: {
-                    // SDP810 센서 (동적으로 발견됨)
-                    sdp810: []  // 동적으로 발견됨
-                },
-                totalSensors: 1,
-                containerId: "sdp810-widgets"
-            },
-            "pressure": {
-                title: "기압 센서",
-                icon: "📏",
-                metrics: ["pressure"],
-                sensors: {
-                    // BME688 센서 기압 데이터 전용
-                    bme688: []  // 동적으로 발견됨
-                },
-                totalSensors: 0,  // 동적으로 업데이트됨
-                containerId: "pressure-widgets",
-                disabled: false  // 기압 센서 활성화
-            },
-            "differential-pressure": {
-                title: "차압 센서",
-                icon: "🌬️",
-                metrics: ["differential_pressure"],
-                sensors: {
-                    // SDP810 차압 센서 전용
-                    sdp810: []  // 동적으로 발견됨
-                },
-                totalSensors: 0,  // 동적으로 업데이트됨
-                containerId: "differential-pressure-widgets",
-                disabled: false  // 차압 센서 활성화
-            },
-            "light": {
-                title: "조도 센서",
-                icon: "☀️",
-                metrics: ["light"],
-                sensors: {
-                    // BH1750 센서 (동적으로 업데이트됨)
-                    bh1750: []
-                },
-                totalSensors: 0,
-                containerId: "light-widgets"
-            },
-            "air-quality": {
-                title: "공기질 센서",
-                icon: "🍃",
-                metrics: ["gas_resistance"],
-                sensors: {
-                    // BME688 가스저항 + SPS30 미세먼지
-                    bme688: [],  // 동적으로 발견됨 (가스저항)
-                    sps30: []    // SPS30 미세먼지
-                },
-                totalSensors: 0,  // 동적으로 업데이트됨
-                containerId: "air-quality-widgets"
-            },
-            "vibration": {
-                title: "진동 센서",
-                icon: "〜",
-                metrics: ["vibration"],
-                sensors: {
-                    // 진동센서 준비 중
-                },
-                totalSensors: 0,
-                containerId: "vibration-widgets"
-            }
-        };
-
-        // 센서 설정
-        this.sensorTypes = {
-            temperature: {
-                label: '온도',
-                icon: '🌡️',
-                unit: '°C',
-                color: '#ff6384',
-                min: -10,
-                max: 50
-            },
-            humidity: {
-                label: '습도',
-                icon: '💧',
-                unit: '%',
-                color: '#36a2eb',
-                min: 0,
-                max: 100
-            },
-            pressure: {
-                label: '압력',
-                icon: '📏',
-                unit: 'hPa',
-                color: '#4bc0c0',
-                min: 950,
-                max: 1050
-            },
-            light: {
-                label: '조도',
-                icon: '☀️',
-                unit: 'lux',
-                color: '#ffce56',
-                min: 0,
-                max: 3000
-            },
-            vibration: {
-                label: '진동',
-                icon: '〜',
-                unit: 'Hz',
-                color: '#9966ff',
-                min: 0,
-                max: 100
-            },
-            airquality: {
-                label: '공기질',
-                icon: '🍃',
-                unit: '/100',
-                color: '#00d084',
-                min: 0,
-                max: 100
-            },
-            gas_resistance: {
-                label: '가스저항',
-                icon: '🔬',
-                unit: 'Ω',
-                color: '#9966ff',
-                min: 0,
-                max: 200000
-            }
-        };
+        // 설정 파일에서 가져온 설정들
+        this.config = { ...dashboardConfig };
+        this.sensorGroups = { ...sensorGroups };
+        this.sensorTypes = { ...sensorTypes };
 
         // 데이터 저장소 (메모리 최적화)
         this.sensorData = {};
-        this.charts = {};
         this.connectedSensors = new Set();
         
         // WebSocket 연결
         this.ws = null;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5;
+        this.maxReconnectAttempts = this.config.websocket.maxReconnectAttempts;
         
         // SHT40 차트 연속성을 위한 센서 개수 추적
         this.lastSHT40SensorCount = 0;
@@ -226,7 +66,7 @@ class EGIconDashboard {
         await this.loadSensorGroups();
         
         this.initSidebarEvents();
-        this.initCharts();
+        this.chartManager.initializeCharts();
         
         // 실제 센서 데이터 로드 (WebSocket 연결 전)
         await this.loadRealSensorData();
@@ -520,50 +360,13 @@ class EGIconDashboard {
             group.metrics.forEach(metric => {
                 const normalizedMetric = metric.replace(/_/g, '-');
                 const chartId = `${normalizedMetric}-multi-chart`;
-                if (this.charts[chartId]) {
-                    this.updateChartLabels(chartId, sensorLabels);
+                if (this.chartManager.getChart(chartId)) {
+                    this.chartManager.updateChartLabels(chartId, sensorLabels);
                 }
             });
         }
     }
 
-    // 차트 라벨 동적 업데이트
-    updateChartLabels(chartId, newLabels) {
-        const chart = this.charts[chartId];
-        if (!chart) return;
-        
-        // 기존 데이터셋 수와 새 라벨 수가 다르면 차트 재생성
-        if (chart.data.datasets.length !== newLabels.length) {
-            console.log(`🔄 차트 ${chartId} 재생성 중 (${chart.data.datasets.length} -> ${newLabels.length})`);
-            this.recreateChart(chartId, newLabels);
-        } else {
-            // 라벨만 업데이트
-            chart.data.datasets.forEach((dataset, index) => {
-                if (newLabels[index]) {
-                    dataset.label = newLabels[index];
-                }
-            });
-            chart.update();
-        }
-    }
-
-    // 차트 재생성
-    recreateChart(chartId, sensorLabels) {
-        const canvas = document.getElementById(chartId);
-        if (!canvas) return;
-        
-        // 기존 차트 삭제
-        if (this.charts[chartId]) {
-            this.charts[chartId].destroy();
-            delete this.charts[chartId];
-        }
-        
-        // 센서 타입 추출 (차트 ID에서)
-        const sensorType = chartId.replace('-multi-chart', '');
-        
-        // 새 차트 생성
-        this.createMultiSensorChart(chartId, sensorType, sensorLabels);
-    }
 
     // 실제 센서 연결 초기화
     initializeConnectedSensors() {
@@ -703,8 +506,7 @@ class EGIconDashboard {
                         const parts = sensorId.split('_');
                         if (parts.length >= 3) {
                             const sensorType = parts[0].toUpperCase();
-                            const bus = parseInt(parts[1]);
-                            const channel = parseInt(parts[2]);
+                            const { bus, channel } = parseSensorId(sensorId);
                             const busLabel = bus === 0 ? 'CH1' : 'CH2';
                             labels.push(`${sensorType} ${busLabel}-Ch${channel}`);
                         } else {
@@ -736,8 +538,7 @@ class EGIconDashboard {
                         const parts = sensorId.split('_');
                         if (parts.length >= 3) {
                             const type = parts[0].toUpperCase();
-                            const bus = parseInt(parts[1]);
-                            const channel = parseInt(parts[2]);
+                            const { bus, channel } = parseSensorId(sensorId);
                             const busLabel = bus === 0 ? 'CH1' : 'CH2';
                             labels.push(`${type} ${busLabel}-Ch${channel}`);
                         } else {
@@ -1290,19 +1091,6 @@ class EGIconDashboard {
         console.log(`📊 BME688 ${metric} 차트 생성 완료: ${canvasId}`);
     }
 
-    // 색상 팔레트 반환
-    getColorPalette(index) {
-        const colors = [
-            '#ff6384', '#36a2eb', '#4bc0c0', '#ff9f40', 
-            '#9966ff', '#ffcd56', '#c9cbcf', '#ff6384'
-        ];
-        return colors[index % colors.length];
-    }
-    
-    // 센서 색상 반환 (SHT40 차트용)
-    getSensorColor(index) {
-        return this.getColorPalette(index);
-    }
 
     // 실시간 연결 시작
     startRealtimeConnection() {
@@ -3229,8 +3017,7 @@ class EGIconDashboard {
                         const parts = sensorId.split('_');
                         if (parts.length >= 3) {
                             const sensorType = parts[0].toUpperCase();
-                            const bus = parseInt(parts[1]);
-                            const channel = parseInt(parts[2]);
+                            const { bus, channel } = parseSensorId(sensorId);
                             const busLabel = bus === 0 ? 'CH1' : 'CH2';
                             labels.push(`${sensorType} ${busLabel}-Ch${channel}`);
                         } else {
@@ -3679,7 +3466,7 @@ class EGIconDashboard {
                     const blueColors = ['#1e90ff', '#4169e1', '#0000ff', '#6495ed', '#87ceeb', '#5f9ea0'];
                     color = blueColors[chart.data.datasets.length % blueColors.length];
                 } else {
-                    color = this.getSensorColor(chart.data.datasets.length);
+                    color = getSensorColor(chart.data.datasets.length);
                 }
                 
                 dataset = {
@@ -3811,7 +3598,7 @@ class EGIconDashboard {
                         const blueColors = ['#1e90ff', '#4169e1', '#0000ff', '#6495ed', '#87ceeb', '#5f9ea0'];
                         color = blueColors[index % blueColors.length];
                     } else {
-                        color = this.getSensorColor(index);
+                        color = getSensorColor(index);
                     }
                     
                     return {
@@ -3877,9 +3664,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 페이지 언로드 시 리소스 정리 (메모리 최적화)
 window.addEventListener('beforeunload', () => {
     if (window.dashboard) {
-        Object.values(window.dashboard.charts).forEach(chart => {
-            if (chart) chart.destroy();
-        });
+        window.dashboard.chartManager.destroyAllCharts();
         if (window.dashboard.ws) {
             window.dashboard.ws.close();
         }
